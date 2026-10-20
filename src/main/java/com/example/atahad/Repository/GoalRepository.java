@@ -6,4 +6,5 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface GoalRepository extends JpaRepository<Goal, Integer> {
+    Goal findGoalById(Integer id);
 }

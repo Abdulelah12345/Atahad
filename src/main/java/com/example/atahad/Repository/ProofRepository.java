@@ -6,4 +6,5 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface ProofRepository extends JpaRepository<Proof, Integer> {
+    Proof findProofById(Integer id);
 }

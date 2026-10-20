@@ -6,4 +6,5 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface DonationBatchRepository extends JpaRepository<DonationBatch, Integer> {
+    DonationBatch findDonationBatchById(Integer id);
 }

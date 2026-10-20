@@ -6,4 +6,5 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface PaymentHoldRepository extends JpaRepository<PaymentHold, Integer> {
+    PaymentHold findPaymentHoldById(Integer id);
 }

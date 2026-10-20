@@ -6,4 +6,5 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface CommitmentRepository extends JpaRepository<Commitment, Integer> {
+    Commitment findCommitmentById(Integer id);
 }

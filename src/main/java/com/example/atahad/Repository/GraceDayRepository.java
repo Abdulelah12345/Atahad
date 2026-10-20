@@ -6,4 +6,5 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface GraceDayRepository extends JpaRepository<GraceDay, Integer> {
+    GraceDay findGraceDayById(Integer id);
 }

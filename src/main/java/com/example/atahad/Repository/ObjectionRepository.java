@@ -6,4 +6,5 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface ObjectionRepository extends JpaRepository<Objection, Integer> {
+    Objection findObjectionById(Integer id);
 }

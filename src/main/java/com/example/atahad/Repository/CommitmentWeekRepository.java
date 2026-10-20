@@ -6,4 +6,5 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface CommitmentWeekRepository extends JpaRepository<CommitmentWeek, Integer> {
+    CommitmentWeek findCommitmentWeekById(Integer id);
 }

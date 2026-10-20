@@ -6,4 +6,5 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface HabitRepository extends JpaRepository<Habit, Integer> {
+    Habit findHabitById(Integer id);
 }
