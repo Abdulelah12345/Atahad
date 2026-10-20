@@ -1,0 +1,55 @@
+package com.example.atahad.Entity;
+
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import jakarta.persistence.*;
+import jakarta.validation.constraints.*;
+import lombok.*;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.Set;
+
+@Setter
+@Getter
+@AllArgsConstructor
+@NoArgsConstructor
+@Entity
+public class Proof {
+
+    //Variables
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Integer id;
+
+    @NotEmpty(message = "Type cannot be empty")
+    @Pattern(regexp = "^(LOCATION|PHOTO|QUIZ|PLATFORM|TIMER)$", message = "Type must be LOCATION, PHOTO, QUIZ, PLATFORM or TIMER")
+    @Column(columnDefinition = "VARCHAR(8) NOT NULL")
+    private String type;
+
+    @Column(columnDefinition = "DATETIME")
+    private LocalDateTime submittedAt;
+
+    @Column(columnDefinition = "DATETIME")
+    private LocalDateTime activityTime; // When the activity happened, used for the 5 hours grace
+
+    @Column(columnDefinition = "BOOLEAN DEFAULT false")
+    private Boolean fromGallery = false;
+
+    @Pattern(regexp = "^(PENDING|ACCEPTED|REJECTED)$", message = "Result must be PENDING, ACCEPTED or REJECTED")
+    @Column(columnDefinition = "VARCHAR(8)")
+    private String result; // PENDING by default
+
+    @Size(max = 500, message = "Rejection reason must be 500 characters max")
+    @Column(columnDefinition = "VARCHAR(500)")
+    private String rejectionReason;
+
+    //Relations
+    @ManyToOne
+    @JoinColumn
+    @JsonIgnore
+    private CommitmentWeek commitmentWeek;
+
+    @OneToOne(cascade = CascadeType.ALL, mappedBy = "proof")
+    private Objection objection;
+}
