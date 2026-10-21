@@ -16,9 +16,9 @@ public class MemberResponse {
     private String name;
     private String email;
     private String phone;
-    private String plan;
-    private LocalDate trialEndsAt;
-    private LocalDate renewsAt;
+//    private String plan;
+//    private LocalDate trialEndsAt;
+     private LocalDate renewsAt;
     private String cardType;
     private String level;
     private Integer consecutiveWeeks;
