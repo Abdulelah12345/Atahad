@@ -26,15 +26,11 @@ public class CommitmentWeek {
     @Column(columnDefinition = "INTEGER")
     private Integer weekNumber;
 
-    @Column(columnDefinition = "DATE")
-    private LocalDate weekStart;
+    @Column(columnDefinition = "DATETIME")
+    private LocalDateTime weekStart; // Sunday 00:00:00
 
-    @Column(columnDefinition = "DATE")
-    private LocalDate weekEnd;
-
-    @Size(max = 255, message = "Weekly target must be 255 characters max")
-    @Column(columnDefinition = "VARCHAR(255)")
-    private String weeklyTarget; // What is needed this week, mostly for goals
+    @Column(columnDefinition = "DATETIME")
+    private LocalDateTime weekEnd; // Saturday 23:59:59
 
     @Min(value = 0, message = "Required must be at least 0")
     @Column(columnDefinition = "INTEGER")
@@ -50,11 +46,7 @@ public class CommitmentWeek {
 
     @PositiveOrZero(message = "Amount per day must be zero or more")
     @Column(columnDefinition = "DECIMAL(10,2)")
-    private BigDecimal amountPerDay; // Copied from the commitment when the week starts
-
-    @Min(value = 0, message = "Extended days must be at least 0")
-    @Column(columnDefinition = "INTEGER DEFAULT 0")
-    private Integer extendedDays = 0;
+    private BigDecimal amountPerDay; // Habits only, copied from the commitment when the week starts
 
     @Pattern(regexp = "^(SAFE|MUST_TODAY|LOST_DAY|SETTLED)$", message = "Track status must be SAFE, MUST_TODAY, LOST_DAY or SETTLED")
     @Column(columnDefinition = "VARCHAR(10)")
@@ -62,6 +54,11 @@ public class CommitmentWeek {
 
     @Column(columnDefinition = "BOOLEAN DEFAULT false")
     private Boolean isFullWeek = false;
+
+    @ElementCollection
+    private Set<@Pattern(regexp = "^(SUN|MON|TUE|WED|THU|FRI|SAT)$",
+            message = "Planned day must be SUN, MON, TUE, WED, THU, FRI or SAT")
+            String> plannedDays; // This week plan, postponing changes it without touching the habit default
 
     //Relations
     @ManyToOne

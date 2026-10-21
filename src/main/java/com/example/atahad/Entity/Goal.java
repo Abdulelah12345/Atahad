@@ -22,7 +22,16 @@ public class Goal extends Commitment {
     @Column(columnDefinition = "VARCHAR(500)")
     private String description;
 
-    @NotNull(message = "End date cannot be empty")
-    @Column(columnDefinition = "DATE NOT NULL")
-    private LocalDate endDate; // Long term goal end date
+    @NotNull(message = "Total weeks cannot be empty")
+    @Min(value = 1, message = "Total weeks must be at least 1")
+    @Max(value = 52, message = "Total weeks must be at most 52")
+    @Column(columnDefinition = "INTEGER NOT NULL")
+    private Integer totalWeeks; // Chosen by the user
+
+    @Column(columnDefinition = "DATE")
+    private LocalDate endDate; // Calculated in service from the start and total weeks
+
+    //Relations
+    @OneToMany(cascade = CascadeType.ALL, mappedBy = "goal")
+    private Set<GoalTask> tasks; // Tasks of every week of the goal
 }
