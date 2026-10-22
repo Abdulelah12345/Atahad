@@ -26,11 +26,11 @@ public class CommitmentWeek {
     @Column(columnDefinition = "INTEGER")
     private Integer weekNumber;
 
-    @Column(columnDefinition = "DATE")
-    private LocalDate weekStart;
+    @Column(columnDefinition = "DATETIME")
+    private LocalDateTime weekStart;
 
-    @Column(columnDefinition = "DATE")
-    private LocalDate weekEnd;
+    @Column(columnDefinition = "DATETIME")
+    private LocalDateTime weekEnd;
 
     @Size(max = 255, message = "Weekly target must be 255 characters max")
     @Column(columnDefinition = "VARCHAR(255)")

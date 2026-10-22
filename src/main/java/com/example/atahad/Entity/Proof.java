@@ -26,6 +26,10 @@ public class Proof {
     @Pattern(regexp = "^(LOCATION|PHOTO|QUIZ|PLATFORM|TIMER)$", message = "Type must be LOCATION, PHOTO, QUIZ, PLATFORM or TIMER")
     @Column(columnDefinition = "VARCHAR(8) NOT NULL")
     private String type;
+//ممكن يحتوي رابط او موقع ، عشان بعدين نشيك عليه
+    @NotBlank(message = "Evidence data cannot be empty")
+    @Column(columnDefinition = "TEXT NOT NULL")
+    private String evidenceData;
 
     @Column(columnDefinition = "DATETIME")
     private LocalDateTime submittedAt;
@@ -52,4 +56,12 @@ public class Proof {
 
     @OneToOne(cascade = CascadeType.ALL, mappedBy = "proof")
     private Objection objection;
+
+
+    // المهمة التي ينتمي إليها الإثبات.
+// تكون فارغة عندما يكون الإثبات لعادة.
+    @ManyToOne
+    @JoinColumn(name = "goal_task_id")
+    @JsonIgnore
+    private GoalTask goalTask;
 }

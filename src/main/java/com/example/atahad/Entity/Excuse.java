@@ -58,4 +58,12 @@ public class Excuse {
 
     @OneToOne(cascade = CascadeType.ALL, mappedBy = "excuse")
     private Objection objection;
+
+
+    // المهمة التي يغطيها العذر.
+// تكون فارغة عندما يكون العذر لعادة.
+    @ManyToOne
+    @JoinColumn(name = "goal_task_id")
+    @JsonIgnore
+    private GoalTask goalTask;
 }

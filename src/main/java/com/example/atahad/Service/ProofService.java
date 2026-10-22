@@ -1,9 +1,288 @@
 package com.example.atahad.Service;
 
+import com.example.atahad.Api.ApiException;
+import com.example.atahad.Entity.Proof;
+import com.example.atahad.Repository.ProofRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+
+import com.example.atahad.Dto.In.ProofRequest;
+import com.example.atahad.Entity.Commitment;
+import com.example.atahad.Entity.CommitmentWeek;
+import com.example.atahad.Entity.Goal;
+import com.example.atahad.Entity.GoalTask;
+import com.example.atahad.Entity.Member;
+import com.example.atahad.Repository.CommitmentWeekRepository;
+import com.example.atahad.Repository.ExcuseRepository;
+import com.example.atahad.Repository.GoalTaskRepository;
+import com.example.atahad.Repository.ObjectionRepository;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
 public class ProofService {
+
+    private final ProofRepository proofRepository;
+    private final CommitmentWeekRepository commitmentWeekRepository;
+    private final GoalTaskRepository goalTaskRepository;
+    private final ExcuseRepository excuseRepository;
+    private final ObjectionRepository objectionRepository;
+
+
+
+    public List<Proof> getAllProofs() {
+        return proofRepository.findAll();
+    }
+
+    public Proof getProofById(Integer id) {
+        Proof proof = proofRepository.findProofById(id);
+        if (proof == null) {
+            throw new ApiException("Proof not found");
+        }
+        return proof;
+    }
+
+
+
+    public void addGoalTaskProof(Integer memberId,
+                                Integer goalTaskId,
+                                Integer commitmentWeekId,
+                                ProofRequest request) {
+
+        // معرف العضو يأتي من تسجيل الدخول، وليس من بيانات يختارها المستخدم.
+        if (memberId == null) {
+            throw new ApiException("Member ID is required");
+        }
+        // لا يمكن تحديد المهمة بدون معرفها.
+        if (goalTaskId == null) {
+            throw new ApiException("Goal task ID is required");
+        }
+        // نحتاج معرف الأسبوع لربط الإثبات بالفترة الصحيحة.
+        if (commitmentWeekId == null) {
+            throw new ApiException("Commitment week ID is required");
+        }
+        // الطلب يحتوي نوع الإثبات ووقت النشاط وبيانات الدليل.
+        if (request == null) {
+            throw new ApiException("Proof data is required");
+        }
+
+        // المهمة المحفوظة التي نريد تقديم إثبات لها.
+        GoalTask task = goalTaskRepository.findGoalTaskById(goalTaskId);
+        if (task == null) {
+            throw new ApiException("Goal task not found");
+        }
+
+        // أسبوع الالتزام الذي سيحتسب له الإثبات.
+        CommitmentWeek week =
+                commitmentWeekRepository.findCommitmentWeekById(commitmentWeekId);
+        if (week == null) {
+            throw new ApiException("Commitment week not found");
+        }
+
+        // الهدف المرتبط بالمهمة، وهو كائن Goal الموجود في التصميم.
+        Goal goal = task.getGoal();
+        if (goal == null) {
+            throw new ApiException("Goal task must belong to a goal");
+        }
+
+        // التعهد المرتبط بالأسبوع، ويجب أن يكون نفس هدف المهمة.
+        Commitment commitment = week.getCommitment();
+        if (commitment == null) {
+            throw new ApiException("Week must belong to a commitment");
+        }
+        if (!goal.getId().equals(commitment.getId())) {
+            throw new ApiException("Goal task does not belong to this goal");
+        }
+
+        // رقم أسبوع المهمة ورقم أسبوع الالتزام للمقارنة بينهما.
+        Integer taskWeekNumber = task.getWeekNumber();
+        Integer weekNumber = week.getWeekNumber();
+        if (taskWeekNumber == null) {
+            throw new ApiException("Goal task week number is missing");
+        }
+        if (weekNumber == null) {
+            throw new ApiException("Commitment week number is missing");
+        }
+        if (!taskWeekNumber.equals(weekNumber)) {
+            throw new ApiException("Goal task does not belong to this week");
+        }
+
+        // العضو صاحب الهدف؛ نقارن معرفه بالعضو المسجل.
+        Member member = goal.getMember();
+        if (member == null) {
+            throw new ApiException("Goal must belong to a member");
+        }
+        if (!memberId.equals(member.getId())) {
+            throw new ApiException("This goal does not belong to you");
+        }
+
+        // المسودة والمنسحب لا يستقبلان إثباتات جديدة.
+        if ("DRAFT".equals(goal.getStatus())) {
+            throw new ApiException("Cannot submit proof for a draft goal");
+        }
+        if ("WITHDRAWN".equals(goal.getStatus())) {
+            throw new ApiException("Cannot submit proof for a withdrawn goal");
+        }
+        // لا نقبل إضافة إثبات بعد تسوية الأسبوع أو المهمة.
+        if ("SETTLED".equals(week.getTrackStatus())) {
+            throw new ApiException("This week is settled");
+        }
+        if ("SETTLED".equals(task.getTrackStatus())) {
+            throw new ApiException("This goal task is settled");
+        }
+
+        // طريقة الإثبات المحفوظة للمهمة، وليست اختيارا جديدا وقت الرفع.
+        String proofMethod = task.getProofMethod();
+        if (proofMethod == null) {
+            throw new ApiException("Goal task proof method is missing");
+        }
+        if (!proofMethod.equals(request.getType())) {
+            throw new ApiException("Proof type does not match the task method");
+        }
+
+        // بيانات الدليل النصية؛ تحليل محتواها حسب النوع يضاف في مرحلة التحليل.
+        String evidenceData = request.getEvidenceData();
+        if (evidenceData == null) {
+            throw new ApiException("Evidence data is required");
+        }
+        if (evidenceData.isBlank()) {
+            throw new ApiException("Evidence data cannot be empty");
+        }
+
+        // وقت تنفيذ النشاط الذي أدخله المستخدم.
+        LocalDateTime activityTime = request.getActivityTime();
+        if (activityTime == null) {
+            throw new ApiException("Activity time is required");
+        }
+
+        // وقت استقبال الطلب الحالي بتوقيت السعودية.
+        LocalDateTime now = LocalDateTime.now(ZoneId.of("Asia/Riyadh"));
+        if (activityTime.isAfter(now)) {
+            throw new ApiException("Activity time cannot be in the future");
+        }
+
+        // حدود الأسبوع؛ تعتمد على تحديث التواريخ إلى LocalDateTime.
+        LocalDateTime weekStart = week.getWeekStart();
+        LocalDateTime weekEnd = week.getWeekEnd();
+        if (weekStart == null) {
+            throw new ApiException("Week start is missing");
+        }
+        if (weekEnd == null) {
+            throw new ApiException("Week end is missing");
+        }
+        // الطلب نفسه يجب أن يصل أثناء الأسبوع بدون مهلة إضافية.
+        if (now.isBefore(weekStart)) {
+            throw new ApiException("This week has not started");
+        }
+        if (now.isAfter(weekEnd)) {
+            throw new ApiException("Proof submission time has ended");
+        }
+        // النشاط أيضا يجب أن ينتمي لفترة الأسبوع نفسه.
+        if (activityTime.isBefore(weekStart)) {
+            throw new ApiException("Activity time is before this week");
+        }
+        if (activityTime.isAfter(weekEnd)) {
+            throw new ApiException("Activity time is after this week");
+        }
+
+        // تاريخ النشاط بدون ساعة لتحديد اليوم المقصود.
+        LocalDate activityDate = activityTime.toLocalDate();
+        // نبحث من بداية هذا اليوم شاملة إلى بداية اليوم التالي غير شاملة.
+        LocalDateTime dayStart = activityDate.atStartOfDay();
+        LocalDateTime nextDayStart = activityDate.plusDays(1).atStartOfDay();
+
+        // وجود بروف مقبولة يمنع احتساب نفس المهمة واليوم مرتين.
+        boolean hasAcceptedProof = proofRepository.existsTaskProof(
+                goalTaskId, commitmentWeekId, dayStart, nextDayStart, "ACCEPTED");
+        if (hasAcceptedProof) {
+            throw new ApiException("This day already has an accepted proof");
+        }
+
+        // وجود بروف قيد المعالجة يمنع رفع بديل قبل صدور القرار.
+        boolean hasPendingProof = proofRepository.existsTaskProof(
+                goalTaskId, commitmentWeekId, dayStart, nextDayStart, "PENDING");
+        if (hasPendingProof) {
+            throw new ApiException("A proof for this day is still pending");
+        }
+
+        // ننتظر الأدمن إذا كان اعتراض على بروف هذا اليوم معلقا.
+        boolean hasPendingProofObjection =
+                objectionRepository.existsPendingTaskProofObjection(
+                        goalTaskId, commitmentWeekId, dayStart, nextDayStart);
+        if (hasPendingProofObjection) {
+            throw new ApiException("A proof objection for this day is still pending");
+        }
+
+        // الإعفاء المقبول يمنع تقديم إثبات لنفس المهمة واليوم.
+        boolean hasAcceptedExcuse = excuseRepository.existsTaskExcuse(
+                goalTaskId, commitmentWeekId, activityDate, "ACCEPTED");
+        if (hasAcceptedExcuse) {
+            throw new ApiException("This day already has an accepted excuse");
+        }
+
+        // ننتظر معالجة العذر قبل استقبال إثبات لنفس اليوم.
+        boolean hasPendingExcuse = excuseRepository.existsTaskExcuse(
+                goalTaskId, commitmentWeekId, activityDate, "PENDING");
+        if (hasPendingExcuse) {
+            throw new ApiException("An excuse for this day is still pending");
+        }
+
+        // العذر المحول للأدمن ما زال قيد المعالجة.
+        boolean hasEscalatedExcuse = excuseRepository.existsTaskExcuse(
+                goalTaskId, commitmentWeekId, activityDate, "ESCALATED");
+        if (hasEscalatedExcuse) {
+            throw new ApiException("An excuse for this day is awaiting admin review");
+        }
+
+        // الاعتراض على العذر يمنع الإثبات حتى يحسمه الأدمن.
+        boolean hasPendingExcuseObjection =
+                objectionRepository.existsPendingTaskExcuseObjection(
+                        goalTaskId, commitmentWeekId, activityDate);
+        if (hasPendingExcuseObjection) {
+            throw new ApiException("An excuse objection for this day is still pending");
+        }
+
+        // عدد المرات المطلوبة والمنجزة والمعفاة حسب عدادات المهمة.
+        Integer requiredCount = task.getTimesPerWeek();
+        Integer completedCount = task.getCompletedCount();
+        Integer excusedCount = task.getExcusedCount();
+        if (requiredCount == null) {
+            throw new ApiException("Task required count is missing");
+        }
+        if (requiredCount <= 0) {
+            throw new ApiException("Task required count is invalid");
+        }
+        if (completedCount == null) {
+            throw new ApiException("Task completed count is missing");
+        }
+        if (excusedCount == null) {
+            throw new ApiException("Task excused count is missing");
+        }
+
+        // المتبقي بعد طرح الإنجاز ثم الإعفاءات، بدون تعديل أي عداد.
+        int remainingCount = requiredCount - completedCount;
+        remainingCount = remainingCount - excusedCount;
+        if (remainingCount <= 0) {
+            throw new ApiException("Task required count has already been fulfilled");
+        }
+
+        // بعد جميع التشييكات ننشئ سجل البروف الجديد.
+        Proof proof = new Proof();
+        proof.setType(request.getType());
+        proof.setActivityTime(activityTime);
+        proof.setEvidenceData(evidenceData);
+        // وقت الإرسال والنتيجة وسبب الرفض يحددها النظام.
+        proof.setSubmittedAt(now);
+        proof.setResult("PENDING");
+        proof.setRejectionReason(null);
+        // ربط البروف بالمهمة والأسبوع الصحيحين.
+        proof.setGoalTask(task);
+        proof.setCommitmentWeek(week);
+        // الحفظ فقط؛ قبول البروف وتحديث العداد والمبلغ مرحلة لاحقة.
+        proofRepository.save(proof);
+    }
 }
