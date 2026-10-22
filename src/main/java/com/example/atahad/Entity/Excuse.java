@@ -42,6 +42,12 @@ public class Excuse {
     @Column(columnDefinition = "VARCHAR(9)")
     private String status; // PENDING by default
 
+    // حالة معالجة العذر، مستقلة عن قرار القبول أو الرفض أو التحويل للأدمن.
+    @NotBlank(message = "Processing status cannot be empty")
+    @Pattern(regexp = "^(WAITING|PROCESSING|FINISHED)$", message = "Invalid processing status")
+    @Column(columnDefinition = "VARCHAR(10) NOT NULL")
+    private String processingStatus;
+
     @Column(columnDefinition = "BOOLEAN DEFAULT false")
     private Boolean forwardedToAdmin = false;
 
