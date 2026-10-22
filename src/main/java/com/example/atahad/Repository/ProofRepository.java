@@ -72,4 +72,8 @@ public interface ProofRepository extends JpaRepository<Proof, Integer> {
         ORDER BY p.submittedAt DESC, p.id DESC
         """)
     List<Proof> findAllProofsByUserId(@Param("userId") Integer userId);
+
+    List<Proof> findProofsByResult(String result);
+
+    List<Proof> findProofsByCommitmentWeekId(Integer commitmentWeekId);
 }

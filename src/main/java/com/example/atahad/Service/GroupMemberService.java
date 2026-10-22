@@ -111,12 +111,35 @@ public class GroupMemberService {
     // used by the settlement (second failure) and the refusal ladder
     @Transactional
     public void kick(GroupMember groupMember, String reason) {
+        removeFromGroup(groupMember, "KICKED");
+        groupAccessService.systemMessage(groupMember.getGroup(), groupAccessService.nameOf(groupMember.getMember()) + " was removed: " + reason);
+    }
+
+    // the member deactivated his account: he leaves without penalties, an empty group is archived
+    @Transactional
+    public void leaveBecauseDeactivated(GroupMember groupMember) {
+        removeFromGroup(groupMember, "LEFT");
+        Group group = groupMember.getGroup();
+        if (groupAccessService.activeMembersCount(group.getId()) == 0) {
+            GroupGoal goal = groupGoalRepository.findGroupGoalByGroupIdAndStatus(group.getId(), "ACTIVE");
+            if (goal != null) {
+                groupGoalService.endGoal(goal);
+            }
+            group.setStatus("ARCHIVED");
+            group.setInviteCode(null);
+            groupRepository.save(group);
+        } else {
+            groupAccessService.systemMessage(group, groupAccessService.nameOf(groupMember.getMember()) + " left the group");
+        }
+    }
+
+    // when the owner goes out, the oldest member becomes the owner
+    private void removeFromGroup(GroupMember groupMember, String status) {
         boolean wasOwner = "OWNER".equals(groupMember.getRole());
-        groupMember.setStatus("KICKED");
+        groupMember.setStatus(status);
         groupMember.setRole("MEMBER");
         groupMemberRepository.save(groupMember);
         if (wasOwner) {
-            // the oldest member becomes the owner
             GroupMember next = null;
             for (GroupMember other : groupMemberRepository.findGroupMembersByGroupIdAndStatus(groupMember.getGroup().getId(), "ACTIVE")) {
                 if (next == null || other.getJoinedAt().isBefore(next.getJoinedAt())) {
@@ -129,7 +152,6 @@ public class GroupMemberService {
             }
         }
         groupGoalService.removeMemberCommitment(groupMember.getGroup(), groupMember.getMember(), false);
-        groupAccessService.systemMessage(groupMember.getGroup(), groupAccessService.nameOf(groupMember.getMember()) + " was removed: " + reason);
     }
 
     public GroupMemberResponse convertToDTO(GroupMember groupMember) {

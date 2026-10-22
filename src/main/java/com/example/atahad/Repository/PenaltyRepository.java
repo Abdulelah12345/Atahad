@@ -19,4 +19,6 @@ public interface PenaltyRepository extends JpaRepository<Penalty, Integer> {
 
     // group penalties that were not paid for a long time
     List<Penalty> findPenaltiesByStatusAndGroupSettlementIsNotNullAndCreatedAtBefore(String status, LocalDateTime before);
+
+    List<Penalty> findPenaltiesByMemberIdOrderByCreatedAtDesc(Integer memberId);
 }

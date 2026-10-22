@@ -13,7 +13,7 @@ import java.util.Set;
 @AllArgsConstructor
 @NoArgsConstructor
 @Entity
-@Table(name = "groups")
+@Table(name = "atahad_groups") // "groups" is a reserved word in MySQL 8
 public class Group {
 
     @Id

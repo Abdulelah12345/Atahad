@@ -37,10 +37,10 @@ public class GraceDayController {
         return ResponseEntity.status(200).body(new ApiResponse("Grace day granted successfully"));
     }
 
+    // 150 points -> one grace day (when the automatic one did not happen because the member was full)
     @PostMapping("/earn/{memberId}")
     public ResponseEntity<?> earnGraceDay(@PathVariable Integer memberId) {
-        graceDayService.earnGraceDay(memberId);
-        return ResponseEntity.status(200).body(new ApiResponse("Grace day earned successfully"));
+        return ResponseEntity.status(200).body(graceDayService.earnGraceDay(memberId));
     }
 
     @PutMapping("/use/{graceDayId}/{memberId}/{weekId}")

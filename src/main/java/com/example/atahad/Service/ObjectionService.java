@@ -28,6 +28,7 @@ public class ObjectionService {
     private final ObjectionRepository objectionRepository;
     private final ProofRepository proofRepository;
     private final ExcuseRepository excuseRepository;
+    private final ObjectionDecisionService objectionDecisionService;
 
     public List<Objection> getAllObjections() {
         return objectionRepository.findAll();
@@ -246,8 +247,10 @@ public class ObjectionService {
         objection.setDonationProof(null);
         objection.setAdmin(null);
 
-        // الحفظ فقط؛ قرار الأدمن لاحقا هو الذي يعالج المبلغ والعداد.
         objectionRepository.save(objection);
+
+        // قرار الذكاء، وإذا ما كان متأكد يبقى PENDING عند الأدمن.
+        objectionDecisionService.decide(objection);
     }
 
     public void addExcuseObjection(Integer userId, Integer excuseId,
@@ -425,8 +428,10 @@ public class ObjectionService {
         objection.setDonationProof(null);
         objection.setAdmin(null);
 
-        // الحفظ فقط؛ قرار الأدمن لاحقا هو الذي يعالج المبلغ والعداد.
         objectionRepository.save(objection);
+
+        // قرار الذكاء، وإذا ما كان متأكد يبقى PENDING عند الأدمن.
+        objectionDecisionService.decide(objection);
     }
 
 

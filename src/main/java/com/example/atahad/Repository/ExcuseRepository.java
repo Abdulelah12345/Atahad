@@ -6,6 +6,7 @@ import org.springframework.stereotype.Repository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import java.time.LocalDate;
+import java.util.List;
 import java.time.LocalDateTime;
 
 
@@ -33,4 +34,10 @@ public interface ExcuseRepository extends JpaRepository<Excuse, Integer> {
             @Param("commitmentWeekId") Integer commitmentWeekId,
             @Param("activityDate") LocalDate activityDate,
             @Param("status") String status);
+
+    List<Excuse> findExcusesByStatus(String status);
+
+    List<Excuse> findExcusesByCommitmentWeekCommitmentMemberIdAndStatus(Integer memberId, String status);
+
+    List<Excuse> findExcusesByCommitmentWeekId(Integer commitmentWeekId);
 }

@@ -30,6 +30,8 @@ public class CommitmentWeekService {
     private final GraceDayRepository graceDayRepository;
     private final PointLogRepository pointLogRepository;
     private final MemberRepository memberRepository;
+    private final LockService lockService;
+    private final WhatsAppService whatsAppService;
 
     public static final int TASK_POINTS = 10;
     public static final int FULL_WEEK_POINTS = 30;
@@ -468,17 +470,86 @@ public class CommitmentWeekService {
         LocalDate today = LocalDate.now();
         while(member.getPoints() >= POINTS_FOR_GRACE_DAY
                 && personalGraceDays(member, today) < graceDayCapacity(member.getLevel())){
-            member.setPoints(member.getPoints() - POINTS_FOR_GRACE_DAY);
-            savePointLog(member, -POINTS_FOR_GRACE_DAY, "GRACE_DAY_REDEEMED");
-
-            GraceDay graceDay = new GraceDay();
-            graceDay.setSource("PERSONAL_POINTS");
-            graceDay.setEarnedAt(today);
-            graceDay.setExpiresAt(today.plusWeeks(4));
-            graceDay.setMember(member);
-            graceDayRepository.save(graceDay);
+            createPersonalGraceDay(member, today);
         }
         memberRepository.save(member);
+    }
+
+    // the member asks for the grace day himself: the automatic one did not happen because his
+    // grace days were full, and now he used one and has room again
+    @Transactional
+    public GraceDay redeemGraceDay(Member member){
+        int points = member.getPoints() == null ? 0 : member.getPoints();
+        if(points < POINTS_FOR_GRACE_DAY){
+            throw new ApiException("You need " + (POINTS_FOR_GRACE_DAY - points) + " more points for a grace day");
+        }
+        LocalDate today = LocalDate.now();
+        int capacity = graceDayCapacity(member.getLevel());
+        if(personalGraceDays(member, today) >= capacity){
+            throw new ApiException("You already have " + capacity + " grace days, the max for your level, use one first");
+        }
+        GraceDay graceDay = createPersonalGraceDay(member, today);
+        memberRepository.save(member);
+        return graceDay;
+    }
+
+    // 150 points become one grace day that expires after 4 weeks
+    private GraceDay createPersonalGraceDay(Member member, LocalDate today){
+        member.setPoints(member.getPoints() - POINTS_FOR_GRACE_DAY);
+        savePointLog(member, -POINTS_FOR_GRACE_DAY, "GRACE_DAY_REDEEMED");
+
+        GraceDay graceDay = new GraceDay();
+        graceDay.setSource("PERSONAL_POINTS");
+        graceDay.setEarnedAt(today);
+        graceDay.setExpiresAt(today.plusWeeks(4));
+        graceDay.setMember(member);
+        graceDayRepository.save(graceDay);
+        return graceDay;
+    }
+
+    // the member uses a grace day himself on a habit week (the app also uses one by itself when a time is lost)
+    @Transactional
+    public void useGraceDayManually(GraceDay graceDay, CommitmentWeek week){
+        if(!(Hibernate.unproxy(week.getCommitment()) instanceof Habit)){
+            throw new ApiException("For goals the grace day is used by itself when a task loses a time");
+        }
+        LocalDate today = LocalDate.now();
+        if(!isRunning(week, today)){
+            throw new ApiException("This week is not running");
+        }
+        if(week.getGraceDay() != null || usedGraceDayThisWeek(week.getCommitment().getMember(), week)){
+            throw new ApiException("Only one grace day can be used in a week");
+        }
+        boolean hasPendingLoss = false;
+        for(Penalty penalty : lostPenalties(week, null)){
+            if("PENDING".equals(penalty.getStatus())){
+                hasPendingLoss = true;
+            }
+        }
+        if(missing(week, null) <= 0 && !hasPendingLoss){
+            throw new ApiException("This week does not need a grace day");
+        }
+
+        graceDay.setUsedAt(today);
+        graceDay.setCommitmentWeek(week);
+        graceDayRepository.save(graceDay);
+        week.setGraceDay(graceDay);
+        week.setExcusedDays(week.getExcusedDays() + 1);
+        commitmentWeekRepository.save(week);
+
+        afterNewDoneTime(week, null); // cancels a lost time that was not paid yet, and updates the status
+    }
+
+    private boolean usedGraceDayThisWeek(Member member, CommitmentWeek week){
+        LocalDate weekEnd = week.getWeekEnd().toLocalDate();
+        LocalDate weekSunday = weekEnd.minusDays(6);
+        for(GraceDay graceDay : graceDayRepository.findGraceDaysByMemberId(member.getId())){
+            LocalDate usedAt = graceDay.getUsedAt();
+            if(usedAt != null && !usedAt.isBefore(weekSunday) && !usedAt.isAfter(weekEnd)){
+                return true;
+            }
+        }
+        return false;
     }
 
     // how many unused grace days a member can keep
@@ -522,12 +593,8 @@ public class CommitmentWeekService {
         }
         Member member = week.getCommitment().getMember();
         LocalDate weekEnd = week.getWeekEnd().toLocalDate();
-        LocalDate weekSunday = weekEnd.minusDays(6);
-        for(GraceDay graceDay : graceDayRepository.findGraceDaysByMemberId(member.getId())){
-            LocalDate usedAt = graceDay.getUsedAt();
-            if(usedAt != null && !usedAt.isBefore(weekSunday) && !usedAt.isAfter(weekEnd)){
-                return false; // already used one this week
-            }
+        if(usedGraceDayThisWeek(member, week)){
+            return false; // one grace day a week at most
         }
         List<GraceDay> available = availableGraceDays(member, today);
         if(available.isEmpty()){
@@ -587,15 +654,18 @@ public class CommitmentWeekService {
             penalty.setGoalTask(task);
             penaltyRepository.save(penalty);
         }
-        member.setIsLocked(true); // opens again after the donation is verified
-        memberRepository.save(member);
+        lockService.refresh(member); // locked until the donation is verified
+
+        BigDecimal total = BigDecimal.ZERO;
+        for(Penalty pending : penaltyRepository.findPenaltiesByMemberAndStatus(member, "PENDING")){
+            total = total.add(pending.getAmount());
+        }
+        String title = task == null ? commitment.getTitle() : commitment.getTitle() + " - " + task.getTitle();
+        whatsAppService.lockMessage(member, title, count, amount, total, reason.equals("WITHDRAWAL"));
     }
 
     private void unlockIfNothingPending(Member member){
-        if(penaltyRepository.findPenaltiesByMemberAndStatus(member, "PENDING").isEmpty()){
-            member.setIsLocked(false);
-            memberRepository.save(member);
-        }
+        lockService.refresh(member);
     }
 
     // times left in a habit week (used by the group board)

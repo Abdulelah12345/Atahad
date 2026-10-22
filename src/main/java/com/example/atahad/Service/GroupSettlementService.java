@@ -32,6 +32,8 @@ public class GroupSettlementService {
     private final GroupTitleService groupTitleService;
     private final PointLogService pointLogService;
     private final AiService aiService;
+    private final LockService lockService;
+    private final WhatsAppService whatsAppService;
 
     public static final int REFUSAL_DAYS = 7; // a group donation not paid in 7 days = refusal
 
@@ -97,9 +99,31 @@ public class GroupSettlementService {
         settlement.setSettlementText(text.length() > 2000 ? text.substring(0, 2000) : text);
         groupSettlementRepository.save(settlement);
         groupAccessService.systemMessage(group, settlement.getSettlementText());
+        sendWhatsApp(group, goal, weeks, failed, price, settlement.getSettlementText());
 
         for(GroupMember groupMember : toKick){
             groupMemberService.kick(groupMember, "failed twice in this group");
+        }
+    }
+
+    // every member gets the result of the week and his own amount
+    private void sendWhatsApp(Group group, GroupGoal goal, List<MemberWeek> weeks, List<MemberWeek> failed,
+                              BigDecimal price, String text){
+        List<String> board = new ArrayList<>();
+        for(MemberWeek w : weeks){
+            boolean done = Boolean.TRUE.equals(w.week().getIsFullWeek());
+            board.add((done ? "✅ " : "❌ ") + groupAccessService.nameOf(w.groupMember().getMember())
+                    + "  " + w.week().getCompleted() + "/" + w.week().getRequired());
+        }
+        for(MemberWeek w : weeks){
+            BigDecimal mine = BigDecimal.ZERO;
+            if(!failed.isEmpty()){
+                mine = price;
+                if(failed.contains(w)){
+                    mine = mine.add(price);
+                }
+            }
+            whatsAppService.settlementMessage(w.groupMember().getMember(), group.getName(), goal.getTitle(), text, board, mine);
         }
     }
 
@@ -155,8 +179,7 @@ public class GroupSettlementService {
         penalty.setCommitmentWeek(w.week());
         penalty.setGroupSettlement(settlement);
         penaltyRepository.save(penalty);
-        member.setIsLocked(true);
-        memberRepository.save(member);
+        lockService.refresh(member);
     }
 
     // a group donation not paid for 7 days: 1st time removed + one month ban from groups,

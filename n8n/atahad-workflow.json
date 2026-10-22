@@ -1,0 +1,288 @@
+{
+  "name": "Atahad - automation and WhatsApp",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 0 * * *"
+            }
+          ]
+        }
+      },
+      "id": "efd85ad5-5b28-422a-b80d-bccc9c30bbb4",
+      "name": "Every day 00:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:8080/api/v1/n8n/run-daily",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-KEY",
+              "value": "PUT_YOUR_N8N_KEY"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c09a3a78-e2d8-4e0d-bdc7-a7ad695e2e2a",
+      "name": "Run the daily automation",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        260,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 20 * * *"
+            }
+          ]
+        }
+      },
+      "id": "b0f0aacf-2ad2-4162-9b94-336cdcd7bb91",
+      "name": "Every day 20:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:8080/api/v1/n8n/reminders",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-KEY",
+              "value": "PUT_YOUR_N8N_KEY"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "71a7cbe4-a184-4af1-9477-32a83a2b8832",
+      "name": "Create the reminders",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        260,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "*/5 * * * *"
+            }
+          ]
+        }
+      },
+      "id": "122cc099-3f94-478f-99b5-f483957ba7ef",
+      "name": "Every 5 minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        440
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://localhost:8080/api/v1/n8n/whatsapp/pending",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-KEY",
+              "value": "PUT_YOUR_N8N_KEY"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "e67cf556-6ea8-47dd-9d56-035dec62f3d8",
+      "name": "Get the waiting messages",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        260,
+        440
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.ultramsg.com/PUT_YOUR_INSTANCE_ID/messages/chat",
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "token",
+              "value": "PUT_YOUR_ULTRAMSG_TOKEN"
+            },
+            {
+              "name": "to",
+              "value": "={{ $json.to }}"
+            },
+            {
+              "name": "body",
+              "value": "={{ $json.body }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c1531888-43b2-4aa8-b5fa-bc381ede254a",
+      "name": "Send with UltraMsg",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        520,
+        440
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=http://localhost:8080/api/v1/n8n/whatsapp/sent/{{ $('Get the waiting messages').item.json.id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-KEY",
+              "value": "PUT_YOUR_N8N_KEY"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "2030c716-f2c2-4472-992e-f68aaa9b88b1",
+      "name": "Mark as sent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        800,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=http://localhost:8080/api/v1/n8n/whatsapp/failed/{{ $('Get the waiting messages').item.json.id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-KEY",
+              "value": "PUT_YOUR_N8N_KEY"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "4c8cf0f6-9050-4d85-95b9-4b68087e288a",
+      "name": "Mark as failed",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        800,
+        520
+      ]
+    }
+  ],
+  "connections": {
+    "Every day 00:00": {
+      "main": [
+        [
+          {
+            "node": "Run the daily automation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Every day 20:00": {
+      "main": [
+        [
+          {
+            "node": "Create the reminders",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Every 5 minutes": {
+      "main": [
+        [
+          {
+            "node": "Get the waiting messages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get the waiting messages": {
+      "main": [
+        [
+          {
+            "node": "Send with UltraMsg",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send with UltraMsg": {
+      "main": [
+        [
+          {
+            "node": "Mark as sent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark as failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Riyadh"
+  }
+}

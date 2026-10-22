@@ -24,6 +24,7 @@ public class GraceDayService {
     private final MemberRepository memberRepository;
     private final AdminRepository adminRepository;
     private final CommitmentWeekRepository commitmentWeekRepository;
+    private final CommitmentWeekService commitmentWeekService;
 
     public List<GraceDay> getAllGraceDays() {
         return graceDayRepository.findAll();
@@ -79,8 +80,12 @@ public class GraceDayService {
         graceDayRepository.save(graceDay);
     }
 
+    // 150 personal points = one grace day.
+    // Usually it happens by itself when the points arrive (CommitmentWeekService.addPoints),
+    // this endpoint is for when the member had the max grace days for his level at that time
+    // and now he used one, so he can change his points himself.
     @Transactional
-    public void earnGraceDay(Integer memberId) {
+    public GraceDay earnGraceDay(Integer memberId) {
 
         Member member = memberRepository.findMemberById(memberId);
 
@@ -88,15 +93,7 @@ public class GraceDayService {
             throw new ApiException("Member not found");
         }
 
-        // TODO: Check member's streak before awarding a grace day.
-
-        GraceDay graceDay = new GraceDay();
-        graceDay.setSource("PERSONAL_POINTS");
-        graceDay.setEarnedAt(LocalDate.now());
-        graceDay.setExpiresAt(LocalDate.now().plusWeeks(4));
-        graceDay.setMember(member);
-
-        graceDayRepository.save(graceDay);
+        return commitmentWeekService.redeemGraceDay(member);
     }
 
     @Transactional
@@ -130,17 +127,8 @@ public class GraceDayService {
             throw new ApiException("Commitment week does not belong to the member");
         }
 
-        if ("SETTLED".equals(week.getTrackStatus())) {
-            throw new ApiException("Cannot use grace day on a settled week");
-        }
-
-        if (week.getGraceDay() != null) {
-            throw new ApiException("Commitment week already has a grace day");
-        }
-
-        graceDay.setUsedAt(LocalDate.now());
-        graceDay.setCommitmentWeek(week);
-
-        graceDayRepository.save(graceDay);
+        // counts the grace day as an excused time, cancels a lost time that was not paid yet,
+        // and checks one grace day a week
+        commitmentWeekService.useGraceDayManually(graceDay, week);
     }
 }

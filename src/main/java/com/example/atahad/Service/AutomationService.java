@@ -1,6 +1,7 @@
 package com.example.atahad.Service;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
@@ -21,9 +22,15 @@ public class AutomationService {
     private final GroupSettlementService groupSettlementService;
     private final MonthlyWrappedService monthlyWrappedService;
 
+    // false when n8n runs it (POST /api/v1/n8n/run-daily), so it does not run twice
+    @Value("${automation.scheduler-enabled:true}")
+    private boolean schedulerEnabled;
+
     @Scheduled(cron = "0 0 0 * * *", zone = "Asia/Riyadh")
     public void midnight(){
-        run(LocalDate.now());
+        if(schedulerEnabled){
+            run(LocalDate.now());
+        }
     }
 
     // also called from the admin endpoint to try any date in the demo

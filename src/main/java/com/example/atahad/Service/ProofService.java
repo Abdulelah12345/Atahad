@@ -32,6 +32,8 @@ public class ProofService {
     private final GoalTaskRepository goalTaskRepository;
     private final ExcuseRepository excuseRepository;
     private final ObjectionRepository objectionRepository;
+    private final ProofDecisionService proofDecisionService;
+    private final LockService lockService;
 
 
 
@@ -116,6 +118,9 @@ public class ProofService {
         if (!userId.equals(goalOwnerUserId)) {
             throw new ApiException("This goal does not belong to you");
         }
+
+        // التطبيق المقفل ما يقبل إثباتات، لازم يتبرع أو يرسل عذر أول.
+        lockService.checkCanAct(member);
 
         // التعهد المرتبط بالأسبوع، ويجب أن يكون نفس هدف المهمة.
         Commitment commitment = week.getCommitment();
@@ -227,6 +232,12 @@ public class ProofService {
         if (hasPendingProof) {
             throw new ApiException("A proof for this day is still pending");
         }
+        // بروف ينتظر قرار الأدمن لنفس اليوم.
+        boolean hasEscalatedProof = proofRepository.existsTaskProof(
+                goalTaskId, commitmentWeekId, dayStart, nextDayStart, "ESCALATED");
+        if (hasEscalatedProof) {
+            throw new ApiException("A proof for this day is awaiting admin review");
+        }
 
         // ننتظر الأدمن إذا كان اعتراض على بروف هذا اليوم معلقا.
         boolean hasPendingProofObjection =
@@ -302,8 +313,10 @@ public class ProofService {
         // ربط البروف بالمهمة والأسبوع الصحيحين.
         proof.setGoalTask(task);
         proof.setCommitmentWeek(week);
-        // الحفظ فقط؛ قبول البروف وتحديث العداد والمبلغ مرحلة لاحقة.
         proofRepository.save(proof);
+
+        // قرار الذكاء: مقبول (يزيد العداد) أو مرفوض أو يتحول للأدمن.
+        proofDecisionService.decide(proof);
     }
 
     public void updateGoalTaskProof(Integer userId,

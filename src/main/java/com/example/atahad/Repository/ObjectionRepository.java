@@ -1,5 +1,7 @@
 package com.example.atahad.Repository;
 
+import java.util.List;
+
 import com.example.atahad.Entity.Objection;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
@@ -139,4 +141,8 @@ public interface ObjectionRepository extends JpaRepository<Objection, Integer> {
             @Param("weekId") Integer weekId,
             @Param("goalTaskId") Integer goalTaskId,
             @Param("activityDate") LocalDate activityDate);
+
+    List<Objection> findObjectionsByStatus(String status);
+
+    Objection findObjectionByDonationProofId(Integer donationProofId);
 }
