@@ -23,4 +23,14 @@ public class Habit extends Commitment {
     @Max(value = 7, message = "Times per week must be at most 7")
     @Column(columnDefinition = "INTEGER NOT NULL")
     private Integer timesPerWeek;
+
+    @Min(value = 1, message = "Pending times per week must be at least 1")
+    @Max(value = 7, message = "Pending times per week must be at most 7")
+    @Column(columnDefinition = "INTEGER")
+    private Integer pendingTimesPerWeek; // New value, applied when the next week starts
+
+    @ElementCollection
+    private Set<@Pattern(regexp = "^(SUN|MON|TUE|WED|THU|FRI|SAT)$",
+            message = "Planned day must be SUN, MON, TUE, WED, THU, FRI or SAT")
+            String> plannedDays; // Only for reminders, never for deductions
 }

@@ -27,14 +27,10 @@ public class CommitmentWeek {
     private Integer weekNumber;
 
     @Column(columnDefinition = "DATETIME")
-    private LocalDateTime weekStart;
+    private LocalDateTime weekStart; // Sunday 00:00:00
 
     @Column(columnDefinition = "DATETIME")
-    private LocalDateTime weekEnd;
-
-    @Size(max = 255, message = "Weekly target must be 255 characters max")
-    @Column(columnDefinition = "VARCHAR(255)")
-    private String weeklyTarget; // What is needed this week, mostly for goals
+    private LocalDateTime weekEnd; // Saturday 23:59:59
 
     @Min(value = 0, message = "Required must be at least 0")
     @Column(columnDefinition = "INTEGER")
@@ -62,6 +58,11 @@ public class CommitmentWeek {
 
     @Column(columnDefinition = "BOOLEAN DEFAULT false")
     private Boolean isFullWeek = false;
+
+    @ElementCollection
+    private Set<@Pattern(regexp = "^(SUN|MON|TUE|WED|THU|FRI|SAT)$",
+            message = "Planned day must be SUN, MON, TUE, WED, THU, FRI or SAT")
+            String> plannedDays; // This week plan, postponing changes it without touching the habit default
 
     //Relations
     @ManyToOne

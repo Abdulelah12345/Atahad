@@ -21,12 +21,12 @@ public class Member {
     @Id
     private Integer id; // same id as the user (MapsId)
 
-    @Pattern(regexp = "^(FREE_TRIAL|MONTHLY|FREE)$", message = "Plan must be FREE_TRIAL, MONTHLY or FREE")
-    @Column(columnDefinition = "VARCHAR(10)")
-    private String plan; // FREE_TRIAL by default
+//    @Pattern(regexp = "^(FREE_TRIAL|MONTHLY|FREE)$", message = "Plan must be FREE_TRIAL, MONTHLY or FREE")
+//    @Column(columnDefinition = "VARCHAR(10)")
+//    private String plan; // FREE_TRIAL by default
 
-    @Column(columnDefinition = "DATE")
-    private LocalDate trialEndsAt;
+//    @Column(columnDefinition = "DATE")
+//    private LocalDate trialEndsAt;
 
     @Column(columnDefinition = "DATE")
     private LocalDate renewsAt;
@@ -55,6 +55,15 @@ public class Member {
 
     @Column(columnDefinition = "BOOLEAN DEFAULT false")
     private Boolean hasNoHoldPrivilege = false;
+
+    @Column(columnDefinition = "VARCHAR(25)")
+    private String accountStatus = "ACTIVE";
+
+    @Column(columnDefinition = "DATETIME")
+    private LocalDateTime deactivationRequestedAt;
+
+    @Column(columnDefinition = "DATETIME")
+    private LocalDateTime deactivatedAt;
 
     //Relations
     @OneToOne

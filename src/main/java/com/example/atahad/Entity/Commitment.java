@@ -34,37 +34,23 @@ public abstract class Commitment {
     @Column(columnDefinition = "VARCHAR(8) NOT NULL")
     private String proofMethod;
 
-    @NotEmpty(message = "Amount type cannot be empty")
-    @Pattern(regexp = "^(FIXED|ESCALATING)$", message = "Amount type must be FIXED or ESCALATING")
-    @Column(columnDefinition = "VARCHAR(10) NOT NULL")
-    private String amountType;
-
-    @NotNull(message = "Base amount cannot be empty")
     @DecimalMin(value = "5.00", message = "Base amount must be at least 5")
-    @Column(columnDefinition = "DECIMAL(10,2) NOT NULL")
-    private BigDecimal baseAmount; // Amount per day, 5 SAR minimum
-
-    @PositiveOrZero(message = "Current amount must be zero or more")
     @Column(columnDefinition = "DECIMAL(10,2)")
-    private BigDecimal currentAmount; // Changes with escalation
+    private BigDecimal baseAmount; // Fixed amount per time for habits, 5 SAR minimum. Goals use the amount of each task
 
-    @PositiveOrZero(message = "Escalation step must be zero or more")
+    @DecimalMin(value = "5.00", message = "Pending base amount must be at least 5")
     @Column(columnDefinition = "DECIMAL(10,2)")
-    private BigDecimal escalationStep; // Only for ESCALATING
-
-    @PositiveOrZero(message = "Escalation cap must be zero or more")
-    @Column(columnDefinition = "DECIMAL(10,2)")
-    private BigDecimal escalationCap; // Only for ESCALATING
+    private BigDecimal pendingBaseAmount; // New amount, applied when the next week starts
 
     @Column(columnDefinition = "BOOLEAN DEFAULT false")
     private Boolean noHold = false;
 
-    @Pattern(regexp = "^(ACTIVE|PAUSED|WITHDRAWN|ENDED)$", message = "Status must be ACTIVE, PAUSED, WITHDRAWN or ENDED")
+    @Pattern(regexp = "^(DRAFT|ACTIVE|WITHDRAWN|ENDED)$", message = "Status must be DRAFT, ACTIVE, WITHDRAWN or ENDED")
     @Column(columnDefinition = "VARCHAR(9)")
-    private String status; // ACTIVE by default
+    private String status; // DRAFT until the first hold succeeds, then ACTIVE
 
     @Column(columnDefinition = "DATE")
-    private LocalDate effectiveFrom; // Edits and withdrawals start from the next week
+    private LocalDate effectiveFrom; // Edits start from the next week
 
     //Relations
     @ManyToOne
