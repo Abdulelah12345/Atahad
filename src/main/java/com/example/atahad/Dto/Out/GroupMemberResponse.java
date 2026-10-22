@@ -1,13 +1,15 @@
 package com.example.atahad.Dto.Out;
 
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
 import java.time.LocalDateTime;
 
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
 public class GroupMemberResponse {
-
     private Integer groupId;
     private String groupName;
     private Integer memberId;
@@ -15,4 +17,6 @@ public class GroupMemberResponse {
     private Integer points;
     private String role;
     private LocalDateTime joinedAt;
+    private String status;
+    private Integer failureCount;
 }

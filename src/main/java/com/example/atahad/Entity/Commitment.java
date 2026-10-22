@@ -42,12 +42,9 @@ public abstract class Commitment {
     @Column(columnDefinition = "DECIMAL(10,2)")
     private BigDecimal pendingBaseAmount; // New amount, applied when the next week starts
 
-    @Column(columnDefinition = "BOOLEAN DEFAULT false")
-    private Boolean noHold = false;
-
-    @Pattern(regexp = "^(DRAFT|ACTIVE|WITHDRAWN|ENDED)$", message = "Status must be DRAFT, ACTIVE, WITHDRAWN or ENDED")
+    @Pattern(regexp = "^(ACTIVE|WITHDRAWN|ENDED)$", message = "Status must be ACTIVE, WITHDRAWN or ENDED")
     @Column(columnDefinition = "VARCHAR(9)")
-    private String status; // DRAFT until the first hold succeeds, then ACTIVE
+    private String status; // ACTIVE from the moment it is created
 
     @Column(columnDefinition = "DATE")
     private LocalDate effectiveFrom; // Edits start from the next week
@@ -60,4 +57,9 @@ public abstract class Commitment {
 
     @OneToMany(cascade = CascadeType.ALL, mappedBy = "commitment")
     private Set<CommitmentWeek> weeks;
+
+    @ManyToOne
+    @JoinColumn
+    @JsonIgnore
+    private GroupGoal groupGoal; // Null for a personal commitment
 }

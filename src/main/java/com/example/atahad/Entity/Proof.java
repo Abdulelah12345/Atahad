@@ -35,14 +35,11 @@ public class Proof {
     private LocalDateTime submittedAt;
 
     @Column(columnDefinition = "DATETIME")
-    private LocalDateTime activityTime; // When the activity happened, used for the 5 hours grace
+    private LocalDateTime activityTime; // When the activity happened (must be inside the same week, before Sat 23:59)
 
-    @Column(columnDefinition = "BOOLEAN DEFAULT false")
-    private Boolean fromGallery = false;
-
-    @Pattern(regexp = "^(PENDING|ACCEPTED|REJECTED)$", message = "Result must be PENDING, ACCEPTED or REJECTED")
-    @Column(columnDefinition = "VARCHAR(8)")
-    private String result; // PENDING by default
+    @Pattern(regexp = "^(PENDING|ACCEPTED|REJECTED|ESCALATED)$", message = "Result must be PENDING, ACCEPTED, REJECTED or ESCALATED")
+    @Column(columnDefinition = "VARCHAR(9)")
+    private String result; // PENDING by default, ESCALATED = the AI was not sure, an admin decides
 
     // حالة معالجة الإثبات، مستقلة عن نتيجة القبول أو الرفض.
     @NotBlank(message = "Processing status cannot be empty")

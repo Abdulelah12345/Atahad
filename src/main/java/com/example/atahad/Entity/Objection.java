@@ -22,9 +22,6 @@ public class Objection {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
-    @Column(columnDefinition = "INTEGER")
-    private Integer targetDecisionId;
-
     @Size(max = 1000, message = "AI reason must be 1000 characters max")
     @Column(columnDefinition = "VARCHAR(1000)")
     private String aiReason;
@@ -60,7 +57,7 @@ public class Objection {
     @OneToOne
     @JoinColumn
     @JsonIgnore
-    private Proof proof; // One of proof, excuse or penalty
+    private Proof proof; // One of proof, excuse or donation proof
 
     @OneToOne
     @JoinColumn
@@ -70,7 +67,7 @@ public class Objection {
     @OneToOne
     @JoinColumn
     @JsonIgnore
-    private Penalty penalty;
+    private DonationProof donationProof; // A rejected donation proof
 
 
 }

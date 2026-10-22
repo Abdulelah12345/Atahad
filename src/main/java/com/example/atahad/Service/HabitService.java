@@ -7,6 +7,7 @@ import com.example.atahad.Repository.HabitRepository;
 import com.example.atahad.Repository.MemberRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -16,6 +17,7 @@ import java.util.List;
 public class HabitService {
     private final HabitRepository habitRepository;
     private final MemberRepository memberRepository;
+    private final CommitmentWeekService commitmentWeekService;
 
     // admin
     public List<Habit> getAllHabits(){
@@ -30,23 +32,30 @@ public class HabitService {
         return habitRepository.findHabitsByMember(member);
     }
 
+    // starts right away, the first week needs min(times, days left until saturday)
+    @Transactional
     public void addHabit(Integer memberId, Habit habit){
         Member member = memberRepository.findMemberById(memberId);
         if(member == null){
             throw new ApiException("Member not found");
         }
+        if(Boolean.TRUE.equals(member.getIsLocked())){
+            throw new ApiException("Your app is locked, donate first to add a new habit");
+        }
         if(habit.getBaseAmount() == null){
             throw new ApiException("Amount per time cannot be empty");
         }
         habit.setMember(member);
-        habit.setStatus("DRAFT"); // becomes ACTIVE after the first hold succeeds
+        habit.setStatus("ACTIVE");
         habit.setEffectiveFrom(LocalDate.now());
         habit.setPendingTimesPerWeek(null);
         habit.setPendingBaseAmount(null);
         habitRepository.save(habit);
+
+        commitmentWeekService.startFirstWeek(habit);
     }
 
-    // a draft changes right away, a running habit keeps this week and changes from the next week
+    // the title and the planned days change right away, times and amount change from the next week
     public void updateHabit(Integer memberId, Integer id, Habit habit){
         Habit oldHabit = getMyHabit(memberId, id);
         if(oldHabit.getStatus().equals("WITHDRAWN") || oldHabit.getStatus().equals("ENDED")){
@@ -54,7 +63,7 @@ public class HabitService {
         }
         oldHabit.setTitle(habit.getTitle());
         oldHabit.setPlannedDays(habit.getPlannedDays());
-        if(oldHabit.getStatus().equals("DRAFT")){
+        if(!hasStarted(oldHabit)){
             oldHabit.setProofMethod(habit.getProofMethod());
             oldHabit.setTimesPerWeek(habit.getTimesPerWeek());
             oldHabit.setBaseAmount(habit.getBaseAmount());
@@ -72,11 +81,11 @@ public class HabitService {
         habitRepository.save(oldHabit);
     }
 
-    // only a draft can be deleted, a running habit is withdrawn instead
+    // a habit can be deleted only if nothing happened in it yet, after that it is withdrawn
     public void deleteHabit(Integer memberId, Integer id){
         Habit habit = getMyHabit(memberId, id);
-        if(!habit.getStatus().equals("DRAFT")){
-            throw new ApiException("Habit already started, withdraw from it instead");
+        if(commitmentWeekService.hasProgress(habit)){
+            throw new ApiException("Habit already has progress, withdraw from it instead");
         }
         habitRepository.delete(habit);
     }
@@ -90,5 +99,10 @@ public class HabitService {
             throw new ApiException("You can only change your own habit");
         }
         return habit;
+    }
+
+    // true when the habit already has a week
+    private boolean hasStarted(Habit commitment){
+        return commitment.getWeeks() != null && !commitment.getWeeks().isEmpty();
     }
 }

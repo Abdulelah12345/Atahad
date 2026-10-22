@@ -31,6 +31,7 @@ public class ExcuseService {
     private final CommitmentWeekRepository commitmentWeekRepository;
     private final ProofRepository proofRepository;
     private final ObjectionRepository objectionRepository;
+    private final ExcuseDecisionService excuseDecisionService;
 
     public List<Excuse> getAllExcuses() {
         return excuseRepository.findAll();
@@ -346,8 +347,10 @@ public class ExcuseService {
         excuse.setCommitmentWeek(week);
 
         // المرحلة العاشرة: حفظ العذر في قاعدة البيانات.
-        // لا يتغير العداد أو المبلغ إلا عند قبول العذر.
         excuseRepository.save(excuse);
+
+        // قرار الذكاء: مقبول (مرة معذورة) أو مرفوض أو يتحول للأدمن.
+        excuseDecisionService.decide(excuse);
     }
 
     public void updateGoalTaskExcuse(Integer userId,

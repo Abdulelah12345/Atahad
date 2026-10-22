@@ -46,11 +46,7 @@ public class CommitmentWeek {
 
     @PositiveOrZero(message = "Amount per day must be zero or more")
     @Column(columnDefinition = "DECIMAL(10,2)")
-    private BigDecimal amountPerDay; // Copied from the commitment when the week starts
-
-    @Min(value = 0, message = "Extended days must be at least 0")
-    @Column(columnDefinition = "INTEGER DEFAULT 0")
-    private Integer extendedDays = 0;
+    private BigDecimal amountPerDay; // Habits only, copied from the commitment when the week starts
 
     @Pattern(regexp = "^(SAFE|MUST_TODAY|LOST_DAY|SETTLED)$", message = "Track status must be SAFE, MUST_TODAY, LOST_DAY or SETTLED")
     @Column(columnDefinition = "VARCHAR(10)")
@@ -70,18 +66,19 @@ public class CommitmentWeek {
     @JsonIgnore
     private Commitment commitment;
 
-    @OneToOne(cascade = CascadeType.ALL, mappedBy = "commitmentWeek")
-    private PaymentHold paymentHold;
-
     @OneToMany(cascade = CascadeType.ALL, mappedBy = "commitmentWeek")
     private Set<Proof> proofs;
 
     @OneToMany(cascade = CascadeType.ALL, mappedBy = "commitmentWeek")
     private Set<Excuse> excuses;
 
-    @OneToOne(cascade = CascadeType.ALL, mappedBy = "commitmentWeek")
-    private Penalty penalty;
+    @OneToMany(cascade = CascadeType.ALL, mappedBy = "commitmentWeek")
+    private Set<Penalty> penalties; // One for every lost time
 
     @OneToOne(cascade = CascadeType.ALL, mappedBy = "commitmentWeek")
     private GraceDay graceDay; // Null if no grace day was used
+
+    @OneToMany(cascade = CascadeType.ALL, mappedBy = "commitmentWeek")
+    @JsonIgnore
+    private Set<Moment> moments;
 }
