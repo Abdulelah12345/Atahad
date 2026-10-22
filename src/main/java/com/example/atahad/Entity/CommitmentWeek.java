@@ -46,7 +46,11 @@ public class CommitmentWeek {
 
     @PositiveOrZero(message = "Amount per day must be zero or more")
     @Column(columnDefinition = "DECIMAL(10,2)")
-    private BigDecimal amountPerDay; // Habits only, copied from the commitment when the week starts
+    private BigDecimal amountPerDay; // Copied from the commitment when the week starts
+
+    @Min(value = 0, message = "Extended days must be at least 0")
+    @Column(columnDefinition = "INTEGER DEFAULT 0")
+    private Integer extendedDays = 0;
 
     @Pattern(regexp = "^(SAFE|MUST_TODAY|LOST_DAY|SETTLED)$", message = "Track status must be SAFE, MUST_TODAY, LOST_DAY or SETTLED")
     @Column(columnDefinition = "VARCHAR(10)")

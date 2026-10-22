@@ -45,6 +45,11 @@ public class Excuse {
     @Column(columnDefinition = "BOOLEAN DEFAULT false")
     private Boolean forwardedToAdmin = false;
 
+    // وقت صدور قرار الذكاء، وتبدأ منه مهلة تقديم الاعتراض البالغة 48 ساعة.
+    // يبقى فارغا عند الإضافة ويعبئه النظام عند إصدار القرار.
+    @Column(columnDefinition = "DATETIME")
+    private LocalDateTime decidedAt;
+
     //Relations
     @ManyToOne
     @JoinColumn
@@ -58,4 +63,12 @@ public class Excuse {
 
     @OneToOne(cascade = CascadeType.ALL, mappedBy = "excuse")
     private Objection objection;
+
+
+    // المهمة التي يغطيها العذر.
+// تكون فارغة عندما يكون العذر لعادة.
+    @ManyToOne
+    @JoinColumn(name = "goal_task_id")
+    @JsonIgnore
+    private GoalTask goalTask;
 }

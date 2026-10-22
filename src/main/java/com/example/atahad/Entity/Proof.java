@@ -26,6 +26,10 @@ public class Proof {
     @Pattern(regexp = "^(LOCATION|PHOTO|QUIZ|PLATFORM|TIMER)$", message = "Type must be LOCATION, PHOTO, QUIZ, PLATFORM or TIMER")
     @Column(columnDefinition = "VARCHAR(8) NOT NULL")
     private String type;
+//ممكن يحتوي رابط او موقع ، عشان بعدين نشيك عليه
+    @NotBlank(message = "Evidence data cannot be empty")
+    @Column(columnDefinition = "TEXT NOT NULL")
+    private String evidenceData;
 
     @Column(columnDefinition = "DATETIME")
     private LocalDateTime submittedAt;
@@ -40,9 +44,20 @@ public class Proof {
     @Column(columnDefinition = "VARCHAR(8)")
     private String result; // PENDING by default
 
+    // حالة معالجة الإثبات، مستقلة عن نتيجة القبول أو الرفض.
+    @NotBlank(message = "Processing status cannot be empty")
+    @Pattern(regexp = "^(WAITING|PROCESSING|FINISHED)$", message = "Invalid processing status")
+    @Column(columnDefinition = "VARCHAR(10) NOT NULL")
+    private String processingStatus;
+
     @Size(max = 500, message = "Rejection reason must be 500 characters max")
     @Column(columnDefinition = "VARCHAR(500)")
     private String rejectionReason;
+
+    // وقت صدور قرار الذكاء، وتبدأ منه مهلة تقديم الاعتراض البالغة 48 ساعة.
+    // يبقى فارغا عند الإضافة ويعبئه النظام عند إصدار القرار.
+    @Column(columnDefinition = "DATETIME")
+    private LocalDateTime decidedAt;
 
     //Relations
     @ManyToOne
@@ -52,4 +67,12 @@ public class Proof {
 
     @OneToOne(cascade = CascadeType.ALL, mappedBy = "proof")
     private Objection objection;
+
+
+    // المهمة التي ينتمي إليها الإثبات.
+// تكون فارغة عندما يكون الإثبات لعادة.
+    @ManyToOne
+    @JoinColumn(name = "goal_task_id")
+    @JsonIgnore
+    private GoalTask goalTask;
 }
