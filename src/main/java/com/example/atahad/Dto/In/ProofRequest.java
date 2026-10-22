@@ -4,7 +4,7 @@ import jakarta.validation.constraints.*;
 import lombok.Data;
 
 import java.time.LocalDateTime;
-
+//نستخدمها في ميثود addProof
 @Data
 public class ProofRequest {
 

@@ -44,6 +44,12 @@ public class Proof {
     @Column(columnDefinition = "VARCHAR(8)")
     private String result; // PENDING by default
 
+    // حالة معالجة الإثبات، مستقلة عن نتيجة القبول أو الرفض.
+    @NotBlank(message = "Processing status cannot be empty")
+    @Pattern(regexp = "^(WAITING|PROCESSING|FINISHED)$", message = "Invalid processing status")
+    @Column(columnDefinition = "VARCHAR(10) NOT NULL")
+    private String processingStatus;
+
     @Size(max = 500, message = "Rejection reason must be 500 characters max")
     @Column(columnDefinition = "VARCHAR(500)")
     private String rejectionReason;
