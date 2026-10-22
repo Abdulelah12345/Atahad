@@ -54,6 +54,11 @@ public class Proof {
     @Column(columnDefinition = "VARCHAR(500)")
     private String rejectionReason;
 
+    // وقت صدور قرار الذكاء، وتبدأ منه مهلة تقديم الاعتراض البالغة 48 ساعة.
+    // يبقى فارغا عند الإضافة ويعبئه النظام عند إصدار القرار.
+    @Column(columnDefinition = "DATETIME")
+    private LocalDateTime decidedAt;
+
     //Relations
     @ManyToOne
     @JoinColumn

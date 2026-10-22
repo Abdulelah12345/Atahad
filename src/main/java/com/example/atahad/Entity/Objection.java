@@ -36,6 +36,16 @@ public class Objection {
     @Column(columnDefinition = "VARCHAR(8)")
     private String status; // PENDING by default
 
+    // وقت بدء مراجعة الأدمن؛ بعد تسجيله يمنع المستخدم من تعديل الاعتراض.
+    @Column(columnDefinition = "DATETIME")
+    private LocalDateTime reviewStartedAt;
+
+    // سبب الاعتراض الذي يكتبه المستخدم.
+    @NotBlank(message = "Reason cannot be empty")
+    @Size(max = 1000, message = "Reason must be 1000 characters max")
+    @Column(columnDefinition = "VARCHAR(1000) NOT NULL")
+    private String reason;
+
     //Relations
     @ManyToOne
     @JoinColumn
@@ -61,4 +71,6 @@ public class Objection {
     @JoinColumn
     @JsonIgnore
     private Penalty penalty;
+
+
 }
