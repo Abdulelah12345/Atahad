@@ -6,6 +6,11 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import com.example.atahad.Api.ApiResponse;
+import com.example.atahad.Dto.In.ExcuseRequest;
+import com.example.atahad.Entity.User;
+import jakarta.validation.Valid;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import java.util.List;
 
 @RestController
@@ -21,7 +26,62 @@ public class ExcuseController {
     }
 
     @GetMapping("/get/{id}")
-    public ResponseEntity<Excuse> getExcuseById(@PathVariable Integer id) {
-        return ResponseEntity.ok(excuseService.getExcuseById(id));
+    public ResponseEntity<?> getExcuseById(
+            @AuthenticationPrincipal User user,
+            @PathVariable Integer id) {
+
+        // نأخذ هوية المستخدم من الجلسة، والملكية يفحصها السيرفس.
+        Integer userId = user.getId();
+
+        Excuse excuse = excuseService.getExcuseById(userId, id);
+
+        return ResponseEntity.status(200).body(excuse);
+    }
+
+    @PostMapping("/add/goal-task/{goalTaskId}/week/{commitmentWeekId}")
+    public ResponseEntity<?> addGoalTaskExcuse(
+            @AuthenticationPrincipal User user,
+            @PathVariable Integer goalTaskId,
+            @PathVariable Integer commitmentWeekId,
+            @RequestBody @Valid ExcuseRequest request) {
+
+        // معرف المستخدم من جلسة الدخول، والملكية يفحصها السيرفس.
+        Integer userId = user.getId();
+
+        excuseService.addGoalTaskExcuse(
+                userId, goalTaskId, commitmentWeekId, request);
+
+        return ResponseEntity.status(200)
+                .body(new ApiResponse("Excuse added successfully"));
+    }
+
+
+    @PutMapping("/update/goal-task/{excuseId}")
+    public ResponseEntity<?> updateGoalTaskExcuse(
+            @AuthenticationPrincipal User user,
+            @PathVariable Integer excuseId,
+            @RequestBody @Valid ExcuseRequest request) {
+
+        // معرف المستخدم من الجلسة، والملكية يفحصها السيرفس.
+        Integer userId = user.getId();
+
+        excuseService.updateGoalTaskExcuse(userId, excuseId, request);
+
+        return ResponseEntity.status(200)
+                .body(new ApiResponse("Excuse updated successfully"));
+    }
+
+    @DeleteMapping("/delete/goal-task/{excuseId}")
+    public ResponseEntity<?> deleteGoalTaskExcuse(
+            @AuthenticationPrincipal User user,
+            @PathVariable Integer excuseId) {
+
+        // معرف المستخدم من الجلسة، والملكية يفحصها السيرفس.
+        Integer userId = user.getId();
+
+        excuseService.deleteGoalTaskExcuse(userId, excuseId);
+
+        return ResponseEntity.status(200)
+                .body(new ApiResponse("Excuse deleted successfully"));
     }
 }
