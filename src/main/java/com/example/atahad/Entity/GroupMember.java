@@ -29,6 +29,14 @@ public class GroupMember {
     @Column(columnDefinition = "VARCHAR(6)")
     private String role = "MEMBER";
 
+    @Min(value = 0, message = "Failure count must be zero or more")
+    @Column(columnDefinition = "INTEGER DEFAULT 0")
+    private Integer failureCount = 0; // second failure in the group = kicked
+
+    @Pattern(regexp = "^(ACTIVE|KICKED|LEFT)$", message = "Status must be ACTIVE, KICKED or LEFT")
+    @Column(columnDefinition = "VARCHAR(6)")
+    private String status = "ACTIVE";
+
     @ManyToOne
     @JoinColumn(name = "group_id")
     @JsonIgnore

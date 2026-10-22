@@ -1,12 +1,17 @@
 package com.example.atahad.Service;
 
 import com.example.atahad.Api.ApiException;
+import com.example.atahad.Dto.Out.GoalProgressResponse;
+import com.example.atahad.Entity.CommitmentWeek;
 import com.example.atahad.Entity.Goal;
 import com.example.atahad.Entity.Member;
+import com.example.atahad.Repository.CommitmentWeekRepository;
 import com.example.atahad.Repository.GoalRepository;
+import com.example.atahad.Repository.GoalTaskRepository;
 import com.example.atahad.Repository.MemberRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
@@ -18,6 +23,9 @@ import java.util.List;
 public class GoalService {
     private final GoalRepository goalRepository;
     private final MemberRepository memberRepository;
+    private final GoalTaskRepository goalTaskRepository;
+    private final CommitmentWeekRepository commitmentWeekRepository;
+    private final CommitmentWeekService commitmentWeekService;
 
     // admin
     public List<Goal> getAllGoals(){
@@ -32,14 +40,17 @@ public class GoalService {
         return goalRepository.findGoalsByMember(member);
     }
 
-    // the tasks of every week are added after the goal from the goal task endpoints
+    // the tasks of every week are added after the goal from the goal task endpoints, then the goal is started
     public void addGoal(Integer memberId, Goal goal){
         Member member = memberRepository.findMemberById(memberId);
         if(member == null){
             throw new ApiException("Member not found");
         }
+        if(Boolean.TRUE.equals(member.getIsLocked())){
+            throw new ApiException("Your app is locked, donate first to add a new goal");
+        }
         goal.setMember(member);
-        goal.setStatus("DRAFT"); // becomes ACTIVE after the first hold succeeds
+        goal.setStatus("ACTIVE");
         goal.setEffectiveFrom(LocalDate.now());
         goal.setBaseAmount(null); // goals use the amount of each task
         goal.setPendingBaseAmount(null);
@@ -47,7 +58,27 @@ public class GoalService {
         goalRepository.save(goal);
     }
 
-    // the weeks count and the proof method can change only while it is a draft
+    // week 1 starts now and ends this saturday
+    @Transactional
+    public void startGoal(Integer memberId, Integer id){
+        Goal goal = getMyGoal(memberId, id);
+        if(!goal.getStatus().equals("ACTIVE")){
+            throw new ApiException("Goal is finished");
+        }
+        if(hasStarted(goal)){
+            throw new ApiException("Goal already started");
+        }
+        if(goalTaskRepository.findGoalTasksByGoalAndWeekNumber(goal, 1).isEmpty()){
+            throw new ApiException("Add the tasks of week 1 first");
+        }
+        goal.setEffectiveFrom(LocalDate.now());
+        goal.setEndDate(calculateEndDate(goal.getTotalWeeks()));
+        goalRepository.save(goal);
+
+        commitmentWeekService.startFirstWeek(goal);
+    }
+
+    // the weeks count and the proof method can change only before the first week starts
     public void updateGoal(Integer memberId, Integer id, Goal goal){
         Goal oldGoal = getMyGoal(memberId, id);
         if(oldGoal.getStatus().equals("WITHDRAWN") || oldGoal.getStatus().equals("ENDED")){
@@ -55,7 +86,7 @@ public class GoalService {
         }
         oldGoal.setTitle(goal.getTitle());
         oldGoal.setDescription(goal.getDescription());
-        if(oldGoal.getStatus().equals("DRAFT")){
+        if(!hasStarted(oldGoal)){
             oldGoal.setProofMethod(goal.getProofMethod());
             oldGoal.setTotalWeeks(goal.getTotalWeeks());
             oldGoal.setEndDate(calculateEndDate(goal.getTotalWeeks()));
@@ -70,13 +101,36 @@ public class GoalService {
         goalRepository.save(oldGoal);
     }
 
-    // only a draft can be deleted, a running goal is withdrawn instead
+    // only a goal that did not start yet can be deleted, after that it is withdrawn
     public void deleteGoal(Integer memberId, Integer id){
         Goal goal = getMyGoal(memberId, id);
-        if(!goal.getStatus().equals("DRAFT")){
+        if(hasStarted(goal)){
             throw new ApiException("Goal already started, withdraw from it instead");
         }
         goalRepository.delete(goal);
+    }
+
+    // how far the member is in the goal
+    public GoalProgressResponse getProgress(Integer memberId, Integer id){
+        Goal goal = getMyGoal(memberId, id);
+        List<CommitmentWeek> weeks = commitmentWeekRepository.findCommitmentWeeksByCommitmentOrderByWeekNumberDesc(goal);
+
+        int currentWeek = weeks.isEmpty() ? 0 : weeks.get(0).getWeekNumber();
+        int fullWeeks = 0;
+        int required = 0;
+        int completed = 0;
+        for(CommitmentWeek week : weeks){
+            if(Boolean.TRUE.equals(week.getIsFullWeek())){
+                fullWeeks++;
+            }
+            required += week.getRequired();
+            completed += week.getCompleted();
+        }
+        int percent = required == 0 ? 0 : Math.min(100, completed * 100 / required);
+
+        return new GoalProgressResponse(goal.getId(), goal.getTitle(), goal.getStatus(), goal.getTotalWeeks(),
+                currentWeek, Math.max(0, goal.getTotalWeeks() - currentWeek), fullWeeks,
+                required, completed, percent, goal.getEndDate());
     }
 
     public Goal getMyGoal(Integer memberId, Integer id){
@@ -94,5 +148,10 @@ public class GoalService {
     private LocalDate calculateEndDate(Integer totalWeeks){
         LocalDate firstSaturday = LocalDate.now().with(TemporalAdjusters.nextOrSame(DayOfWeek.SATURDAY));
         return firstSaturday.plusWeeks(totalWeeks - 1);
+    }
+
+    // true when week 1 was started
+    private boolean hasStarted(Goal commitment){
+        return commitmentWeekRepository.findTopByCommitmentOrderByWeekNumberDesc(commitment) != null;
     }
 }

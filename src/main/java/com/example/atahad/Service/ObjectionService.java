@@ -243,7 +243,7 @@ public class ObjectionService {
         objection.setMember(member);
         objection.setProof(proof);
         objection.setExcuse(null);
-        objection.setPenalty(null);
+        objection.setDonationProof(null);
         objection.setAdmin(null);
 
         // الحفظ فقط؛ قرار الأدمن لاحقا هو الذي يعالج المبلغ والعداد.
@@ -422,7 +422,7 @@ public class ObjectionService {
         objection.setMember(member);
         objection.setExcuse(excuse);
         objection.setProof(null);
-        objection.setPenalty(null);
+        objection.setDonationProof(null);
         objection.setAdmin(null);
 
         // الحفظ فقط؛ قرار الأدمن لاحقا هو الذي يعالج المبلغ والعداد.

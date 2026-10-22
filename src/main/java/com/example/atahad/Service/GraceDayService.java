@@ -91,7 +91,7 @@ public class GraceDayService {
         // TODO: Check member's streak before awarding a grace day.
 
         GraceDay graceDay = new GraceDay();
-        graceDay.setSource("EARNED");
+        graceDay.setSource("PERSONAL_POINTS");
         graceDay.setEarnedAt(LocalDate.now());
         graceDay.setExpiresAt(LocalDate.now().plusWeeks(4));
         graceDay.setMember(member);

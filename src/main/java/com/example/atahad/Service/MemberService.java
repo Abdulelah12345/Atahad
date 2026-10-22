@@ -23,7 +23,6 @@ public class MemberService {
 
     private final MemberRepository memberRepository;
     private final UserRepository userRepository;
-    private final PaymentHoldService paymentHoldService;
     private final CommitmentWeekService commitmentWeekService;
     @Transactional
     public void registerMember(MemberRegisterRequest dto) {
@@ -46,13 +45,15 @@ public class MemberService {
 
         Member member = new Member();
         member.setUser(user);
-//        member.setPlan("FREE_TRIAL");
-//        member.setTrialEndsAt(LocalDate.now().plusMonths(1));
         member.setLevel("BEGINNER");
         member.setConsecutiveWeeks(0);
-        member.setTaskPoints(0);
-        member.setCanCreateCommitment(true);
-        member.setHasNoHoldPrivilege(false);
+        member.setPoints(0);
+        member.setIsLocked(false);
+        member.setEmailLinked(false);
+        member.setScreenshotBanned(false);
+        member.setGroupRefusalCount(0);
+        member.setGroupBannedForever(false);
+        member.setAccountBanned(false);
 
         memberRepository.save(member);
     }
@@ -113,15 +114,11 @@ public class MemberService {
                 user.getName(),
                 user.getEmail(),
                 user.getPhone(),
-//                member.getPlan(),
-//                member.getTrialEndsAt(),
-                member.getRenewsAt(),
-                member.getCardType(),
                 member.getLevel(),
                 member.getConsecutiveWeeks(),
-                member.getTaskPoints(),
-                member.getCanCreateCommitment(),
-                member.getHasNoHoldPrivilege(),
+                member.getPoints(),
+                member.getIsLocked(),
+                member.getEmailLinked(),
                 user.getCreatedAt()
         );
     }

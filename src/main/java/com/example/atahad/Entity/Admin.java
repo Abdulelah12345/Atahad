@@ -46,4 +46,7 @@ public class Admin {
 
     @OneToMany(cascade = CascadeType.ALL, mappedBy = "admin")
     private Set<GraceDay> grantedGraceDays;
+
+    @OneToMany(cascade = CascadeType.ALL, mappedBy = "admin")
+    private Set<DonationProof> reviewedDonationProofs;
 }

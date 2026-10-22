@@ -23,8 +23,8 @@ public class GraceDay {
     private Integer id;
 
     @NotEmpty(message = "Source cannot be empty")
-    @Pattern(regexp = "^(EARNED|ADMIN_GRANTED)$", message = "Source must be EARNED or ADMIN_GRANTED")
-    @Column(columnDefinition = "VARCHAR(13) NOT NULL")
+    @Pattern(regexp = "^(PERSONAL_POINTS|GROUP_POINTS|ADMIN_GRANTED|COMPENSATION)$", message = "Source must be PERSONAL_POINTS, GROUP_POINTS, ADMIN_GRANTED or COMPENSATION")
+    @Column(columnDefinition = "VARCHAR(15) NOT NULL")
     private String source;
 
     @Size(max = 255, message = "Grant reason must be 255 characters max")

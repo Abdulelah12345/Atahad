@@ -6,10 +6,9 @@ import jakarta.validation.constraints.*;
 import lombok.*;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.Set;
 
+// A donation the member owes, the app is locked until it is paid to Ehsan
 @Setter
 @Getter
 @AllArgsConstructor
@@ -27,26 +26,31 @@ public class Penalty {
     @Column(columnDefinition = "DECIMAL(10,2) NOT NULL")
     private BigDecimal amount;
 
-    @NotEmpty(message = "Method cannot be empty")
-    @Pattern(regexp = "^(CAPTURE|PAYMENT_LINK)$", message = "Method must be CAPTURE or PAYMENT_LINK")
-    @Column(columnDefinition = "VARCHAR(12) NOT NULL")
-    private String method;
-
-    @Column(columnDefinition = "VARCHAR(100)")
-    private String paymentLinkId; // Only for PAYMENT_LINK
+    @NotEmpty(message = "Reason cannot be empty")
+    @Pattern(regexp = "^(LOST_DAY|WITHDRAWAL|GROUP_COLLECTIVE|GROUP_EXTRA)$", message = "Reason must be LOST_DAY, WITHDRAWAL, GROUP_COLLECTIVE or GROUP_EXTRA")
+    @Column(columnDefinition = "VARCHAR(16) NOT NULL")
+    private String reason;
 
     @Column(columnDefinition = "DATETIME")
-    private LocalDateTime capturedAt;
+    private LocalDateTime createdAt;
 
-    @Column(columnDefinition = "DATETIME")
-    private LocalDateTime finalAt; // After the objection window closes
-
-    @Pattern(regexp = "^(PENDING|CAPTURED|PAID|REFUNDED|CANCELLED)$", message = "Status must be PENDING, CAPTURED, PAID, REFUNDED or CANCELLED")
+    @Pattern(regexp = "^(PENDING|PAID|CANCELLED)$", message = "Status must be PENDING, PAID or CANCELLED")
     @Column(columnDefinition = "VARCHAR(9)")
-    private String status;
+    private String status = "PENDING";
+
+    @Column(columnDefinition = "DATETIME")
+    private LocalDateTime paidAt;
+
+    @Column(columnDefinition = "BOOLEAN DEFAULT false")
+    private Boolean refusalCounted = false; // a group penalty not paid in 7 days, counted once in the refusal ladder
 
     //Relations
-    @OneToOne
+    @ManyToOne
+    @JoinColumn
+    @JsonIgnore
+    private Member member;
+
+    @ManyToOne
     @JoinColumn
     @JsonIgnore
     private CommitmentWeek commitmentWeek;
@@ -54,8 +58,15 @@ public class Penalty {
     @ManyToOne
     @JoinColumn
     @JsonIgnore
-    private DonationBatch donationBatch;
+    private GoalTask goalTask; // Only for goals
 
-    @OneToOne(cascade = CascadeType.ALL, mappedBy = "penalty")
-    private Objection objection;
+    @ManyToOne
+    @JoinColumn
+    @JsonIgnore
+    private DonationProof donationProof; // The donation that paid it
+
+    @ManyToOne
+    @JoinColumn
+    @JsonIgnore
+    private GroupSettlement groupSettlement; // Only for group penalties
 }

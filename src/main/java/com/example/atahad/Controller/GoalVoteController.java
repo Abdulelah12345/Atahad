@@ -5,7 +5,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/v1/donation-batch")
+@RequestMapping("/api/v1/goal-vote")
 @RequiredArgsConstructor
-public class DonationBatchController {
+public class GoalVoteController {
 }

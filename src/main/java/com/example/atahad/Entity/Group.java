@@ -1,5 +1,6 @@
 package com.example.atahad.Entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
 import lombok.*;
@@ -29,11 +30,58 @@ public class Group {
     private String description;
 
     @Column(columnDefinition = "VARCHAR(20) UNIQUE")
-    private String inviteCode;
+    private String inviteCode; // also used inside the QR code
+
+    @Column(columnDefinition = "VARCHAR(500)")
+    private String qrCodeUrl;
+
+    @Pattern(regexp = "^(GENTLE|HYPE)$", message = "Humor level must be GENTLE or HYPE")
+    @Column(columnDefinition = "VARCHAR(6)")
+    private String humorLevel = "GENTLE"; // tone of the settlement and the alerts
+
+    @Min(value = 0, message = "Points must be zero or more")
+    @Column(columnDefinition = "INTEGER DEFAULT 0")
+    private Integer points = 0;
+
+    @Min(value = 1, message = "Points for a grace day must be at least 1")
+    @Column(columnDefinition = "INTEGER DEFAULT 300")
+    private Integer pointsForGraceDay = 300; // every member gets a grace day when the group reaches it
+
+    @Pattern(regexp = "^(ACTIVE|ARCHIVED)$", message = "Status must be ACTIVE or ARCHIVED")
+    @Column(columnDefinition = "VARCHAR(8)")
+    private String status = "ACTIVE";
 
     @Column(columnDefinition = "DATETIME")
     private LocalDateTime createdAt;
 
     @OneToMany(mappedBy = "group")
     private Set<GroupMember> members;
+
+    @OneToMany(cascade = CascadeType.ALL, mappedBy = "group")
+    @JsonIgnore
+    private Set<GroupGoal> goals; // one active goal at a time, the rest is history
+
+    @OneToMany(cascade = CascadeType.ALL, mappedBy = "group")
+    @JsonIgnore
+    private Set<GoalProposal> goalProposals;
+
+    @OneToMany(cascade = CascadeType.ALL, mappedBy = "group")
+    @JsonIgnore
+    private Set<ChatMessage> chatMessages;
+
+    @OneToMany(cascade = CascadeType.ALL, mappedBy = "group")
+    @JsonIgnore
+    private Set<GroupTitle> titles;
+
+    @OneToMany(cascade = CascadeType.ALL, mappedBy = "group")
+    @JsonIgnore
+    private Set<PointLog> pointLogs;
+
+    @OneToMany(mappedBy = "challenger")
+    @JsonIgnore
+    private Set<GroupMatch> challengesSent;
+
+    @OneToMany(mappedBy = "opponent")
+    @JsonIgnore
+    private Set<GroupMatch> challengesReceived;
 }

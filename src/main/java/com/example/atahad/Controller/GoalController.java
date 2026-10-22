@@ -31,6 +31,18 @@ public class GoalController {
         return ResponseEntity.status(200).body(new ApiResponse("Goal added"));
     }
 
+    // after adding the tasks of week 1
+    @PutMapping("/start/{memberId}/{id}")
+    public ResponseEntity<?> startGoal(@PathVariable Integer memberId, @PathVariable Integer id){
+        goalService.startGoal(memberId, id);
+        return ResponseEntity.status(200).body(new ApiResponse("Goal started, week 1 ends this saturday"));
+    }
+
+    @GetMapping("/progress/{memberId}/{id}")
+    public ResponseEntity<?> getProgress(@PathVariable Integer memberId, @PathVariable Integer id){
+        return ResponseEntity.status(200).body(goalService.getProgress(memberId, id));
+    }
+
     @PutMapping("/update/{memberId}/{id}")
     public ResponseEntity<?> updateGoal(@PathVariable Integer memberId, @PathVariable Integer id, @RequestBody @Valid Goal goal){
         goalService.updateGoal(memberId, id, goal);

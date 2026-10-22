@@ -8,10 +8,15 @@ import java.util.List;
 
 @Repository
 public interface GroupMemberRepository extends JpaRepository<GroupMember, Integer> {
+    GroupMember findGroupMemberById(Integer id);
 
     GroupMember findGroupMemberByGroupIdAndMemberId(Integer groupId, Integer memberId);
 
     List<GroupMember> findGroupMembersByGroupId(Integer groupId);
 
     List<GroupMember> findGroupMembersByMemberId(Integer memberId);
+
+    List<GroupMember> findGroupMembersByGroupIdAndStatus(Integer groupId, String status);
+
+    List<GroupMember> findGroupMembersByMemberIdAndStatus(Integer memberId, String status);
 }

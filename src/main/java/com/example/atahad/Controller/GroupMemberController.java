@@ -23,10 +23,18 @@ public class GroupMemberController {
         return ResponseEntity.status(200).body(groupMemberService.getMemberGroups(memberId));
     }
 
+    // by the invite code or the QR code
     @PostMapping("/join/{memberId}/{inviteCode}")
     public ResponseEntity<?> joinGroup(@PathVariable Integer memberId, @PathVariable String inviteCode) {
         groupMemberService.joinGroup(memberId, inviteCode);
         return ResponseEntity.status(200).body(new ApiResponse("Joined group successfully"));
+    }
+
+    // the owner adds a member directly
+    @PostMapping("/add/{groupId}/{ownerId}/{memberId}")
+    public ResponseEntity<?> addMemberDirectly(@PathVariable Integer groupId, @PathVariable Integer ownerId, @PathVariable Integer memberId) {
+        groupMemberService.addMemberDirectly(groupId, ownerId, memberId);
+        return ResponseEntity.status(200).body(new ApiResponse("Member added to the group"));
     }
 
     @DeleteMapping("/leave/{groupId}/{memberId}")

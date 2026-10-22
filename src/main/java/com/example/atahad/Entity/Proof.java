@@ -35,10 +35,7 @@ public class Proof {
     private LocalDateTime submittedAt;
 
     @Column(columnDefinition = "DATETIME")
-    private LocalDateTime activityTime; // When the activity happened, used for the 5 hours grace
-
-    @Column(columnDefinition = "BOOLEAN DEFAULT false")
-    private Boolean fromGallery = false;
+    private LocalDateTime activityTime; // When the activity happened (must be inside the same week, before Sat 23:59)
 
     @Pattern(regexp = "^(PENDING|ACCEPTED|REJECTED)$", message = "Result must be PENDING, ACCEPTED or REJECTED")
     @Column(columnDefinition = "VARCHAR(8)")
