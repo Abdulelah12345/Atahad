@@ -121,4 +121,37 @@ public class AiService {
         String type = file.getHeaders().getContentType() == null ? "image/jpeg" : file.getHeaders().getContentType().toString();
         return "data:" + type + ";base64," + Base64.getEncoder().encodeToString(file.getBody());
     }
+
+    public String matchGroupGoals(String goal1, String goal2){
+
+        String instructions = """
+            You are an AI matchmaking system for group competitions.
+
+            Compare two goals based on their semantic similarity.
+
+            Goals do not need to be identical.
+            They should involve related activities or develop similar skills.
+
+            Examples:
+            Reading books and studying = related.
+            Walking and running = related.
+            Learning Java and solving programming problems = related.
+            Reading books and weightlifting = unrelated.
+
+            Return exactly:
+            SCORE: number from 0 to 100
+            REASON: short explanation in Arabic
+
+            IMPORTANT:
+            The REASON must be written entirely in Arabic.
+            Explain clearly why the two goals are related.
+            Do not use English words in the REASON.
+            Keep the explanation short and natural.
+            Do not return anything else.
+            """;
+
+        String prompt = "First goal: " + goal1 + "\nSecond goal: " + goal2;
+
+        return ask(instructions, prompt, "SCORE: 0\nREASON: تعذر تحليل توافق الأهداف");
+    }
 }
