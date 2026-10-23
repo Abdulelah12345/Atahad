@@ -41,10 +41,19 @@ public class ProofService {
         return proofRepository.findAll();
     }
 
-    public Proof getProofById(Integer id) {
+    public Proof getProofById(Integer userId, Integer id) {
+        if (userId == null) {
+            throw new ApiException("User ID is required");
+        }
         Proof proof = proofRepository.findProofById(id);
         if (proof == null) {
             throw new ApiException("Proof not found");
+        }
+        // نتأكد أن المستخدم المسجل هو صاحب الهدف أو العادة المرتبط بها الإثبات.
+        Integer ownerId = proof.getCommitmentWeek().getCommitment().getMember().getUser().getId();
+        if (!ownerId.equals(userId)) {
+            throw new org.springframework.security.access.AccessDeniedException(
+                    "You can only view your own proof");
         }
         return proof;
     }

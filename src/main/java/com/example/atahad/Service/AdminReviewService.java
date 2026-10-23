@@ -17,6 +17,7 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class AdminReviewService {
+    private final AuthenticatedUserService authenticatedUserService;
     private final AdminRepository adminRepository;
     private final ProofRepository proofRepository;
     private final ExcuseRepository excuseRepository;
@@ -100,6 +101,7 @@ public class AdminReviewService {
     }
 
     private Admin getAdmin(Integer adminId){
+        authenticatedUserService.checkAdmin(adminId);
         Admin admin = adminRepository.findAdminById(adminId);
         if(admin == null){
             throw new ApiException("Admin not found");

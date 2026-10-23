@@ -5,6 +5,11 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
 import lombok.*;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
+import java.util.Collection;
+import java.util.Collections;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -16,7 +21,7 @@ import java.util.Set;
 @AllArgsConstructor
 @NoArgsConstructor
 @Entity
-public class User {
+public class User implements UserDetails {
 
     //Variables
     @Id
@@ -50,6 +55,57 @@ public class User {
 
     @Column(columnDefinition = "DATETIME")
     private LocalDateTime createdAt; // Set in service
+
+    // تسجيل الدخول بالبريد؛ اسم الميثود مفروض من واجهة UserDetails.
+    @Override
+    @JsonIgnore
+    public String getUsername() {
+        return email;
+    }
+
+    // نرجع نفس الدور المستخدم في hasAuthority: MEMBER أو ADMIN.
+    @Override
+    @JsonIgnore
+    public Collection<? extends GrantedAuthority> getAuthorities() {
+        return Collections.singleton(new SimpleGrantedAuthority(role));
+    }
+
+    @Override
+    @JsonIgnore
+    public boolean isAccountNonExpired() {
+        return true;
+    }
+
+    /*
+     لا نمنع تسجيل الدخول بسبب خصومات غير مدفوعة، حتى يبقى رفع إثبات التبرع متاحًا.
+     أما الحساب المعطل فيمنع من الدخول عن طريق isEnabled أدناه.
+     قفل الخصومات يقيّد العمليات حسب الفلو، ولا يقفل تسجيل الدخول نفسه.
+    */
+    @Override
+    @JsonIgnore
+    public boolean isAccountNonLocked() {
+        return true;
+    }
+
+    @Override
+    @JsonIgnore
+    public boolean isCredentialsNonExpired() {
+        return true;
+    }
+
+    // الحساب المعطل لا يدخل، أما الحساب المحظور فتطبق عليه قيود الفلو بعد الدخول.
+    @Override
+    @JsonIgnore
+    public boolean isEnabled() {
+        if (member == null) {
+            return true;
+        }
+        String status = member.getAccountStatus();
+        if (status == null) {
+            return true;
+        }
+        return !status.equals("DEACTIVATED");
+    }
 
     //Relations
     @OneToOne(cascade = CascadeType.ALL, mappedBy = "user")

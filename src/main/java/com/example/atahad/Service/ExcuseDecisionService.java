@@ -7,6 +7,7 @@ import com.example.atahad.Repository.CommitmentWeekRepository;
 import com.example.atahad.Repository.ExcuseRepository;
 import com.example.atahad.Repository.MemberRepository;
 import com.example.atahad.Repository.ProofRepository;
+import com.example.atahad.Repository.ObjectionRepository;
 import lombok.RequiredArgsConstructor;
 import org.hibernate.Hibernate;
 import org.springframework.stereotype.Service;
@@ -23,16 +24,21 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class ExcuseDecisionService {
+    private final AuthenticatedUserService authenticatedUserService;
     private final ExcuseRepository excuseRepository;
     private final ProofRepository proofRepository;
+    private final ObjectionRepository objectionRepository;
     private final CommitmentWeekRepository commitmentWeekRepository;
     private final MemberRepository memberRepository;
     private final CommitmentWeekService commitmentWeekService;
     private final LockService lockService;
     private final AiService aiService;
+    private final AcceptanceGuardService acceptanceGuardService;
 
     @Transactional
     public Excuse addHabitExcuse(Integer memberId, Integer weekId, ExcuseRequest request){
+        // المعرف في الرابط يجب أن يخص العضو المسجل، وليس أي عضو موجود.
+        authenticatedUserService.checkMember(memberId);
         Member member = memberRepository.findMemberById(memberId);
         if(member == null){
             throw new ApiException("Member not found");
@@ -63,11 +69,92 @@ public class ExcuseDecisionService {
                 throw new ApiException("This day already has an excuse");
             }
         }
-        for(Proof proof : proofRepository.findProofsByCommitmentWeekId(weekId)){
-            boolean sameDay = proof.getActivityTime() != null && proof.getActivityTime().toLocalDate().equals(day);
-            if(sameDay && "ACCEPTED".equals(proof.getResult())){
-                throw new ApiException("This day already has an accepted proof");
+        // نبحث عن إثباتات نفس أسبوع العادة.
+        for (Proof proof : proofRepository.findProofsByCommitmentWeekId(weekId)) {
+
+            // لا نستطيع مقارنة يوم الإثبات إذا كان وقت النشاط غير موجود.
+            if (proof.getActivityTime() == null) {
+                throw new ApiException("Proof activity time is missing");
             }
+
+            // نقارن يوم نشاط الإثبات بتاريخ العذر الذي أدخله المستخدم.
+            LocalDate proofDate = proof.getActivityTime().toLocalDate();
+            boolean isSameDay = proofDate.equals(day);
+
+            if (isSameDay) {
+
+                // نقرأ نتيجة الإثبات لمعرفة هل تمنع إضافة العذر.
+                String result = proof.getResult();
+
+                if (result == null) {
+                    throw new ApiException("Proof result is missing");
+                }
+
+                // اليوم المكتمل بإثبات مقبول لا نضيف له عذرًا.
+                boolean isAccepted = result.equals("ACCEPTED");
+
+                if (isAccepted) {
+                    throw new ApiException(
+                            "This day already has an accepted proof"
+                    );
+                }
+
+                // ننتظر انتهاء معالجة الإثبات قبل السماح بإضافة عذر.
+                boolean isPending = result.equals("PENDING");
+
+                if (isPending) {
+                    throw new ApiException(
+                            "Wait until the proof for this day is processed"
+                    );
+                }
+
+                // الإثبات المحول للأدمن لم يصدر قراره النهائي بعد.
+                boolean isEscalated = result.equals("ESCALATED");
+
+                if (isEscalated) {
+                    throw new ApiException(
+                            "Wait until the admin reviews the proof for this day"
+                    );
+                }
+            }
+        }
+
+        // بداية يوم العذر، وتدخل ضمن فترة البحث.
+        LocalDateTime dayStart = day.atStartOfDay();
+
+        // بداية اليوم التالي، ولا تدخل ضمن فترة البحث.
+        LocalDateTime nextDayStart = day.plusDays(1).atStartOfDay();
+
+        // عذر العادة لا يرتبط بمهمة هدف.
+        Integer goalTaskId = null;
+
+        // نمنع إضافة العذر إذا كان هناك اعتراض معلق على إثبات لنفس اليوم.
+        boolean hasPendingProofObjection =
+                objectionRepository.existsPendingProofObjection(
+                        weekId,
+                        goalTaskId,
+                        dayStart,
+                        nextDayStart
+                );
+
+        if (hasPendingProofObjection) {
+            throw new ApiException(
+                    "Wait until the proof objection for this day is resolved"
+            );
+        }
+
+        // نمنع إضافة العذر إذا كان هناك اعتراض معلق على عذر سابق لنفس اليوم.
+        boolean hasPendingExcuseObjection =
+                objectionRepository.existsPendingExcuseObjection(
+                        weekId,
+                        goalTaskId,
+                        day
+                );
+
+        if (hasPendingExcuseObjection) {
+            throw new ApiException(
+                    "Wait until the excuse objection for this day is resolved"
+            );
         }
 
         Excuse excuse = new Excuse();
@@ -110,6 +197,27 @@ public class ExcuseDecisionService {
     // shared with the admin review and the objection
     @Transactional
     public void applyDecision(Excuse excuse, String decision, String reason, Admin admin){
+        if (decision == null) {
+            throw new ApiException("Decision is required");
+        }
+
+        boolean isAccepted = decision.equals("ACCEPTED");
+        if (isAccepted) {
+            Integer goalTaskId = null;
+            if (excuse.getGoalTask() != null) {
+                goalTaskId = excuse.getGoalTask().getId();
+            }
+
+            // نحجز الأسبوع ونمنع احتساب اليوم مرتين قبل حفظ القبول وتحديث العداد.
+            acceptanceGuardService.lockAndCheck(
+                    excuse.getCommitmentWeek().getId(),
+                    goalTaskId,
+                    excuse.getExcuseDate(),
+                    null,
+                    excuse.getId()
+            );
+        }
+
         boolean wasAccepted = "ACCEPTED".equals(excuse.getStatus());
         excuse.setStatus(decision);
         excuse.setAiAssessment(reason == null ? null : (reason.length() > 1000 ? reason.substring(0, 1000) : reason));

@@ -37,8 +37,9 @@ public class ProofController {
     }
 
     @GetMapping("/get/{id}")
-    public ResponseEntity<?> getProofById(@PathVariable Integer id) {
-        Proof proof = proofService.getProofById(id);
+    public ResponseEntity<?> getProofById(@AuthenticationPrincipal User user,
+                                         @PathVariable Integer id) {
+        Proof proof = proofService.getProofById(user.getId(), id);
         return ResponseEntity.status(200).body(proof);
     }
 

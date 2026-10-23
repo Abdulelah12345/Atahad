@@ -10,6 +10,7 @@ import com.example.atahad.Repository.MemberRepository;
 import com.example.atahad.Repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
@@ -23,6 +24,7 @@ public class MemberService {
 
     private final MemberRepository memberRepository;
     private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
     private final CommitmentWeekService commitmentWeekService;
     @Transactional
     public void registerMember(MemberRegisterRequest dto) {
@@ -37,7 +39,8 @@ public class MemberService {
         user.setName(dto.getName());
         user.setEmail(dto.getEmail());
         user.setPhone(dto.getPhone());
-        user.setPassword(dto.getPassword());
+        // نخزن BCrypt فقط؛ لا نخزن كلمة المرور الأصلية.
+        user.setPassword(passwordEncoder.encode(dto.getPassword()));
         user.setRole("MEMBER");
         user.setCreatedAt(LocalDateTime.now());
 
