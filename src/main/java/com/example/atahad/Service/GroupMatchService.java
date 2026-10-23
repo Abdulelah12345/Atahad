@@ -4,9 +4,7 @@ import com.example.atahad.Api.ApiException;
 import com.example.atahad.Dto.Out.GroupMatchResponse;
 import com.example.atahad.Dto.Out.SimilarGroupResponse;
 import com.example.atahad.Entity.*;
-import com.example.atahad.Repository.GroupGoalRepository;
-import com.example.atahad.Repository.GroupMatchRepository;
-import com.example.atahad.Repository.GroupRepository;
+import com.example.atahad.Repository.*;
 import com.example.atahad.Service.GroupGoalService.MemberWeek;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -28,38 +26,105 @@ public class GroupMatchService {
     private final GroupAccessService groupAccessService;
     private final GroupGoalService groupGoalService;
     private final PointLogService pointLogService;
+    private final AiService aiService;
 
     // groups that look like ours: same proof method, close size, similar goal words
     public List<SimilarGroupResponse> suggestOpponents(Integer groupId, Integer memberId){
+
         groupAccessService.getActiveMembership(groupId, memberId);
+
         GroupGoal ourGoal = groupGoalRepository.findGroupGoalByGroupIdAndStatus(groupId, "ACTIVE");
+        if(ourGoal == null){
+            throw new ApiException("Your group must have an active goal");
+        }
+
         int ourSize = groupAccessService.activeMembersCount(groupId);
-        Set<String> ourWords = ourGoal == null ? Set.of() : words(ourGoal.getTitle());
+        if(ourSize < GroupAccessService.MIN_MEMBERS){
+            throw new ApiException("Your group must have at least 2 members");
+        }
 
         List<SimilarGroupResponse> list = new ArrayList<>();
         Map<Integer, Integer> scores = new HashMap<>();
+
         for(GroupGoal goal : groupGoalRepository.findGroupGoalsByStatus("ACTIVE")){
+
             Group other = goal.getGroup();
-            if(other.getId().equals(groupId) || !"ACTIVE".equals(other.getStatus()) || hasOpenMatch(groupId, other.getId())){
+            System.out.println("Checking Group: " + other.getName());
+
+            if(other.getId().equals(groupId) || !"ACTIVE".equals(other.getStatus())){
                 continue;
             }
+
+            if(hasOpenMatch(groupId, other.getId())){
+                continue;
+            }
+
             int size = groupAccessService.activeMembersCount(other.getId());
+
+            if(size < GroupAccessService.MIN_MEMBERS){
+                continue;
+            }
+            System.out.println("Opponent: " + other.getName());
+            System.out.println("Members Count: " + size);
+
+            String answer = aiService.matchGroupGoals(
+                    ourGoal.getTitle(),
+                    goal.getTitle()
+            );
+            String scoreText = aiService.field(answer, "SCORE");
+            String reason = aiService.field(answer, "REASON");
+            if(reason == null){
+                reason = "Similar group goals";
+            }
+
             int score = 0;
-            if(ourGoal != null && ourGoal.getProofMethod().equals(goal.getProofMethod())){
-                score += 2;
-            }
-            if(Math.abs(size - ourSize) <= 2){
-                score += 1;
-            }
-            for(String word : words(goal.getTitle())){
-                if(ourWords.contains(word)){
-                    score += 1;
+
+            try{
+                if(scoreText != null){
+                    score = Integer.parseInt(scoreText);
                 }
+            }catch(NumberFormatException e){
+                score = 0;
             }
+
+            score = Math.max(0, Math.min(100, score));
+
+            if(score < 65){
+                continue;
+            }
+
+            // Adjust the score based on weekly commitment difficulty
+            int timesDifference = Math.abs(ourGoal.getTimesPerWeek() - goal.getTimesPerWeek());
+            score -= timesDifference * 3;
+
+            // Adjust the score based on group size
+            int sizeDifference = Math.abs(ourSize - size);
+            score -= sizeDifference * 2;
+
+            score = Math.max(0, score);
+
+            if(score < 65){
+                continue;
+            }
+
             scores.put(other.getId(), score);
-            list.add(new SimilarGroupResponse(other.getId(), other.getName(), size, goal.getTitle(), goal.getProofMethod()));
+
+            list.add(new SimilarGroupResponse(
+                    other.getId(),
+                    other.getName(),
+                    size,
+                    goal.getTitle(),
+                    goal.getProofMethod(),
+                    score,
+                    reason
+            ));
         }
-        list.sort((a, b) -> scores.get(b.getGroupId()) - scores.get(a.getGroupId()));
+
+        list.sort((a, b) -> Integer.compare(
+                scores.get(b.getGroupId()),
+                scores.get(a.getGroupId())
+        ));
+
         return list.size() > 5 ? list.subList(0, 5) : list;
     }
 
@@ -107,6 +172,20 @@ public class GroupMatchService {
             match.setStatus("ACTIVE");
             match.setStartDate(start);
             match.setEndDate(start.plusDays(6));
+            GroupGoal challengerGoal = groupGoalRepository.findGroupGoalByGroupIdAndStatus(match.getChallenger().getId(), "ACTIVE");
+            GroupGoal opponentGoal = groupGoalRepository.findGroupGoalByGroupIdAndStatus(match.getOpponent().getId(), "ACTIVE");
+
+            if(challengerGoal == null || opponentGoal == null){
+                throw new ApiException("Both groups must have an active goal");
+            }
+
+            if(challengerGoal.getEndDate().isBefore(match.getEndDate()) ||
+                    opponentGoal.getEndDate().isBefore(match.getEndDate())){
+                throw new ApiException("Both goals must continue until the match ends");
+            }
+
+            match.setChallengerGoal(challengerGoal);
+            match.setOpponentGoal(opponentGoal);
             groupAccessService.systemMessage(match.getChallenger(), match.getOpponent().getName() + " accepted the match, it starts " + start);
             groupAccessService.systemMessage(match.getOpponent(), "The match with " + match.getChallenger().getName() + " starts " + start);
         }else{
@@ -134,8 +213,9 @@ public class GroupMatchService {
             if(match.getEndDate() == null || match.getEndDate().isAfter(saturday)){
                 continue;
             }
-            List<MemberWeek> challengerWeeks = weeksOf(match.getChallenger(), saturday);
-            List<MemberWeek> opponentWeeks = weeksOf(match.getOpponent(), saturday);
+            List<MemberWeek> challengerWeeks = groupGoalService.closedWeeks(match.getChallengerGoal(), match.getEndDate());
+            List<MemberWeek> opponentWeeks = groupGoalService.closedWeeks(match.getOpponentGoal(), match.getEndDate());
+
             int challengerScore = score(challengerWeeks);
             int opponentScore = score(opponentWeeks);
             match.setChallengerScore(challengerScore);

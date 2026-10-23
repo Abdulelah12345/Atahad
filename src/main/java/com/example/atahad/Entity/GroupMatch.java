@@ -59,4 +59,14 @@ public class GroupMatch {
     @JoinColumn(name = "least_procrastinating_id")
     @JsonIgnore
     private Group leastProcrastinating;
+
+    @ManyToOne
+    @JoinColumn(name = "challenger_goal_id")
+    @JsonIgnore
+    private GroupGoal challengerGoal;
+
+    @ManyToOne
+    @JoinColumn(name = "opponent_goal_id")
+    @JsonIgnore
+    private GroupGoal opponentGoal;
 }
