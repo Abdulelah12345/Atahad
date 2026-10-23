@@ -3,7 +3,7 @@ package com.example.atahad.Service;
 import com.example.atahad.Api.ApiException;
 import com.example.atahad.Dto.Out.GroupAlertResponse;
 import com.example.atahad.Entity.*;
-import com.example.atahad.Repository.GroupAlertRepository;
+import com.example.atahad.Repository.ChatMessageRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,16 +16,18 @@ import java.util.List;
 // the loud alert (siren) a member sends to a friend who did not do his task yet
 // rules: one alert a day from the same sender to the same friend, nothing after midnight,
 // two alerts or more on the same day become a collective alert, no alerts for a friend who sent an excuse
+// an alert is saved as a ChatMessage of type ALERT (or COLLECTIVE) with a receiver, it is not shown in the group chat
 @Service
 @RequiredArgsConstructor
 public class GroupAlertService {
-    private final GroupAlertRepository groupAlertRepository;
+    private final ChatMessageRepository chatMessageRepository;
     private final GroupAccessService groupAccessService;
     private final GroupGoalService groupGoalService;
     private final CommitmentWeekService commitmentWeekService;
     private final AiService aiService;
 
     public static final int QUIET_UNTIL_HOUR = 7; // from 00:00 to 06:59 no alerts
+    public static final List<String> ALERT_TYPES = List.of("ALERT", "COLLECTIVE");
 
     @Transactional
     public GroupAlertResponse send(Integer groupId, Integer senderId, Integer receiverId){
@@ -51,16 +53,16 @@ public class GroupAlertService {
         }
 
         LocalDateTime startOfDay = LocalDate.now().atStartOfDay();
-        if(!groupAlertRepository.findGroupAlertsBySenderIdAndReceiverIdAndSentAtAfter(sender.getId(), receiver.getId(), startOfDay).isEmpty()){
+        if(!chatMessageRepository.findChatMessagesByTypeInAndSenderIdAndReceiverIdAndSentAtAfter(ALERT_TYPES, sender.getId(), receiver.getId(), startOfDay).isEmpty()){
             throw new ApiException("You already alerted this friend today");
         }
 
-        List<GroupAlert> today = groupAlertRepository.findGroupAlertsByReceiverIdAndSentAtAfterOrderBySentAtDesc(receiver.getId(), startOfDay);
+        List<ChatMessage> today = chatMessageRepository.findChatMessagesByTypeInAndReceiverIdAndSentAtAfterOrderBySentAtDesc(ALERT_TYPES, receiver.getId(), startOfDay);
         boolean collective = !today.isEmpty();
         if(collective){
-            for(GroupAlert old : today){
-                old.setIsCollective(true);
-                groupAlertRepository.save(old);
+            for(ChatMessage old : today){
+                old.setType("COLLECTIVE");
+                chatMessageRepository.save(old);
             }
         }
 
@@ -79,13 +81,14 @@ public class GroupAlertService {
                         + "\nTask: " + goal.getTitle() + "\nTimes left this week: " + remaining + "\nDays left: " + daysLeft,
                 fallback);
 
-        GroupAlert alert = new GroupAlert();
-        alert.setMessage(text.length() > 500 ? text.substring(0, 500) : text);
-        alert.setIsCollective(collective);
+        ChatMessage alert = new ChatMessage();
+        alert.setType(collective ? "COLLECTIVE" : "ALERT");
+        alert.setContent(text.length() > 500 ? text.substring(0, 500) : text);
         alert.setSentAt(now);
+        alert.setGroup(group);
         alert.setSender(sender);
         alert.setReceiver(receiver);
-        groupAlertRepository.save(alert);
+        chatMessageRepository.save(alert);
         // TODO: send it with Firebase Cloud Messaging and the siren sound
         return toResponse(alert);
     }
@@ -94,15 +97,15 @@ public class GroupAlertService {
     public List<GroupAlertResponse> getMyAlertsToday(Integer memberId, Integer groupId){
         GroupMember groupMember = groupAccessService.getActiveMembership(groupId, memberId);
         List<GroupAlertResponse> list = new ArrayList<>();
-        for(GroupAlert alert : groupAlertRepository.findGroupAlertsByReceiverIdAndSentAtAfterOrderBySentAtDesc(groupMember.getId(), LocalDate.now().atStartOfDay())){
+        for(ChatMessage alert : chatMessageRepository.findChatMessagesByTypeInAndReceiverIdAndSentAtAfterOrderBySentAtDesc(ALERT_TYPES, groupMember.getId(), LocalDate.now().atStartOfDay())){
             list.add(toResponse(alert));
         }
         return list;
     }
 
-    private GroupAlertResponse toResponse(GroupAlert alert){
-        return new GroupAlertResponse(alert.getId(), alert.getSender().getGroup().getName(),
-                groupAccessService.nameOf(alert.getSender().getMember()), alert.getMessage(),
-                alert.getIsCollective(), alert.getSentAt());
+    private GroupAlertResponse toResponse(ChatMessage alert){
+        return new GroupAlertResponse(alert.getId(), alert.getGroup().getName(),
+                groupAccessService.nameOf(alert.getSender().getMember()), alert.getContent(),
+                "COLLECTIVE".equals(alert.getType()), alert.getSentAt());
     }
 }

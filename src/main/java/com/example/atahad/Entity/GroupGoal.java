@@ -10,7 +10,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Set;
 
-// The one goal a group is working on, every member gets a commitment on it
+// A goal of the group: PROPOSED (suggested by the AI or a member, the members vote), then the owner confirms one = ACTIVE,
+// every member gets a commitment on it, and at the end ENDED. The other proposals become REJECTED
 @Setter
 @Getter
 @AllArgsConstructor
@@ -28,26 +29,31 @@ public class GroupGoal {
     @Column(columnDefinition = "VARCHAR(100) NOT NULL")
     private String title;
 
-    @NotEmpty(message = "Proof method cannot be empty")
+    @Size(max = 500, message = "Details must be 500 characters max")
+    @Column(columnDefinition = "VARCHAR(500)")
+    private String details; // the idea of a proposal
+
+    @Pattern(regexp = "^(AI|MEMBER)$", message = "Suggested by must be AI or MEMBER")
+    @Column(columnDefinition = "VARCHAR(6)")
+    private String suggestedBy; // proposals only
+
+    // the next 4 are empty while it is a proposal, the owner sets them when he confirms it (GroupGoalRequest checks them)
     @Pattern(regexp = "^(LOCATION|PHOTO|QUIZ|PLATFORM|TIMER)$", message = "Proof method must be LOCATION, PHOTO, QUIZ, PLATFORM or TIMER")
-    @Column(columnDefinition = "VARCHAR(8) NOT NULL")
+    @Column(columnDefinition = "VARCHAR(8)")
     private String proofMethod;
 
-    @NotNull(message = "Times per week cannot be empty")
     @Min(value = 1, message = "Times per week must be at least 1")
     @Max(value = 7, message = "Times per week must be at most 7")
-    @Column(columnDefinition = "INTEGER NOT NULL")
+    @Column(columnDefinition = "INTEGER")
     private Integer timesPerWeek;
 
-    @NotNull(message = "Amount per time cannot be empty")
     @DecimalMin(value = "5.00", message = "Amount per time must be at least 5")
-    @Column(columnDefinition = "DECIMAL(10,2) NOT NULL")
+    @Column(columnDefinition = "DECIMAL(10,2)")
     private BigDecimal amountPerTime;
 
-    @NotNull(message = "Total weeks cannot be empty")
     @Min(value = 1, message = "Total weeks must be at least 1")
     @Max(value = 52, message = "Total weeks must be at most 52")
-    @Column(columnDefinition = "INTEGER NOT NULL")
+    @Column(columnDefinition = "INTEGER")
     private Integer totalWeeks;
 
     @Min(value = 1, message = "Minutes must be at least 1")
@@ -61,8 +67,8 @@ public class GroupGoal {
     @Column(columnDefinition = "DATE")
     private LocalDate endDate;
 
-    @Pattern(regexp = "^(ACTIVE|ENDED)$", message = "Status must be ACTIVE or ENDED")
-    @Column(columnDefinition = "VARCHAR(6)")
+    @Pattern(regexp = "^(PROPOSED|REJECTED|ACTIVE|ENDED)$", message = "Status must be PROPOSED, REJECTED, ACTIVE or ENDED")
+    @Column(columnDefinition = "VARCHAR(8)")
     private String status = "ACTIVE";
 
     //Relations

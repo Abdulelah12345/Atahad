@@ -4,8 +4,7 @@ import com.example.atahad.Api.ApiException;
 import com.example.atahad.Dto.In.GoalProposalRequest;
 import com.example.atahad.Dto.Out.GoalProposalResponse;
 import com.example.atahad.Entity.*;
-import com.example.atahad.Repository.GoalProposalRepository;
-import com.example.atahad.Repository.GoalVoteRepository;
+import com.example.atahad.Repository.GroupMemberRepository;
 import com.example.atahad.Repository.GroupGoalRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -16,11 +15,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 // choosing the next goal: the AI suggests 3, members can add theirs, everyone votes, the owner confirms
+// a proposal is a GroupGoal with status PROPOSED, and the vote of a member is GroupMember.votedGoal
 @Service
 @RequiredArgsConstructor
 public class GoalProposalService {
-    private final GoalProposalRepository goalProposalRepository;
-    private final GoalVoteRepository goalVoteRepository;
+    private final GroupMemberRepository groupMemberRepository;
     private final GroupGoalRepository groupGoalRepository;
     private final GroupAccessService groupAccessService;
     private final AiService aiService;
@@ -31,7 +30,7 @@ public class GoalProposalService {
         Group group = groupMember.getGroup();
 
         int openFromAi = 0;
-        for(GoalProposal proposal : goalProposalRepository.findGoalProposalsByGroupIdAndStatus(groupId, "OPEN")){
+        for(GroupGoal proposal : groupGoalRepository.findGroupGoalsByGroupIdAndStatus(groupId, "PROPOSED")){
             if("AI".equals(proposal.getSuggestedBy())){
                 openFromAi++;
             }
@@ -41,7 +40,7 @@ public class GoalProposalService {
         }
 
         StringBuilder history = new StringBuilder();
-        for(GroupGoal goal : groupGoalRepository.findGroupGoalsByGroupIdOrderByStartDateDesc(groupId)){
+        for(GroupGoal goal : groupGoalRepository.findGroupGoalsByGroupIdAndStatusInOrderByStartDateDesc(groupId, List.of("ACTIVE", "ENDED"))){
             history.append("- ").append(goal.getTitle()).append("\n");
         }
         String fallback = "Walk 30 minutes | Walk at least 30 minutes, proof by location or photo\n"
@@ -65,13 +64,13 @@ public class GoalProposalService {
             if(title.isEmpty()){
                 continue;
             }
-            GoalProposal proposal = new GoalProposal();
+            GroupGoal proposal = new GroupGoal();
             proposal.setTitle(title.length() > 100 ? title.substring(0, 100) : title);
             proposal.setDetails(parts.length > 1 ? cut(parts[1].trim(), 500) : null);
             proposal.setSuggestedBy("AI");
-            proposal.setStatus("OPEN");
+            proposal.setStatus("PROPOSED");
             proposal.setGroup(group);
-            goalProposalRepository.save(proposal);
+            groupGoalRepository.save(proposal);
             added++;
         }
         return getOpenProposals(groupId, memberId);
@@ -79,26 +78,21 @@ public class GoalProposalService {
 
     public void propose(Integer groupId, Integer memberId, GoalProposalRequest dto){
         GroupMember groupMember = groupAccessService.getActiveMembership(groupId, memberId);
-        GoalProposal proposal = new GoalProposal();
+        GroupGoal proposal = new GroupGoal();
         proposal.setTitle(dto.getTitle());
         proposal.setDetails(dto.getDetails());
         proposal.setSuggestedBy("MEMBER");
-        proposal.setStatus("OPEN");
+        proposal.setStatus("PROPOSED");
         proposal.setGroup(groupMember.getGroup());
-        goalProposalRepository.save(proposal);
+        groupGoalRepository.save(proposal);
     }
 
     public List<GoalProposalResponse> getOpenProposals(Integer groupId, Integer memberId){
         GroupMember groupMember = groupAccessService.getActiveMembership(groupId, memberId);
         List<GoalProposalResponse> list = new ArrayList<>();
-        for(GoalProposal proposal : goalProposalRepository.findGoalProposalsByGroupIdAndStatus(groupId, "OPEN")){
-            List<GoalVote> votes = goalVoteRepository.findGoalVotesByGoalProposalId(proposal.getId());
-            boolean mine = false;
-            for(GoalVote vote : votes){
-                if(vote.getGroupMember().getId().equals(groupMember.getId())){
-                    mine = true;
-                }
-            }
+        for(GroupGoal proposal : groupGoalRepository.findGroupGoalsByGroupIdAndStatus(groupId, "PROPOSED")){
+            List<GroupMember> votes = groupMemberRepository.findGroupMembersByVotedGoalId(proposal.getId());
+            boolean mine = groupMember.getVotedGoal() != null && groupMember.getVotedGoal().getId().equals(proposal.getId());
             list.add(new GoalProposalResponse(proposal.getId(), proposal.getTitle(), proposal.getDetails(),
                     proposal.getSuggestedBy(), votes.size(), mine));
         }
@@ -109,37 +103,40 @@ public class GoalProposalService {
     // one vote for every member, voting again moves the vote
     @Transactional
     public void vote(Integer proposalId, Integer memberId){
-        GoalProposal proposal = goalProposalRepository.findGoalProposalById(proposalId);
-        if(proposal == null){
-            throw new ApiException("Proposal not found");
-        }
-        if(!"OPEN".equals(proposal.getStatus())){
+        GroupGoal proposal = getProposal(proposalId);
+        if(!"PROPOSED".equals(proposal.getStatus())){
             throw new ApiException("Voting on this proposal is closed");
         }
         GroupMember groupMember = groupAccessService.getActiveMembership(proposal.getGroup().getId(), memberId);
 
-        for(GoalVote old : goalVoteRepository.findGoalVotesByGroupMemberIdAndGoalProposalStatus(groupMember.getId(), "OPEN")){
-            if(old.getGoalProposal().getId().equals(proposalId)){
-                throw new ApiException("You already voted for this proposal");
-            }
-            goalVoteRepository.delete(old);
+        if(groupMember.getVotedGoal() != null && groupMember.getVotedGoal().getId().equals(proposalId)){
+            throw new ApiException("You already voted for this proposal");
         }
-        GoalVote vote = new GoalVote();
-        vote.setVotedAt(LocalDateTime.now());
-        vote.setGoalProposal(proposal);
-        vote.setGroupMember(groupMember);
-        goalVoteRepository.save(vote);
+        groupMember.setVotedGoal(proposal); // replaces his old vote
+        groupMemberRepository.save(groupMember);
     }
 
     // the owner can close a proposal without choosing it
     public void reject(Integer proposalId, Integer ownerId){
-        GoalProposal proposal = goalProposalRepository.findGoalProposalById(proposalId);
-        if(proposal == null){
+        GroupGoal proposal = getProposal(proposalId);
+        groupAccessService.checkOwner(proposal.getGroup().getId(), ownerId);
+        if(!"PROPOSED".equals(proposal.getStatus())){
+            throw new ApiException("This proposal is closed");
+        }
+        proposal.setStatus("REJECTED");
+        groupGoalRepository.save(proposal);
+        for(GroupMember voter : groupMemberRepository.findGroupMembersByVotedGoalId(proposalId)){
+            voter.setVotedGoal(null);
+            groupMemberRepository.save(voter);
+        }
+    }
+
+    private GroupGoal getProposal(Integer proposalId){
+        GroupGoal proposal = groupGoalRepository.findGroupGoalById(proposalId);
+        if(proposal == null || proposal.getSuggestedBy() == null){
             throw new ApiException("Proposal not found");
         }
-        groupAccessService.checkOwner(proposal.getGroup().getId(), ownerId);
-        proposal.setStatus("REJECTED");
-        goalProposalRepository.save(proposal);
+        return proposal;
     }
 
     private String cut(String text, int max){

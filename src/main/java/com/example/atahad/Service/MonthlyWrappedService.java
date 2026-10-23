@@ -24,7 +24,7 @@ public class MonthlyWrappedService {
     private final CommitmentWeekRepository commitmentWeekRepository;
     private final PenaltyRepository penaltyRepository;
     private final PointLogRepository pointLogRepository;
-    private final GroupTitleRepository groupTitleRepository;
+    private final GroupTitleService groupTitleService;
     private final MemberRepository memberRepository;
     private final GroupAccessService groupAccessService;
     private final AiService aiService;
@@ -106,8 +106,8 @@ public class MonthlyWrappedService {
         }
 
         StringBuilder titles = new StringBuilder();
-        for(GroupTitle title : groupTitleRepository.findGroupTitlesByGroupMemberMemberIdAndWeekStartBetween(member.getId(), first, last)){
-            titles.append(title.getTitle()).append(" ");
+        for(String title : groupTitleService.titlesOf(member, first, last)){
+            titles.append(title).append(" ");
         }
 
         int percent = required == 0 ? 0 : Math.min(100, completed * 100 / required);

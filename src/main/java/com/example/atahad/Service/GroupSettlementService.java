@@ -16,8 +16,8 @@ import java.util.List;
 
 // the weekly settlement of a group (sunday 00:00, after the weeks are closed)
 // nobody failed -> golden week, points for the group
-// somebody failed (without an accepted excuse) -> every member donates the task price,
-// and every member who failed donates the task price again. first failure he stays, second failure he is removed
+// somebody failed (without an accepted excuse) -> every member who finished donates half of the task price,
+// and every member who failed donates the task price. first failure he stays, second failure he is removed
 @Service
 @RequiredArgsConstructor
 public class GroupSettlementService {
@@ -80,10 +80,9 @@ public class GroupSettlementService {
             pointLogService.addGroupPoints(group, PointLogService.GOLDEN_WEEK_POINTS, "GOLDEN_WEEK");
         }else{
             for(MemberWeek w : weeks){
-                createPenalty(w, price, "GROUP_COLLECTIVE", settlement, sunday);
+                createPenalty(w, failed.contains(w) ? price : half(price), "GROUP_COLLECTIVE", settlement, sunday);
             }
             for(MemberWeek w : failed){
-                createPenalty(w, price, "GROUP_EXTRA", settlement, sunday);
                 GroupMember groupMember = w.groupMember();
                 groupMember.setFailureCount((groupMember.getFailureCount() == null ? 0 : groupMember.getFailureCount()) + 1);
                 groupMemberRepository.save(groupMember);
@@ -93,7 +92,8 @@ public class GroupSettlementService {
             }
         }
 
-        List<GroupTitle> titles = groupTitleService.giveTitles(group, weeks, weekStart, saturday);
+        List<GroupTitleService.Win> titles = groupTitleService.giveTitles(group, weeks, weekStart, saturday);
+        settlement.setTitles(groupTitleService.encode(titles));
 
         String text = writeText(group, goal, weeks, failed, toKick, titles, price);
         settlement.setSettlementText(text.length() > 2000 ? text.substring(0, 2000) : text);
@@ -118,10 +118,7 @@ public class GroupSettlementService {
         for(MemberWeek w : weeks){
             BigDecimal mine = BigDecimal.ZERO;
             if(!failed.isEmpty()){
-                mine = price;
-                if(failed.contains(w)){
-                    mine = mine.add(price);
-                }
+                mine = failed.contains(w) ? price : half(price);
             }
             whatsAppService.settlementMessage(w.groupMember().getMember(), group.getName(), goal.getTitle(), text, board, mine);
         }
@@ -129,7 +126,7 @@ public class GroupSettlementService {
 
     // the facts are written by the code, the AI only makes them fun to read
     private String writeText(Group group, GroupGoal goal, List<MemberWeek> weeks, List<MemberWeek> failed,
-                             List<GroupMember> toKick, List<GroupTitle> titles, BigDecimal price){
+                             List<GroupMember> toKick, List<GroupTitleService.Win> titles, BigDecimal price){
         StringBuilder facts = new StringBuilder();
         facts.append("Goal: ").append(goal.getTitle()).append("\n");
         for(MemberWeek w : weeks){
@@ -138,8 +135,8 @@ public class GroupSettlementService {
                     .append(Boolean.TRUE.equals(w.week().getIsFullWeek()) ? " done" : " failed").append("\n");
         }
         StringBuilder titleLine = new StringBuilder();
-        for(GroupTitle title : titles){
-            titleLine.append(title.getTitle()).append(": ").append(groupTitleService.nameOf(title)).append(", ");
+        for(GroupTitleService.Win title : titles){
+            titleLine.append(title.title()).append(": ").append(groupTitleService.nameOf(title)).append(", ");
         }
 
         String fallback;
@@ -151,7 +148,7 @@ public class GroupSettlementService {
                 names.add(groupAccessService.nameOf(w.groupMember().getMember()));
             }
             fallback = "تسوية الأسبوع: " + String.join(" و", names) + " ما كمّلوا " + goal.getTitle()
-                    + ". كل عضو عليه تبرع " + price + " ريال لإحسان، واللي ما كمّلوا عليهم " + price + " ريال زيادة.";
+                    + ". اللي كمّلوا عليهم تبرع " + money(half(price)) + " ريال لإحسان، واللي ما كمّلوا عليهم " + money(price) + " ريال.";
             if(!toKick.isEmpty()){
                 fallback += " وهذي المرة الثانية، فطلعوا من القروب.";
             }
@@ -166,6 +163,15 @@ public class GroupSettlementService {
                         + "Donations go to Ehsan charity. " + aiService.tone(group.getHumorLevel()),
                 facts + "\nSettlement:\n" + fallback,
                 fallback);
+    }
+
+    // the members who finished pay half of the task price, even when it is less than 5
+    private BigDecimal half(BigDecimal price){
+        return price.divide(BigDecimal.valueOf(2), 2, java.math.RoundingMode.HALF_UP);
+    }
+
+    private String money(BigDecimal amount){
+        return amount.stripTrailingZeros().toPlainString();
     }
 
     private void createPenalty(MemberWeek w, BigDecimal amount, String reason, GroupSettlement settlement, LocalDate sunday){

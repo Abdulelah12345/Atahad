@@ -14,4 +14,6 @@ public interface GroupSettlementRepository extends JpaRepository<GroupSettlement
     GroupSettlement findGroupSettlementByGroupGoalIdAndWeekStart(Integer groupGoalId, LocalDate weekStart);
 
     List<GroupSettlement> findGroupSettlementsByGroupGoalGroupIdOrderByCreatedAtDesc(Integer groupId);
+
+    List<GroupSettlement> findGroupSettlementsByGroupGoalGroupIdAndWeekStartBetween(Integer groupId, LocalDate from, LocalDate to);
 }

@@ -33,7 +33,7 @@ public class AutomationService {
         }
     }
 
-    // also called from the admin endpoint to try any date in the demo
+    //also called from the admin endpoint to try any date in the demo
     public void run(LocalDate today){
         commitmentWeekService.runDaily(today);
         if(today.getDayOfWeek() == DayOfWeek.SUNDAY){

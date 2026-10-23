@@ -59,19 +59,11 @@ public class Group {
 
     @OneToMany(cascade = CascadeType.ALL, mappedBy = "group")
     @JsonIgnore
-    private Set<GroupGoal> goals; // one active goal at a time, the rest is history
-
-    @OneToMany(cascade = CascadeType.ALL, mappedBy = "group")
-    @JsonIgnore
-    private Set<GoalProposal> goalProposals;
+    private Set<GroupGoal> goals; // the proposals, one active goal at a time, and the old goals
 
     @OneToMany(cascade = CascadeType.ALL, mappedBy = "group")
     @JsonIgnore
     private Set<ChatMessage> chatMessages;
-
-    @OneToMany(cascade = CascadeType.ALL, mappedBy = "group")
-    @JsonIgnore
-    private Set<GroupTitle> titles;
 
     @OneToMany(cascade = CascadeType.ALL, mappedBy = "group")
     @JsonIgnore

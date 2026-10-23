@@ -37,6 +37,10 @@ public class GroupMember {
     @Column(columnDefinition = "VARCHAR(6)")
     private String status = "ACTIVE";
 
+    @Size(max = 100, message = "Title must be 100 characters max")
+    @Column(columnDefinition = "VARCHAR(100)")
+    private String title; // the titles he won in the last settlement, like IRON,ROCKET (null = none)
+
     @ManyToOne
     @JoinColumn(name = "group_id")
     @JsonIgnore
@@ -46,4 +50,9 @@ public class GroupMember {
     @JoinColumn(name = "member_id")
     @JsonIgnore
     private Member member;
+
+    @ManyToOne
+    @JoinColumn(name = "voted_goal_id")
+    @JsonIgnore
+    private GroupGoal votedGoal; // his one vote on the proposals of the next goal
 }
