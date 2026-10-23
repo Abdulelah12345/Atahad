@@ -55,33 +55,4 @@ public class ExcuseController {
                 .body(new ApiResponse("Excuse added successfully"));
     }
 
-
-    @PutMapping("/update/goal-task/{excuseId}")
-    public ResponseEntity<?> updateGoalTaskExcuse(
-            @AuthenticationPrincipal User user,
-            @PathVariable Integer excuseId,
-            @RequestBody @Valid ExcuseRequest request) {
-
-        // معرف المستخدم من الجلسة، والملكية يفحصها السيرفس.
-        Integer userId = user.getId();
-
-        excuseService.updateGoalTaskExcuse(userId, excuseId, request);
-
-        return ResponseEntity.status(200)
-                .body(new ApiResponse("Excuse updated successfully"));
-    }
-
-    @DeleteMapping("/delete/goal-task/{excuseId}")
-    public ResponseEntity<?> deleteGoalTaskExcuse(
-            @AuthenticationPrincipal User user,
-            @PathVariable Integer excuseId) {
-
-        // معرف المستخدم من الجلسة، والملكية يفحصها السيرفس.
-        Integer userId = user.getId();
-
-        excuseService.deleteGoalTaskExcuse(userId, excuseId);
-
-        return ResponseEntity.status(200)
-                .body(new ApiResponse("Excuse deleted successfully"));
-    }
 }

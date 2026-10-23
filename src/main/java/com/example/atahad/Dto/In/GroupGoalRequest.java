@@ -35,4 +35,9 @@ public class GroupGoalRequest {
     private Integer totalWeeks;
 
     private Integer proposalId; // optional, the chosen proposal
+
+    // TIMER only: the minutes of one time, the same for every member
+    @Min(value = 1, message = "Minutes must be at least 1")
+    @Max(value = 600, message = "Minutes must be at most 600")
+    private Integer targetMinutes;
 }

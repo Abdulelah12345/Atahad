@@ -46,6 +46,10 @@ public class GroupGoalService {
         goal.setTimesPerWeek(dto.getTimesPerWeek());
         goal.setAmountPerTime(dto.getAmountPerTime());
         goal.setTotalWeeks(dto.getTotalWeeks());
+        if("TIMER".equals(dto.getProofMethod()) && dto.getTargetMinutes() == null){
+            throw new ApiException("A TIMER goal needs the minutes of one time");
+        }
+        goal.setTargetMinutes(dto.getTargetMinutes());
         goal.setStartDate(LocalDate.now());
         goal.setEndDate(LocalDate.now().with(TemporalAdjusters.nextOrSame(DayOfWeek.SATURDAY)).plusWeeks(dto.getTotalWeeks() - 1));
         goal.setStatus("ACTIVE");
@@ -72,6 +76,7 @@ public class GroupGoalService {
         habit.setProofMethod(goal.getProofMethod());
         habit.setTimesPerWeek(goal.getTimesPerWeek());
         habit.setBaseAmount(goal.getAmountPerTime());
+        habit.setTargetMinutes(goal.getTargetMinutes()); // LOCATION: the member sets his own place with /commitment/target
         habit.setStatus("ACTIVE");
         habit.setEffectiveFrom(LocalDate.now());
         habit.setMember(member);

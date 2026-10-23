@@ -26,6 +26,12 @@ public class AiService {
     @Value("${ai.api-key:}")
     private String apiKey;
 
+    // Gemini's own API, used for videos (the OpenAI compatible one takes images only)
+    @Value("${ai.native-url:https://generativelanguage.googleapis.com/v1beta/models/}")
+    private String nativeUrl;
+
+    public static final int MAX_VIDEO_BYTES = 15 * 1024 * 1024; // the request must stay under 20 MB
+
     private final RestClient restClient = RestClient.create();
 
     public String ask(String instructions, String prompt, String fallback){
@@ -68,6 +74,59 @@ public class AiService {
             Map<?, ?> message = (Map<?, ?>) ((Map<?, ?>) choices.get(0)).get("message");
             String text = String.valueOf(message.get("content")).trim();
             return text.isBlank() ? fallback : text;
+        }catch(Exception e){
+            return fallback;
+        }
+    }
+
+    // one file from the app camera: a video goes to Gemini's own API, a photo goes the normal way
+    public String askWithMedia(String instructions, String prompt, String mediaUrl, String fallback){
+        if(apiKey == null || apiKey.isBlank() || mediaUrl == null || mediaUrl.isBlank()){
+            return fallback;
+        }
+        try{
+            ResponseEntity<byte[]> file = download(mediaUrl);
+            String type = mediaType(file, mediaUrl);
+            byte[] bytes = file.getBody();
+            if(bytes == null || bytes.length == 0){
+                return fallback;
+            }
+            String data = Base64.getEncoder().encodeToString(bytes);
+            if(!type.startsWith("video/")){
+                return askWithImages(instructions, prompt, List.of("data:" + type + ";base64," + data), fallback);
+            }
+            if(bytes.length > MAX_VIDEO_BYTES){
+                return fallback; // too big, an admin decides
+            }
+            Map<String, Object> body = Map.of(
+                    "system_instruction", Map.of("parts", List.of(Map.of("text", instructions))),
+                    "contents", List.of(Map.of(
+                            "role", "user",
+                            "parts", List.of(
+                                    Map.of("text", prompt),
+                                    Map.of("inline_data", Map.of("mime_type", type, "data", data))
+                            )
+                    ))
+            );
+            Map<?, ?> response = restClient.post()
+                    .uri(nativeUrl + model + ":generateContent")
+                    .header("x-goog-api-key", apiKey)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(body)
+                    .retrieve()
+                    .body(Map.class);
+
+            List<?> candidates = (List<?>) response.get("candidates");
+            Map<?, ?> content = (Map<?, ?>) ((Map<?, ?>) candidates.get(0)).get("content");
+            StringBuilder text = new StringBuilder();
+            for(Object part : (List<?>) content.get("parts")){
+                Object value = ((Map<?, ?>) part).get("text");
+                if(value != null){
+                    text.append(value);
+                }
+            }
+            String answer = text.toString().trim();
+            return answer.isBlank() ? fallback : answer;
         }catch(Exception e){
             return fallback;
         }
@@ -117,9 +176,35 @@ public class AiService {
         if(image.startsWith("data:")){
             return image;
         }
-        ResponseEntity<byte[]> file = restClient.get().uri(image).retrieve().toEntity(byte[].class);
+        ResponseEntity<byte[]> file = download(image);
         String type = file.getHeaders().getContentType() == null ? "image/jpeg" : file.getHeaders().getContentType().toString();
         return "data:" + type + ";base64," + Base64.getEncoder().encodeToString(file.getBody());
+    }
+
+    private ResponseEntity<byte[]> download(String url){
+        return restClient.get().uri(url).retrieve().toEntity(byte[].class);
+    }
+
+    // from the header, or from the end of the link when the storage sends a general type
+    private String mediaType(ResponseEntity<byte[]> file, String url){
+        String type = file.getHeaders().getContentType() == null ? "" : file.getHeaders().getContentType().toString().split(";")[0].trim();
+        if(type.startsWith("video/") || type.startsWith("image/")){
+            return type;
+        }
+        String path = url.toLowerCase().split("\\?")[0];
+        if(path.endsWith(".mp4")){
+            return "video/mp4";
+        }
+        if(path.endsWith(".mov")){
+            return "video/quicktime";
+        }
+        if(path.endsWith(".webm")){
+            return "video/webm";
+        }
+        if(path.endsWith(".png")){
+            return "image/png";
+        }
+        return "image/jpeg";
     }
 
     public String matchGroupGoals(String goal1, String goal2){

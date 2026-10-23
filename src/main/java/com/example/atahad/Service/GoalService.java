@@ -64,6 +64,7 @@ public class GoalService {
         goal.setBaseAmount(null); // goals use the amount of each task
         goal.setPendingBaseAmount(null);
         goal.setEndDate(calculateEndDate(goal.getTotalWeeks()));
+        CommitmentService.checkTargets(goal);
         goalRepository.save(goal);
     }
 
@@ -156,6 +157,11 @@ public class GoalService {
         goal.setTitle(dto.getTitle());
         goal.setDescription(dto.getDescription());
         goal.setProofMethod(dto.getProofMethod());
+        goal.setTargetLatitude(dto.getTargetLatitude());
+        goal.setTargetLongitude(dto.getTargetLongitude());
+        goal.setTargetRadiusMeters(dto.getTargetRadiusMeters());
+        goal.setTargetPlaceName(dto.getTargetPlaceName());
+        goal.setTargetMinutes(dto.getTargetMinutes());
         goal.setTotalWeeks(dto.getWeeks().size());
         addGoal(memberId, goal);
 

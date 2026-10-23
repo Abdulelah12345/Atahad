@@ -50,6 +50,11 @@ public class GroupGoal {
     @Column(columnDefinition = "INTEGER NOT NULL")
     private Integer totalWeeks;
 
+    @Min(value = 1, message = "Minutes must be at least 1")
+    @Max(value = 600, message = "Minutes must be at most 600")
+    @Column(columnDefinition = "INTEGER")
+    private Integer targetMinutes; // TIMER only, the place of LOCATION is set by every member for himself
+
     @Column(columnDefinition = "DATE")
     private LocalDate startDate;
 
