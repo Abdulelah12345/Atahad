@@ -22,7 +22,7 @@ public class GoalPlanRequest {
     private String description;
 
     @NotEmpty(message = "Proof method cannot be empty")
-    @Pattern(regexp = "^(LOCATION|PHOTO|QUIZ|PLATFORM|TIMER)$", message = "Proof method must be LOCATION, PHOTO, QUIZ, PLATFORM or TIMER")
+    @Pattern(regexp = "^(LOCATION|PHOTO|QUIZ|TIMER)$", message = "Proof method must be LOCATION, PHOTO, QUIZ or TIMER")
     private String proofMethod;
 
     @NotNull(message = "Amount per time cannot be empty")

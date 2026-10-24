@@ -3,10 +3,7 @@ package com.example.atahad.Service;
 import com.example.atahad.Api.ApiException;
 import com.example.atahad.Dto.In.ProofRequest;
 import com.example.atahad.Entity.*;
-import com.example.atahad.Repository.CommitmentWeekRepository;
-import com.example.atahad.Repository.ExcuseRepository;
-import com.example.atahad.Repository.MemberRepository;
-import com.example.atahad.Repository.ProofRepository;
+import com.example.atahad.Repository.*;
 import lombok.RequiredArgsConstructor;
 import org.hibernate.Hibernate;
 import org.springframework.stereotype.Service;
@@ -32,7 +29,6 @@ public class ProofDecisionService {
     private final AiService aiService;
     private final AcceptanceGuardService acceptanceGuardService;
     private final QuizService quizService;
-    private final ProofChallengeService proofChallengeService;
     private final PlaceVisitRepository placeVisitRepository;
 
     public static final int DEFAULT_RADIUS = 150;
@@ -166,7 +162,7 @@ public class ProofDecisionService {
                 String failed = quizService.grade(proof);
                 applyDecision(proof, failed == null ? "ACCEPTED" : "REJECTED", failed == null ? "جاوب الاختبار صح" : failed);
             }
-            default -> decideImage(proof, commitment); // PHOTO and PLATFORM
+            default -> decideImage(proof, commitment); // PHOTO
         }
     }
 
@@ -266,10 +262,9 @@ public class ProofDecisionService {
         }
     }
 
-    // PHOTO: a camera photo or a live clip of the activity, PLATFORM: a screenshot from the app or website of the activity
+    // PHOTO: a camera photo or a live clip of the activity
     private void decideImage(Proof proof, Commitment commitment){
         String task = proof.getGoalTask() == null ? commitment.getTitle() : commitment.getTitle() + " - " + proof.getGoalTask().getTitle();
-        boolean photo = "PHOTO".equals(proof.getType());
 
         String answer = aiService.askWithImages(
                 "You check proofs in a commitment app. Decide if the evidence shows that the person really did the task. "

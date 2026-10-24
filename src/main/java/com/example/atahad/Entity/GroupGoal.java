@@ -38,7 +38,7 @@ public class GroupGoal {
     private String suggestedBy; // proposals only
 
     // the next 4 are empty while it is a proposal, the owner sets them when he confirms it (GroupGoalRequest checks them)
-    @Pattern(regexp = "^(LOCATION|PHOTO|QUIZ|PLATFORM|TIMER)$", message = "Proof method must be LOCATION, PHOTO, QUIZ, PLATFORM or TIMER")
+    @Pattern(regexp = "^(LOCATION|PHOTO|QUIZ|TIMER)$", message = "Proof method must be LOCATION, PHOTO, QUIZ or TIMER")
     @Column(columnDefinition = "VARCHAR(8)")
     private String proofMethod;
 

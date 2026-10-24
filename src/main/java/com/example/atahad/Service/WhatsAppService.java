@@ -21,7 +21,7 @@ public class WhatsAppService {
 
     private static final String LINE = "━━━━━━━━━━━━━━";
 
-    // ================= the messages =================
+    //===== the messages
 
     // a time was lost (or the member withdrew), the app is locked now
     public void lockMessage(Member member, String commitmentTitle, int times, BigDecimal amountPerTime, BigDecimal totalToDonate, boolean withdrawal){
@@ -39,7 +39,7 @@ public class WhatsAppService {
                 + "2. افتح أتعهّد واضغط *تبرّعت*\n\n"
                 + "أو أدخِل العذر.\n\n"
                 + LINE + "\n"
-                + "_الالتزام يُبنى بالاستمرار، وتبرّعك أجرٌ لك بإذن الله._";
+                + "﴿وَما تُنفِقوا مِن خَيرٍ فَلِأَنفُسِكُم﴾";
         enqueue(member, "LOCK", body);
     }
 

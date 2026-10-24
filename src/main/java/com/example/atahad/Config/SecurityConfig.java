@@ -54,9 +54,6 @@ public class SecurityConfig {
                                 HttpMethod.POST,
                                 "/api/v1/member/register"
                         ).permitAll()
-                        // إنشاء حساب عضو متاح قبل تسجيل الدخول؛ إنشاء الأدمن للأدمن فقط.
-                        .requestMatchers(HttpMethod.POST, "/api/v1/member/register").permitAll()
-                        .requestMatchers("/api/v1/admin/**").hasAuthority("ADMIN")
 
                         .requestMatchers(
                                 "/api/v1/account/login"
@@ -87,7 +84,7 @@ public class SecurityConfig {
                                 "/api/v1/penalty/cancel/{adminId}/{penaltyId}",
                                 "/api/v1/admin-review/decide/{adminId}/{kind}/{id}/{accept}",
                                 "/api/v1/admin/update",
-                                "/api/v1/account/unban/{memberId}"
+                                "/api/v1/account/unban/{adminId}/{memberId}"
                         ).hasAuthority("ADMIN")
 
                         .requestMatchers(
@@ -209,16 +206,8 @@ public class SecurityConfig {
                         //member or admin
                         .requestMatchers("/api/v1/group/get/*").hasAnyAuthority("MEMBER", "ADMIN")
 
-                        //the other parts stay open until their rules are added here
-                        .anyRequest().permitAll()
                         // All remaining endpoints require authentication
                         .anyRequest().authenticated()
-                )
-
-                .sessionManagement(session -> session
-                        .sessionCreationPolicy(
-                                SessionCreationPolicy.IF_REQUIRED
-                        )
                 )
 
                 .exceptionHandling(exception -> exception
@@ -254,8 +243,6 @@ public class SecurityConfig {
                         .logoutUrl("/api/v1/user/auth/logout")
                         .invalidateHttpSession(true)
                 )
-                .httpBasic(basic -> {})
-
                 .formLogin(form -> form.disable())
 
                 .httpBasic(basic -> {})

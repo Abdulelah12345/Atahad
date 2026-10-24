@@ -107,7 +107,7 @@ public class GoalService {
                 "You plan goals in a commitment app. The goal is split into weeks (Sunday to Saturday). "
                         + "Suggest for every week a short task title and how many times (1 to 7) the person must do it that week, "
                         + "starting easy and growing step by step so the goal is reached by the last week. "
-                        + "Choose the best proof method: LOCATION (being in a place), PHOTO, QUIZ (learning), PLATFORM (an app or website), TIMER (time spent). "
+                        + "Choose the best proof method: LOCATION (being in a place), PHOTO, QUIZ (learning), TIMER (time spent). "
                         + "Answer only with these lines:\nPROOF: one method\nNOTE: one short sentence in Arabic about the plan\n"
                         + "then one line for every week: WEEK number | task title in Arabic | times",
                 "Goal: " + dto.getGoal() + "\nNumber of weeks: " + totalWeeks
@@ -115,7 +115,7 @@ public class GoalService {
                 fallback);
 
         String proof = aiService.field(answer, "PROOF");
-        if(proof == null || !proof.toUpperCase().matches("^(LOCATION|PHOTO|QUIZ|PLATFORM|TIMER)$")){
+        if(proof == null || !proof.toUpperCase().matches("^(LOCATION|PHOTO|QUIZ|TIMER)$")){
             proof = "PHOTO";
         }
         List<PlanWeekResponse> weeks = new ArrayList<>();
