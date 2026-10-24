@@ -9,6 +9,7 @@ import com.example.atahad.Entity.User;
 import com.example.atahad.Repository.AdminRepository;
 import com.example.atahad.Repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,6 +23,7 @@ public class AdminService {
 
     private final AdminRepository adminRepository;
     private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
 
     @Transactional
     public void registerAdmin(AdminRegisterRequest dto) {
@@ -38,7 +40,7 @@ public class AdminService {
         user.setPhone(dto.getPhone());
         user.setRole("ADMIN");
         user.setCreatedAt(LocalDateTime.now());
-        user.setPassword(dto.getPassword());
+        user.setPassword(passwordEncoder.encode(dto.getPassword()));
 
         userRepository.save(user);
 

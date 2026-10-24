@@ -5,6 +5,7 @@ import com.example.atahad.Service.UserService;
 import com.example.atahad.Api.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -24,15 +25,15 @@ public class UserController {
         return ResponseEntity.status(200).body(userService.getUserById(id));
     }
 
-    @PutMapping("/update/{id}")
-    public ResponseEntity<?> updateUser(@PathVariable Integer id,@RequestBody User user) {
-        userService.updateUser(id,user);
+    @PutMapping("/update")
+    public ResponseEntity<?> updateUser(@AuthenticationPrincipal User user,@RequestBody User updatedUser) {
+        userService.updateUser(user.getId(),updatedUser);
         return ResponseEntity.status(200).body(new ApiResponse("User updated successfully"));
     }
 
-    @DeleteMapping("/delete/{id}")
-    public ResponseEntity<?> deleteUser(@PathVariable Integer id) {
-        userService.deleteUser(id);
+    @DeleteMapping("/delete")
+    public ResponseEntity<?> deleteUser(@AuthenticationPrincipal User user) {
+        userService.deleteUser(user.getId());
         return ResponseEntity.status(200).body(new ApiResponse("User deleted successfully"));
     }
 }
