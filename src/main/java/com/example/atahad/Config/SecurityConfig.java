@@ -1,8 +1,13 @@
 package com.example.atahad.Config;
 
+import com.example.atahad.Service.MyUserDetailsService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -10,62 +15,106 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 
-// مؤقت لين نبني تسجيل الدخول: كل الطلبات مسموحة بدون توثيق.
 @Configuration
 @EnableWebSecurity
+@RequiredArgsConstructor
 public class SecurityConfig {
+
+    private final MyUserDetailsService myUserDetailsService;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
 
-    /*
-     الخصومات غير المدفوعة لا تمنع تسجيل الدخول، حتى يتمكن العضو من رفع إثبات التبرع.
-     نقيّد عملياته عن طريق LockInterceptor حسب الفلو، أما الحساب المعطل فيمنع من الدخول.
-    */
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    public AuthenticationManager authenticationManager(
+            AuthenticationConfiguration configuration
+    ) throws Exception {
+        return configuration.getAuthenticationManager();
+    }
+
+    @Bean
+    public SecurityFilterChain securityFilterChain(
+            HttpSecurity http
+    ) throws Exception {
+
         return http
                 // هذا يعطل حماية CSRF، ولا يغني عن مراجعتها عند استخدام جلسات المتصفح.
                 .csrf(csrf -> csrf.disable())
+
+                .userDetailsService(myUserDetailsService)
+
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
                 )
                 .authorizeHttpRequests(auth -> auth
+
+                        // Public endpoints
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/v1/member/register"
+                        ).permitAll()
                         // إنشاء حساب عضو متاح قبل تسجيل الدخول؛ إنشاء الأدمن للأدمن فقط.
                         .requestMatchers(HttpMethod.POST, "/api/v1/member/register").permitAll()
                         .requestMatchers("/api/v1/admin/**").hasAuthority("ADMIN")
 
-                        // رجوع Google لا يشترط دور عضو؛ يجب التحقق من state داخل مسار الربط.
-                        .requestMatchers(HttpMethod.GET,
-                                "/api/v1/donation-proof/gmail/callback").permitAll()
+                        .requestMatchers(
+                                "/api/v1/account/login"
+                        ).permitAll()
 
-                        // الأدمن يعرض جميع الإثباتات والأعذار والاعتراضات والخصومات وقائمة المراجعة.
-                        .requestMatchers(HttpMethod.GET,
+                        // Admin endpoints
+                        .requestMatchers(
+                                "/api/v1/admin/**"
+                        ).hasAuthority("ADMIN")
+
+                        .requestMatchers(
+                                HttpMethod.GET,
                                 "/api/v1/proof/get-all",
                                 "/api/v1/excuse/get",
                                 "/api/v1/objection/get-all",
                                 "/api/v1/penalty/get/{adminId}",
-                                "/api/v1/admin-review/queue/{adminId}").hasAuthority("ADMIN")
+                                "/api/v1/admin-review/queue/{adminId}",
+                                "/api/v1/member/get",
+                                "/api/v1/member/get/{id}",
+                                "/api/v1/admin/get",
+                                "/api/v1/admin/get/{id}",
+                                "/api/v1/user/get",
+                                "/api/v1/user/get/{id}"
+                        ).hasAuthority("ADMIN")
 
-                        // إلغاء الخصم وإصدار قرار المراجعة من صلاحيات الأدمن فقط.
-                        .requestMatchers(HttpMethod.PUT,
+                        .requestMatchers(
+                                HttpMethod.PUT,
                                 "/api/v1/penalty/cancel/{adminId}/{penaltyId}",
-                                "/api/v1/admin-review/decide/{adminId}/{kind}/{id}/{accept}").hasAuthority("ADMIN")
+                                "/api/v1/admin-review/decide/{adminId}/{kind}/{id}/{accept}",
+                                "/api/v1/admin/update",
+                                "/api/v1/account/unban/{memberId}"
+                        ).hasAuthority("ADMIN")
 
-                        // العضو يعرض بياناته فقط؛ السيرفس مسؤول عن فحص الملكية بهوية المستخدم المسجل.
-                        .requestMatchers(HttpMethod.GET,
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/v1/admin/register"
+                        ).hasAuthority("ADMIN")
+
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/v1/admin/profile"
+                        ).hasAuthority("ADMIN")
+
+                        // Member endpoints
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/v1/member/profile",
                                 "/api/v1/proof/get/{id}",
                                 "/api/v1/proof/get-my-proofs",
                                 "/api/v1/excuse/get/{id}",
                                 "/api/v1/objection/get/{id}",
                                 "/api/v1/donation-proof/gmail/connect/{memberId}",
                                 "/api/v1/donation-proof/my/{memberId}",
-                                "/api/v1/penalty/my/{memberId}").hasAuthority("MEMBER")
+                                "/api/v1/penalty/my/{memberId}"
+                        ).hasAuthority("MEMBER")
 
-                        // إضافة الإثبات والعذر والاعتراض وإثبات التبرع للعضو فقط.
-                        // معرف العضو في الرابط يجب أن يطابق المستخدم المسجل، وليس مجرد عضو موجود.
-                        .requestMatchers(HttpMethod.POST,
+                        .requestMatchers(
+                                HttpMethod.POST,
                                 "/api/v1/proof/add/goal-task/{goalTaskId}/week/{commitmentWeekId}",
                                 "/api/v1/excuse/add/goal-task/{goalTaskId}/week/{commitmentWeekId}",
                                 "/api/v1/proof/habit/{memberId}/{weekId}",
@@ -74,28 +123,73 @@ public class SecurityConfig {
                                 "/api/v1/objection/add/excuse/{excuseId}",
                                 "/api/v1/donation-proof/screenshot/{memberId}",
                                 "/api/v1/donation-proof/email/{memberId}",
-                                "/api/v1/donation-proof/objection/{memberId}/{donationProofId}").hasAuthority("MEMBER")
+                                "/api/v1/donation-proof/objection/{memberId}/{donationProofId}"
+                        ).hasAuthority("MEMBER")
 
-                        // العضو يعدل طلباته حسب حالة الطلب وشروط السيرفس.
-                        .requestMatchers(HttpMethod.PUT,
+                        .requestMatchers(
+                                HttpMethod.PUT,
                                 "/api/v1/proof/update/goal-task/{proofId}",
                                 "/api/v1/excuse/update/goal-task/{excuseId}",
-                                "/api/v1/objection/update/{objectionId}").hasAuthority("MEMBER")
+                                "/api/v1/objection/update/{objectionId}",
+                                "/api/v1/member/update"
+                        ).hasAuthority("MEMBER")
 
-                        // العضو يحذف طلباته فقط إذا سمحت حالة الطلب بذلك.
-                        .requestMatchers(HttpMethod.DELETE,
+                        .requestMatchers(
+                                HttpMethod.DELETE,
                                 "/api/v1/proof/delete/goal-task/{proofId}",
                                 "/api/v1/excuse/delete/goal-task/{excuseId}",
-                                "/api/v1/objection/delete/{objectionId}").hasAuthority("MEMBER")
+                                "/api/v1/objection/delete/{objectionId}",
+                                "/api/v1/member/delete"
+                        ).hasAuthority("MEMBER")
 
-                        // نمنع أي مسار أو طريقة غير مصنفة داخل الكنترولرز التي راجعناها.
+                        .requestMatchers(
+                                "/api/v1/account/deactivate"
+                        ).hasAuthority("MEMBER")
+
+                        // User endpoints
+                        .requestMatchers(
+                                HttpMethod.PUT,
+                                "/api/v1/user/update"
+                        ).authenticated()
+
+                        .requestMatchers(
+                                HttpMethod.DELETE,
+                                "/api/v1/user/delete"
+                        ).authenticated()
+
+                        // Google OAuth callbacks
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/v1/donation-proof/gmail/callback",
+                                "/api/v1/google-calendar/callback"
+                        ).permitAll()
+
+                        // Google Calendar requires authentication
+                        .requestMatchers(
+                                "/api/v1/google-calendar/connect",
+                                "/api/v1/google-calendar/suggest-schedule",
+                                "/api/v1/google-calendar/approve-schedule",
+                                "/api/v1/google-calendar/reject-schedule"
+                        ).authenticated()
+
+                        // n8n endpoints
+                        .requestMatchers(
+                                "/api/v1/n8n/run-daily",
+                                "/api/v1/n8n/reminders",
+                                "/api/v1/n8n/whatsapp/pending",
+                                "/api/v1/n8n/whatsapp/sent/{id}",
+                                "/api/v1/n8n/whatsapp/failed/{id}"
+                        ).permitAll()
+
+                        // Deny unconfigured endpoints in these controllers
                         .requestMatchers(
                                 "/api/v1/proof/**",
                                 "/api/v1/excuse/**",
                                 "/api/v1/objection/**",
                                 "/api/v1/donation-proof/**",
                                 "/api/v1/penalty/**",
-                                "/api/v1/admin-review/**").denyAll()
+                                "/api/v1/admin-review/**"
+                        ).denyAll()
 
                         //admin only
                         .requestMatchers("/api/v1/group/get", "/api/v1/group-member/member/*").hasAuthority("ADMIN")
@@ -117,12 +211,55 @@ public class SecurityConfig {
 
                         //the other parts stay open until their rules are added here
                         .anyRequest().permitAll()
+                        // All remaining endpoints require authentication
+                        .anyRequest().authenticated()
                 )
+
+                .sessionManagement(session -> session
+                        .sessionCreationPolicy(
+                                SessionCreationPolicy.IF_REQUIRED
+                        )
+                )
+
+                .exceptionHandling(exception -> exception
+
+                        .authenticationEntryPoint(
+                                (request, response, authException) -> {
+                                    response.setStatus(401);
+                                    response.setContentType(
+                                            MediaType.APPLICATION_JSON_VALUE
+                                    );
+                                    response.setCharacterEncoding("UTF-8");
+                                    response.getWriter().write(
+                                            "{\"message\":\"Unauthorized\"}"
+                                    );
+                                }
+                        )
+
+                        .accessDeniedHandler(
+                                (request, response, accessDeniedException) -> {
+                                    response.setStatus(403);
+                                    response.setContentType(
+                                            MediaType.APPLICATION_JSON_VALUE
+                                    );
+                                    response.setCharacterEncoding("UTF-8");
+                                    response.getWriter().write(
+                                            "{\"message\":\"Access denied\"}"
+                                    );
+                                }
+                        )
+                )
+
                 .logout(logout -> logout
                         .logoutUrl("/api/v1/user/auth/logout")
                         .invalidateHttpSession(true)
                 )
                 .httpBasic(basic -> {})
+
+                .formLogin(form -> form.disable())
+
+                .httpBasic(basic -> {})
+
                 .build();
     }
 }
