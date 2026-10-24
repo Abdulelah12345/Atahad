@@ -7,7 +7,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import com.example.atahad.Dto.In.AiScheduleRequest;
-import com.example.atahad.DTO.Out.AiScheduleResponse;
+import com.example.atahad.Dto.Out.AiScheduleResponse;
 import tools.jackson.databind.ObjectMapper;
 import java.time.LocalDate;
 import java.time.ZoneId;

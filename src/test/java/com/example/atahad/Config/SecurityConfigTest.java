@@ -34,7 +34,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.setup.MockMvcBuilders.webAppContextSetup;
 
 // Tests the real filter chain without loading the database, application services or external APIs.
-@SpringJUnitConfig(classes = {SecurityConfig.class, SecurityConfigTest.TestWebConfig.class})
+@SpringJUnitConfig(classes = {SecurityConfig.class, FrontendCorsConfig.class, SecurityConfigTest.TestWebConfig.class})
 @WebAppConfiguration
 class SecurityConfigTest {
     @Autowired
@@ -73,7 +73,8 @@ class SecurityConfigTest {
                 new Route("POST", "/api/v1/excuse/habit/1/2", "MEMBER"),
                 new Route("POST", "/api/v1/donation-proof/screenshot/1", "MEMBER"),
                 new Route("POST", "/api/v1/donation-proof/email/1", "MEMBER"),
-                new Route("GET", "/api/v1/donation-proof/gmail/connect/1", "MEMBER"),
+                new Route("POST", "/api/v1/donation-proof/gmail/connect/1", "MEMBER"),
+                new Route("DELETE", "/api/v1/donation-proof/gmail/disconnect/1", "MEMBER"),
                 new Route("GET", "/api/v1/donation-proof/my/1", "MEMBER"),
                 new Route("POST", "/api/v1/donation-proof/objection/1/2", "MEMBER"),
                 new Route("GET", "/api/v1/penalty/my/1", "MEMBER"),
@@ -82,6 +83,31 @@ class SecurityConfigTest {
                 new Route("GET", "/api/v1/admin-review/queue/1", "ADMIN"),
                 new Route("PUT", "/api/v1/admin-review/decide/1/PROOF/2/true", "ADMIN")
         );
+    }
+
+    @Test
+    void localFlutterPreflightIsAllowedBeforeAuthentication() throws Exception {
+        mvc.perform(options("/api/v1/member/profile")
+                        .header("Origin", "http://localhost:5173")
+                        .header("Access-Control-Request-Method", "GET")
+                        .header("Access-Control-Request-Headers", "authorization,content-type"))
+                .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header()
+                        .string("Access-Control-Allow-Origin", "http://localhost:5173"));
+    }
+
+    @Test
+    void unlistedBrowserOriginIsDenied() throws Exception {
+        mvc.perform(options("/api/v1/member/profile")
+                        .header("Origin", "https://untrusted.example")
+                        .header("Access-Control-Request-Method", "GET"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void localFlutterStillNeedsAuthentication() throws Exception {
+        mvc.perform(get("/api/v1/member/profile").header("Origin", "http://localhost:5173"))
+                .andExpect(status().isUnauthorized());
     }
 
     @BeforeEach
@@ -114,14 +140,8 @@ class SecurityConfigTest {
     }
 
     @Test
-    void googleCallbackIsReachableWithoutLogin() throws Exception {
-        mvc.perform(get("/api/v1/donation-proof/gmail/callback"))
-                .andExpect(status().isOk());
-    }
-
-    @Test
-    void callbackExceptionDoesNotOpenOtherDonationRoutes() throws Exception {
-        mvc.perform(get("/api/v1/donation-proof/gmail/connect/1"))
+    void gmailConnectNeedsLogin() throws Exception {
+        mvc.perform(post("/api/v1/donation-proof/gmail/connect/1"))
                 .andExpect(status().isUnauthorized());
     }
 

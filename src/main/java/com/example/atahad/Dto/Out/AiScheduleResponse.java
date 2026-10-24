@@ -1,4 +1,4 @@
-package com.example.atahad.DTO.Out;
+package com.example.atahad.Dto.Out;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;

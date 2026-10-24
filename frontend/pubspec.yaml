@@ -1,0 +1,44 @@
+name: atahad
+description: "Atahad - commitment app (frontend)"
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.5.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  # navigation between pages
+  go_router: ^14.6.2
+  # shared state (the logged in user)
+  provider: ^6.1.2
+  # calls to the backend
+  http: ^1.2.2
+  # keeps the email and password on the phone (encrypted)
+  flutter_secure_storage: ^9.2.2
+  # Alexandria and IBM Plex Sans Arabic
+  google_fonts: ^6.2.1
+  # the riyal symbol and the logo
+  flutter_svg: ^2.0.10+1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+  # makes the app icon for iOS and Android: dart run flutter_launcher_icons
+  flutter_launcher_icons: ^0.14.1
+
+flutter_launcher_icons:
+  ios: true
+  android: true
+  image_path: assets/images/app_icon_square.png
+  remove_alpha_ios: true
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/icons/
+    - assets/images/

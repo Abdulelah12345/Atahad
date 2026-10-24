@@ -2,17 +2,15 @@ package com.example.atahad.Controller;
 
 import com.example.atahad.Api.ApiResponse;
 import com.example.atahad.Dto.In.DonationScreenshotRequest;
+import com.example.atahad.Dto.In.GmailConnectRequest;
 import com.example.atahad.Dto.In.ObjectionRequest;
 import com.example.atahad.Service.DonationProofService;
 import com.example.atahad.Service.GmailService;
 import com.example.atahad.Service.ObjectionDecisionService;
 import jakarta.validation.Valid;
-import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.Map;
 
 // the "I donated" button, these endpoints work while the app is locked
 @RestController
@@ -35,17 +33,17 @@ public class DonationProofController {
         return ResponseEntity.status(200).body(donationProofService.submitEmail(memberId));
     }
 
-    // the app opens this link so the member allows reading his bank emails
-    @GetMapping("/gmail/connect/{memberId}")
-    public ResponseEntity<?> connectGmail(@PathVariable Integer memberId, HttpSession session){
-        return ResponseEntity.status(200).body(Map.of("url", gmailService.connectLink(memberId, session)));
+    // links the Gmail with an App Password, the login is tried first
+    @PostMapping("/gmail/connect/{memberId}")
+    public ResponseEntity<?> connectGmail(@PathVariable Integer memberId, @RequestBody @Valid GmailConnectRequest dto){
+        gmailService.connect(memberId, dto);
+        return ResponseEntity.status(200).body(new ApiResponse("Gmail linked"));
     }
 
-    // Google يرجع رمز state؛ نطابقه مع طلب الربط المحفوظ في جلسة المتصفح.
-    @GetMapping("/gmail/callback")
-    public ResponseEntity<?> gmailCallback(@RequestParam String code, @RequestParam String state, HttpSession session){
-        gmailService.finishConnect(code, state, session);
-        return ResponseEntity.status(200).body(new ApiResponse("Gmail linked, go back to the app"));
+    @DeleteMapping("/gmail/disconnect/{memberId}")
+    public ResponseEntity<?> disconnectGmail(@PathVariable Integer memberId){
+        gmailService.disconnect(memberId);
+        return ResponseEntity.status(200).body(new ApiResponse("Gmail unlinked"));
     }
 
     @GetMapping("/my/{memberId}")

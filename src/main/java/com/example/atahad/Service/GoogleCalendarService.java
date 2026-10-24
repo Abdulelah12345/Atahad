@@ -1,7 +1,7 @@
 package com.example.atahad.Service;
 
 import com.example.atahad.Api.ApiException;
-import com.example.atahad.DTO.Out.AiScheduleResponse;
+import com.example.atahad.Dto.Out.AiScheduleResponse;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
