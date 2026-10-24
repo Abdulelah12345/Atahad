@@ -34,3 +34,7 @@ build/
 
 ### Local secrets ###
 src/main/resources/application-local.properties
+
+# Firebase service account key (secret)
+firebase-key.json
+.DS_Store

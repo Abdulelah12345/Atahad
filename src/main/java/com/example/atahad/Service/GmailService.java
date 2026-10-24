@@ -1,221 +1,181 @@
 package com.example.atahad.Service;
 
 import com.example.atahad.Api.ApiException;
+import com.example.atahad.Dto.In.GmailConnectRequest;
 import com.example.atahad.Entity.Member;
 import com.example.atahad.Repository.MemberRepository;
+import jakarta.mail.*;
+import jakarta.mail.internet.InternetAddress;
+import jakarta.mail.search.ComparisonTerm;
+import jakarta.mail.search.ReceivedDateTerm;
 import lombok.RequiredArgsConstructor;
-import jakarta.servlet.http.HttpSession;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
-import org.springframework.util.LinkedMultiValueMap;
-import org.springframework.util.MultiValueMap;
-import org.springframework.web.client.RestClient;
 
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
-import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-// reads the bank emails of the member with Gmail API (read only), after he links his Gmail with Google OAuth
-// an email counts only when Gmail says its DKIM signature passed and the signing domain is a Saudi bank,
-// so a fake email that was written by the member himself is not accepted
+// reads the bank emails of the member from his Gmail with IMAP and a Google App Password (read only)
+// an email counts only when Gmail says its DKIM signature passed (the sender is real, not written by the member),
+// and the signer is not a free email service (anyone can send from gmail.com or outlook.com)
+// the AI then reads the content and decides if it is a bank transfer to Ehsan
 @Service
 @RequiredArgsConstructor
 public class GmailService {
     private final AuthenticatedUserService authenticatedUserService;
     private final MemberRepository memberRepository;
 
-    @Value("${google.client-id:}")
-    private String clientId;
-
-    @Value("${google.client-secret:}")
-    private String clientSecret;
-
-    @Value("${google.redirect-uri:http://localhost:8080/api/v1/donation-proof/gmail/callback}")
-    private String redirectUri;
-
-    @Value("${donation.bank-domains:alrajhibank.com.sa,alahli.com,riyadbank.com,sab.com,alinma.com,bankalbilad.com,anb.com.sa,bsf.sa,saib.com.sa,aljazirabank.com.sa,stcbank.com.sa,d360.com}")
-    private String bankDomains;
-
-    private final RestClient restClient = RestClient.create();
+    private static final String IMAP_HOST = "imap.gmail.com";
+    private static final int MAX_EMAILS = 30;
+    private static final List<String> FREE_MAIL = List.of("gmail.com", "googlemail.com", "outlook.com", "hotmail.com", "live.com",
+            "yahoo.com", "icloud.com", "me.com", "aol.com", "proton.me", "protonmail.com", "gmx.com", "mail.com", "yandex.com");
 
     public record BankEmail(String domain, String subject, String text, LocalDateTime receivedAt) {}
 
-    // step 1: the app opens this link, the member allows reading his emails
-    public String connectLink(Integer memberId, HttpSession session){
-        // المعرف في الرابط يجب أن يخص العضو المسجل، وليس أي عضو موجود.
+    // the member links his Gmail once with an App Password (Google account > Security > App passwords)
+    public void connect(Integer memberId, GmailConnectRequest dto){
         authenticatedUserService.checkMember(memberId);
-        checkConfigured();
-        // نخزن صاحب طلب الربط في السيرفر مع رمز عشوائي؛ لا نثق بمعرف داخل state.
-        String state = UUID.randomUUID().toString();
-        session.setAttribute("gmailOAuthState", state);
-        session.setAttribute("gmailOAuthMemberId", memberId);
-        session.setAttribute("gmailOAuthExpiresAt", Instant.now().plusSeconds(600).getEpochSecond());
-        return "https://accounts.google.com/o/oauth2/v2/auth"
-                + "?client_id=" + encode(clientId)
-                + "&redirect_uri=" + encode(redirectUri)
-                + "&response_type=code"
-                + "&scope=" + encode("https://www.googleapis.com/auth/gmail.readonly")
-                + "&access_type=offline&prompt=consent"
-                + "&state=" + encode(state);
-    }
-
-    // step 2: Google sends the member back here with a code, we keep the refresh token
-    public void finishConnect(String code, String state, HttpSession session){
-        String expectedState = (String) session.getAttribute("gmailOAuthState");
-        Integer memberId = (Integer) session.getAttribute("gmailOAuthMemberId");
-        Long expiresAt = (Long) session.getAttribute("gmailOAuthExpiresAt");
-        if (expectedState == null || state == null || memberId == null || expiresAt == null) {
-            throw new ApiException("Start linking Gmail from your signed-in account first");
-        }
-        if (!expectedState.equals(state)) {
-            throw new ApiException("Invalid Gmail authorization state");
-        }
-        if (Instant.now().getEpochSecond() >= expiresAt) {
-            throw new ApiException("Gmail authorization expired, start again");
-        }
-        // نستهلك الرمز مرة واحدة قبل الاتصال بـ Google لمنع إعادة استخدامه.
-        session.removeAttribute("gmailOAuthState");
-        session.removeAttribute("gmailOAuthMemberId");
-        session.removeAttribute("gmailOAuthExpiresAt");
-        checkConfigured();
         Member member = memberRepository.findMemberById(memberId);
         if(member == null){
             throw new ApiException("Member not found");
         }
-        MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
-        form.add("code", code);
-        form.add("client_id", clientId);
-        form.add("client_secret", clientSecret);
-        form.add("redirect_uri", redirectUri);
-        form.add("grant_type", "authorization_code");
-        Map<?, ?> token = restClient.post().uri("https://oauth2.googleapis.com/token")
-                .contentType(MediaType.APPLICATION_FORM_URLENCODED).body(form).retrieve().body(Map.class);
-        if(token == null || token.get("refresh_token") == null){
-            throw new ApiException("Google did not give access, try again");
-        }
-        Map<?, ?> profile = restClient.get().uri("https://gmail.googleapis.com/gmail/v1/users/me/profile")
-                .header("Authorization", "Bearer " + token.get("access_token")).retrieve().body(Map.class);
+        String gmail = dto.getGmailAddress().trim().toLowerCase();
+        String appPassword = dto.getAppPassword().replace(" ", ""); // Google shows it with spaces
 
-        member.setGmailRefreshToken(String.valueOf(token.get("refresh_token")));
-        member.setLinkedEmail(profile == null ? null : String.valueOf(profile.get("emailAddress")));
+        // try to log in first, so a wrong address or password is not saved
+        Store store = null;
+        try{
+            store = open(gmail, appPassword);
+        }catch(MessagingException e){
+            throw new ApiException("Could not connect to Gmail, check the email and the App Password");
+        }finally{
+            close(store);
+        }
+        member.setLinkedEmail(gmail);
+        member.setGmailAppPassword(appPassword);
         member.setEmailLinked(true);
         memberRepository.save(member);
     }
 
-    // the bank emails that arrived after the given time, only the ones signed by a bank
+    public void disconnect(Integer memberId){
+        authenticatedUserService.checkMember(memberId);
+        Member member = memberRepository.findMemberById(memberId);
+        if(member == null){
+            throw new ApiException("Member not found");
+        }
+        member.setGmailAppPassword(null);
+        member.setEmailLinked(false);
+        memberRepository.save(member);
+    }
+
+    // the emails that arrived after the given time and are signed by their sender (DKIM), the newest first
     public List<BankEmail> findBankEmails(Member member, LocalDateTime after){
-        checkConfigured();
-        if(!Boolean.TRUE.equals(member.getEmailLinked()) || member.getGmailRefreshToken() == null){
+        if(!Boolean.TRUE.equals(member.getEmailLinked()) || member.getGmailAppPassword() == null){
             throw new ApiException("Link your Gmail first");
         }
-        String accessToken = accessToken(member);
-        long afterSeconds = after.atZone(ZoneId.of("Asia/Riyadh")).toEpochSecond();
-
-        Map<?, ?> list = restClient.get()
-                .uri("https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=15&q={query}", "after:" + afterSeconds)
-                .header("Authorization", "Bearer " + accessToken).retrieve().body(Map.class);
+        Date since = Date.from(after.atZone(ZoneId.of("Asia/Riyadh")).toInstant());
         List<BankEmail> emails = new ArrayList<>();
-        if(list == null || list.get("messages") == null){
-            return emails;
-        }
-        for(Object item : (List<?>) list.get("messages")){
-            String id = String.valueOf(((Map<?, ?>) item).get("id"));
-            Map<?, ?> message = restClient.get()
-                    .uri("https://gmail.googleapis.com/gmail/v1/users/me/messages/" + id + "?format=full")
-                    .header("Authorization", "Bearer " + accessToken).retrieve().body(Map.class);
-            BankEmail email = toBankEmail(message);
-            if(email != null){
-                emails.add(email);
+        Store store = null;
+        try{
+            store = open(member.getLinkedEmail(), member.getGmailAppPassword());
+            Folder inbox = store.getFolder("INBOX");
+            inbox.open(Folder.READ_ONLY);
+            // IMAP searches by day only, the exact time is checked below
+            Message[] messages = inbox.search(new ReceivedDateTerm(ComparisonTerm.GE, since));
+            int start = Math.max(0, messages.length - MAX_EMAILS);
+            for(int i = messages.length - 1; i >= start; i--){
+                try{
+                    BankEmail email = toBankEmail(messages[i], since);
+                    if(email != null){
+                        emails.add(email);
+                    }
+                }catch(Exception e){
+                    // one bad email does not stop the others
+                }
             }
+            inbox.close(false);
+        }catch(AuthenticationFailedException e){
+            throw new ApiException("Gmail access ended, link your Gmail again with a new App Password");
+        }catch(MessagingException e){
+            throw new ApiException("Could not read Gmail, try again later");
+        }finally{
+            close(store);
         }
         return emails;
     }
 
-    private BankEmail toBankEmail(Map<?, ?> message){
-        if(message == null){
+    private BankEmail toBankEmail(Message message, Date since) throws Exception {
+        Date received = message.getReceivedDate();
+        if(received == null || received.before(since)){
             return null;
         }
-        Map<?, ?> payload = (Map<?, ?>) message.get("payload");
-        String authResults = "";
-        String subject = "";
-        for(Object h : (List<?>) payload.get("headers")){
-            Map<?, ?> header = (Map<?, ?>) h;
-            String name = String.valueOf(header.get("name"));
-            if(name.equalsIgnoreCase("Authentication-Results")){
-                authResults += " " + header.get("value");
-            }
-            if(name.equalsIgnoreCase("Subject")){
-                subject = String.valueOf(header.get("value"));
-            }
-        }
-        String domain = signedBankDomain(authResults);
+        String[] results = message.getHeader("Authentication-Results");
+        String domain = signedDomain(results == null ? "" : String.join(" ", results));
         if(domain == null){
-            return null; // not signed by a bank, ignored
+            return null; // not signed, or sent from a free email service
         }
-        StringBuilder text = new StringBuilder(String.valueOf(message.get("snippet"))).append("\n");
-        collectText(payload, text);
-        long millis = Long.parseLong(String.valueOf(message.get("internalDate")));
-        LocalDateTime received = LocalDateTime.ofInstant(Instant.ofEpochMilli(millis), ZoneId.of("Asia/Riyadh"));
-        String body = text.length() > 4000 ? text.substring(0, 4000) : text.toString();
-        return new BankEmail(domain, subject, body, received);
+        String subject = message.getSubject() == null ? "" : message.getSubject();
+        String from = "";
+        if(message.getFrom() != null && message.getFrom().length > 0){
+            Address address = message.getFrom()[0];
+            from = address instanceof InternetAddress internet ? internet.toUnicodeString() : address.toString();
+        }
+        StringBuilder text = new StringBuilder();
+        collectText(message, text);
+        // only emails about Ehsan go to the AI (احسان / إحسان / Ehsan)
+        String all = (subject + " " + text).toLowerCase();
+        if(!all.contains("حسان") && !all.contains("ehsan")){
+            return null;
+        }
+        String body = "From: " + from + "\n" + text;
+        body = body.length() > 4000 ? body.substring(0, 4000) : body;
+        return new BankEmail(domain, subject, body, LocalDateTime.ofInstant(received.toInstant(), ZoneId.of("Asia/Riyadh")));
     }
 
     // "dkim=pass header.d=alrajhibank.com.sa" or "header.i=@alrajhibank.com.sa"
-    private String signedBankDomain(String authResults){
+    private String signedDomain(String authResults){
         Matcher matcher = Pattern.compile("dkim=pass[^;]*?header\\.(?:d|i)=@?([A-Za-z0-9.-]+)").matcher(authResults);
-        List<String> banks = Arrays.stream(bankDomains.split(",")).map(String::trim).map(String::toLowerCase).toList();
         while(matcher.find()){
             String domain = matcher.group(1).toLowerCase();
-            for(String bank : banks){
-                if(domain.equals(bank) || domain.endsWith("." + bank)){
-                    return domain;
-                }
+            boolean free = FREE_MAIL.stream().anyMatch(f -> domain.equals(f) || domain.endsWith("." + f));
+            if(!free){
+                return domain;
             }
         }
         return null;
     }
 
-    private void collectText(Map<?, ?> part, StringBuilder text){
-        String mime = String.valueOf(part.get("mimeType"));
-        Map<?, ?> body = (Map<?, ?>) part.get("body");
-        if(body != null && body.get("data") != null && (mime.startsWith("text/plain") || mime.startsWith("text/html"))){
-            String decoded = new String(Base64.getUrlDecoder().decode(String.valueOf(body.get("data"))), StandardCharsets.UTF_8);
-            text.append(decoded.replaceAll("<[^>]+>", " ").replaceAll("\\s+", " ")).append("\n");
-        }
-        if(part.get("parts") != null){
-            for(Object child : (List<?>) part.get("parts")){
-                collectText((Map<?, ?>) child, text);
+    private void collectText(Part part, StringBuilder text) throws Exception {
+        if(part.isMimeType("text/plain") || part.isMimeType("text/html")){
+            String content = String.valueOf(part.getContent());
+            text.append(content.replaceAll("(?s)<style.*?</style>", " ").replaceAll("<[^>]+>", " ")
+                    .replace("&nbsp;", " ").replaceAll("\\s+", " ")).append("\n");
+        }else if(part.isMimeType("multipart/*")){
+            Multipart multipart = (Multipart) part.getContent();
+            for(int i = 0; i < multipart.getCount(); i++){
+                collectText(multipart.getBodyPart(i), text);
             }
         }
     }
 
-    private String accessToken(Member member){
-        MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
-        form.add("client_id", clientId);
-        form.add("client_secret", clientSecret);
-        form.add("refresh_token", member.getGmailRefreshToken());
-        form.add("grant_type", "refresh_token");
-        Map<?, ?> token = restClient.post().uri("https://oauth2.googleapis.com/token")
-                .contentType(MediaType.APPLICATION_FORM_URLENCODED).body(form).retrieve().body(Map.class);
-        if(token == null || token.get("access_token") == null){
-            throw new ApiException("Gmail access ended, link your Gmail again");
-        }
-        return String.valueOf(token.get("access_token"));
+    private Store open(String gmail, String appPassword) throws MessagingException {
+        Properties props = new Properties();
+        props.put("mail.store.protocol", "imaps");
+        props.put("mail.imaps.connectiontimeout", "10000");
+        props.put("mail.imaps.timeout", "20000");
+        Store store = Session.getInstance(props).getStore("imaps");
+        store.connect(IMAP_HOST, gmail, appPassword);
+        return store;
     }
 
-    private void checkConfigured(){
-        if(clientId == null || clientId.isBlank() || clientSecret == null || clientSecret.isBlank()){
-            throw new ApiException("Gmail is not set up yet, use the screenshot instead");
+    private void close(Store store){
+        try{
+            if(store != null){
+                store.close();
+            }
+        }catch(MessagingException ignored){
         }
-    }
-
-    private String encode(String value){
-        return URLEncoder.encode(value, StandardCharsets.UTF_8);
     }
 }

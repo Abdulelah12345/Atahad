@@ -66,7 +66,8 @@ class SecurityConfigTest {
                 new Route("POST", "/api/v1/excuse/habit/1/2", "MEMBER"),
                 new Route("POST", "/api/v1/donation-proof/screenshot/1", "MEMBER"),
                 new Route("POST", "/api/v1/donation-proof/email/1", "MEMBER"),
-                new Route("GET", "/api/v1/donation-proof/gmail/connect/1", "MEMBER"),
+                new Route("POST", "/api/v1/donation-proof/gmail/connect/1", "MEMBER"),
+                new Route("DELETE", "/api/v1/donation-proof/gmail/disconnect/1", "MEMBER"),
                 new Route("GET", "/api/v1/donation-proof/my/1", "MEMBER"),
                 new Route("POST", "/api/v1/donation-proof/objection/1/2", "MEMBER"),
                 new Route("GET", "/api/v1/penalty/my/1", "MEMBER"),
@@ -107,14 +108,8 @@ class SecurityConfigTest {
     }
 
     @Test
-    void googleCallbackIsReachableWithoutLogin() throws Exception {
-        mvc.perform(get("/api/v1/donation-proof/gmail/callback"))
-                .andExpect(status().isOk());
-    }
-
-    @Test
-    void callbackExceptionDoesNotOpenOtherDonationRoutes() throws Exception {
-        mvc.perform(get("/api/v1/donation-proof/gmail/connect/1"))
+    void gmailConnectNeedsLogin() throws Exception {
+        mvc.perform(post("/api/v1/donation-proof/gmail/connect/1"))
                 .andExpect(status().isUnauthorized());
     }
 
