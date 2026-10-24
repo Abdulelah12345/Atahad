@@ -57,7 +57,6 @@ public class GroupService {
         group.setName(dto.getName());
         group.setDescription(dto.getDescription());
         group.setCreatedAt(LocalDateTime.now());
-        group.setHumorLevel("GENTLE");
         group.setPoints(0);
         group.setPointsForGraceDay(300);
         group.setStatus("ACTIVE");
@@ -86,17 +85,6 @@ public class GroupService {
         Group group = owner.getGroup();
         group.setName(dto.getName());
         group.setDescription(dto.getDescription());
-        groupRepository.save(group);
-    }
-
-    // GENTLE or HYPE, the tone of the alerts and the weekly settlement
-    public void updateHumorLevel(Integer groupId, Integer memberId, String humorLevel) {
-        if (humorLevel == null || !humorLevel.matches("^(GENTLE|HYPE)$")) {
-            throw new ApiException("Humor level must be GENTLE or HYPE");
-        }
-        GroupMember owner = groupAccessService.checkOwner(groupId, memberId);
-        Group group = owner.getGroup();
-        group.setHumorLevel(humorLevel);
         groupRepository.save(group);
     }
 
@@ -146,7 +134,6 @@ public class GroupService {
                 group.getInviteCode(),
                 group.getCreatedAt(),
                 groupMemberRepository.findGroupMembersByGroupIdAndStatus(group.getId(), "ACTIVE").size(),
-                group.getHumorLevel(),
                 group.getPoints(),
                 group.getPointsForGraceDay(),
                 group.getStatus(),

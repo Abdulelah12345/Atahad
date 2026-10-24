@@ -12,16 +12,24 @@ import org.springframework.security.authentication.AuthenticationTrustResolverIm
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
+import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.HandlerInterceptor;
+import org.springframework.web.servlet.HandlerMapping;
 
-// نطبق قفل العمليات على صاحب جلسة الدخول، وليس على معرف يختاره في الرابط.
-// الخصومات لا تمنع الدخول؛ يظل التبرع والعذر والاعتراض متاحًا حسب قواعد LockService.
+import java.util.List;
+import java.util.Map;
+
+// runs before every endpoint: if the member who sends the request is locked, banned or deactivated,
+// the request stops here with 403 (only "I donated", "I have an excuse" and reading are allowed, see LockService)
+// the member is the logged in user, and for the parts without login yet, the member id in the path
 @Component
 @RequiredArgsConstructor
 public class LockInterceptor implements HandlerInterceptor {
     private final MemberRepository memberRepository;
     private final UserRepository userRepository;
     private final LockService lockService;
+
+    private static final List<String> MEMBER_KEYS = List.of("memberId", "userId", "senderId", "ownerId");
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
@@ -32,31 +40,64 @@ public class LockInterceptor implements HandlerInterceptor {
         if (new AuthenticationTrustResolverImpl().isAnonymous(authentication)) {
             return true; // مثل تسجيل حساب عضو أو رجوع Google.
         }
-
-        User user = userRepository.findUserByEmail(authentication.getName());
-        if (user == null) {
-            response.sendError(401, "Login is required");
-            return false;
-        }
-        if (user.getRole() != null) {
-            boolean isAdmin = user.getRole().equals("ADMIN");
-            if (isAdmin) {
-                return true;
+        Integer memberId = loggedInMember();
+        if(memberId == null){
+            if(isLoggedInAdmin()){
+                return true; // an admin is never locked
             }
         }
-
-        Member member = memberRepository.findMemberById(user.getId());
-        if (member == null) {
-            response.sendError(403, "Member profile is required");
-            return false;
+        if(memberId == null){
+            return true;
+        }
+        Member member = memberRepository.findMemberById(memberId);
+        if(member == null){
+            return true; // the service answers "Member not found"
         }
         String reason = lockService.blockReason(member, request.getMethod(), request.getRequestURI());
-        if (reason == null) {
+        if(reason == null){
             return true;
         }
         response.setStatus(403);
         response.setContentType("application/json;charset=UTF-8");
         response.getWriter().write("{\"message\":\"" + reason.replace("\"", "'") + "\"}");
         return false;
+    }
+
+    // the logged in member (his user id is his member id), null when nobody is logged in or it is an admin
+    private Integer loggedInMember(){
+        User user = loggedInUser();
+        return user != null && "MEMBER".equals(user.getRole()) ? user.getId() : null;
+    }
+
+    private boolean isLoggedInAdmin(){
+        User user = loggedInUser();
+        return user != null && "ADMIN".equals(user.getRole());
+    }
+
+    private User loggedInUser(){
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if(authentication != null && authentication.getPrincipal() instanceof User user){
+            return user;
+        }
+        return null;
+    }
+
+    // the old way, for the endpoints that still have the member id in the path
+    private Integer memberFromPath(HttpServletRequest request){
+        Object attribute = request.getAttribute(HandlerMapping.URI_TEMPLATE_VARIABLES_ATTRIBUTE);
+        if(!(attribute instanceof Map<?, ?> variables) || variables.containsKey("adminId")){
+            return null; // adminId = an admin action on a member (unban, review ...)
+        }
+        for(String key : MEMBER_KEYS){
+            Object value = variables.get(key);
+            if(value != null){
+                try{
+                    return Integer.valueOf(value.toString());
+                }catch(NumberFormatException e){
+                    return null; // the controller advice answers the wrong id
+                }
+            }
+        }
+        return null;
     }
 }

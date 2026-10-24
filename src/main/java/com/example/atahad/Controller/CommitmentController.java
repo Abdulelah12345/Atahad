@@ -1,6 +1,8 @@
 package com.example.atahad.Controller;
 
 import com.example.atahad.Api.ApiResponse;
+import com.example.atahad.Dto.In.CommitmentTargetRequest;
+import jakarta.validation.Valid;
 import com.example.atahad.Service.CommitmentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -29,6 +31,13 @@ public class CommitmentController {
             return ResponseEntity.status(200).body(new ApiResponse("Withdrawn from the commitment"));
         }
         return ResponseEntity.status(200).body(new ApiResponse("Withdrawn from the commitment, " + penalties + " times left this week became penalties and the app is locked until you donate"));
+    }
+
+    // LOCATION: the place from the map (a group member sets his own), TIMER: the minutes
+    @PutMapping("/target/{memberId}/{id}")
+    public ResponseEntity<?> setTarget(@PathVariable Integer memberId, @PathVariable Integer id, @RequestBody @Valid CommitmentTargetRequest dto){
+        commitmentService.setTarget(memberId, id, dto);
+        return ResponseEntity.status(200).body(new ApiResponse("Target saved"));
     }
 
     // the lock screen

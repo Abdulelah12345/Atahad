@@ -14,5 +14,7 @@ public interface GroupGoalRepository extends JpaRepository<GroupGoal, Integer> {
 
     List<GroupGoal> findGroupGoalsByStatus(String status);
 
-    List<GroupGoal> findGroupGoalsByGroupIdOrderByStartDateDesc(Integer groupId);
+    List<GroupGoal> findGroupGoalsByGroupIdAndStatus(Integer groupId, String status);
+
+    List<GroupGoal> findGroupGoalsByGroupIdAndStatusInOrderByStartDateDesc(Integer groupId, List<String> statuses);
 }

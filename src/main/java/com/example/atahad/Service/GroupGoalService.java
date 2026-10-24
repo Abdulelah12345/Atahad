@@ -21,7 +21,6 @@ import java.util.List;
 public class GroupGoalService {
     private final GroupGoalRepository groupGoalRepository;
     private final GroupMemberRepository groupMemberRepository;
-    private final GoalProposalRepository goalProposalRepository;
     private final CommitmentRepository commitmentRepository;
     private final CommitmentWeekRepository commitmentWeekRepository;
     private final HabitRepository habitRepository;
@@ -40,21 +39,22 @@ public class GroupGoalService {
             throw new ApiException("A group goal needs at least " + GroupAccessService.MIN_MEMBERS + " members");
         }
 
-        GroupGoal goal = new GroupGoal();
+        // the chosen proposal becomes the goal itself, the other proposals are closed
+        GroupGoal goal = dto.getProposalId() == null ? new GroupGoal() : closeProposals(group, dto.getProposalId());
         goal.setTitle(dto.getTitle());
         goal.setProofMethod(dto.getProofMethod());
         goal.setTimesPerWeek(dto.getTimesPerWeek());
         goal.setAmountPerTime(dto.getAmountPerTime());
         goal.setTotalWeeks(dto.getTotalWeeks());
+        if("TIMER".equals(dto.getProofMethod()) && dto.getTargetMinutes() == null){
+            throw new ApiException("A TIMER goal needs the minutes of one time");
+        }
+        goal.setTargetMinutes(dto.getTargetMinutes());
         goal.setStartDate(LocalDate.now());
         goal.setEndDate(LocalDate.now().with(TemporalAdjusters.nextOrSame(DayOfWeek.SATURDAY)).plusWeeks(dto.getTotalWeeks() - 1));
         goal.setStatus("ACTIVE");
         goal.setGroup(group);
         groupGoalRepository.save(goal);
-
-        if(dto.getProposalId() != null){
-            closeProposals(group, dto.getProposalId());
-        }
 
         for(GroupMember groupMember : groupMemberRepository.findGroupMembersByGroupIdAndStatus(groupId, "ACTIVE")){
             addMemberCommitment(goal, groupMember.getMember());
@@ -72,6 +72,7 @@ public class GroupGoalService {
         habit.setProofMethod(goal.getProofMethod());
         habit.setTimesPerWeek(goal.getTimesPerWeek());
         habit.setBaseAmount(goal.getAmountPerTime());
+        habit.setTargetMinutes(goal.getTargetMinutes()); // LOCATION: the member sets his own place with /commitment/target
         habit.setStatus("ACTIVE");
         habit.setEffectiveFrom(LocalDate.now());
         habit.setMember(member);
@@ -109,7 +110,7 @@ public class GroupGoalService {
 
     public List<GroupGoal> getGoalHistory(Integer groupId, Integer memberId){
         groupAccessService.getActiveMembership(groupId, memberId);
-        return groupGoalRepository.findGroupGoalsByGroupIdOrderByStartDateDesc(groupId);
+        return groupGoalRepository.findGroupGoalsByGroupIdAndStatusInOrderByStartDateDesc(groupId, List.of("ACTIVE", "ENDED"));
     }
 
     // the group screen: every member and what is left for him this week
@@ -207,17 +208,27 @@ public class GroupGoalService {
         return false;
     }
 
-    private void closeProposals(Group group, Integer chosenId){
-        GoalProposal chosen = goalProposalRepository.findGoalProposalById(chosenId);
+    private GroupGoal closeProposals(Group group, Integer chosenId){
+        GroupGoal chosen = groupGoalRepository.findGroupGoalById(chosenId);
         if(chosen == null || !chosen.getGroup().getId().equals(group.getId())){
             throw new ApiException("Proposal not found in this group");
         }
-        if(!"OPEN".equals(chosen.getStatus())){
+        if(!"PROPOSED".equals(chosen.getStatus())){
             throw new ApiException("This proposal is closed");
         }
-        for(GoalProposal proposal : goalProposalRepository.findGoalProposalsByGroupIdAndStatus(group.getId(), "OPEN")){
-            proposal.setStatus(proposal.getId().equals(chosenId) ? "CHOSEN" : "REJECTED");
-            goalProposalRepository.save(proposal);
+        for(GroupGoal proposal : groupGoalRepository.findGroupGoalsByGroupIdAndStatus(group.getId(), "PROPOSED")){
+            if(!proposal.getId().equals(chosenId)){
+                proposal.setStatus("REJECTED");
+                groupGoalRepository.save(proposal);
+            }
         }
+        // the votes are finished
+        for(GroupMember groupMember : groupMemberRepository.findGroupMembersByGroupId(group.getId())){
+            if(groupMember.getVotedGoal() != null){
+                groupMember.setVotedGoal(null);
+                groupMemberRepository.save(groupMember);
+            }
+        }
+        return chosen;
     }
 }

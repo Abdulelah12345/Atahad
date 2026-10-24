@@ -29,6 +29,9 @@ public class GroupSettlement {
     @Column(columnDefinition = "VARCHAR(2000)")
     private String settlementText; // written by the AI
 
+    @Column(columnDefinition = "VARCHAR(500)")
+    private String titles; // the titles of this week: TITLE=groupMemberId separated by ; like IRON=4;ROCKET=7
+
     @Column(columnDefinition = "DATETIME")
     private LocalDateTime createdAt;
 

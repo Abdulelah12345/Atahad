@@ -2,9 +2,10 @@ package com.example.atahad.Service;
 
 import com.example.atahad.Dto.Out.GroupTitleResponse;
 import com.example.atahad.Entity.*;
+import com.example.atahad.Repository.ChatMessageRepository;
 import com.example.atahad.Repository.CommitmentWeekRepository;
-import com.example.atahad.Repository.GroupAlertRepository;
-import com.example.atahad.Repository.GroupTitleRepository;
+import com.example.atahad.Repository.GroupMemberRepository;
+import com.example.atahad.Repository.GroupSettlementRepository;
 import com.example.atahad.Repository.PenaltyRepository;
 import com.example.atahad.Service.GroupGoalService.MemberWeek;
 import lombok.RequiredArgsConstructor;
@@ -22,18 +23,23 @@ import java.util.function.ToDoubleFunction;
 // IRON: finished with the most times and no excuse | ROCKET: finished the week first | OWL: most proofs at night
 // ALARMIST: sent the most alerts | COMEBACK: failed last week and finished this week
 // EXCUSE_KING: most accepted excuses | TOP_DONOR: paid the most donations this week
+// no table for the titles: the winner keeps them in GroupMember.title, and the history is in GroupSettlement.titles
 @Service
 @RequiredArgsConstructor
 public class GroupTitleService {
-    private final GroupTitleRepository groupTitleRepository;
-    private final GroupAlertRepository groupAlertRepository;
+    private final GroupMemberRepository groupMemberRepository;
+    private final GroupSettlementRepository groupSettlementRepository;
+    private final ChatMessageRepository chatMessageRepository;
     private final PenaltyRepository penaltyRepository;
     private final CommitmentWeekRepository commitmentWeekRepository;
     private final GroupAccessService groupAccessService;
 
+    // one title won by one member
+    public record Win(String title, GroupMember groupMember){}
+
     @Transactional
-    public List<GroupTitle> giveTitles(Group group, List<MemberWeek> weeks, LocalDate weekStart, LocalDate saturday){
-        List<GroupTitle> titles = new ArrayList<>();
+    public List<Win> giveTitles(Group group, List<MemberWeek> weeks, LocalDate weekStart, LocalDate saturday){
+        List<Win> titles = new ArrayList<>();
         LocalDateTime from = weekStart.atStartOfDay();
         LocalDateTime to = saturday.atTime(23, 59, 59);
 
@@ -64,7 +70,7 @@ public class GroupTitleService {
 
         // ALARMIST
         add(titles, group, best(weeks, w -> {
-            int count = groupAlertRepository.findGroupAlertsBySenderIdAndSentAtBetween(w.groupMember().getId(), from, to).size();
+            int count = chatMessageRepository.findChatMessagesByTypeInAndSenderIdAndSentAtBetween(GroupAlertService.ALERT_TYPES, w.groupMember().getId(), from, to).size();
             return count == 0 ? -1 : count;
         }), "ALARMIST", weekStart);
 
@@ -105,40 +111,91 @@ public class GroupTitleService {
             return total.signum() == 0 ? -1 : total.doubleValue();
         }), "TOP_DONOR", weekStart);
 
+        // the titles of last week are replaced by the new ones
+        for(GroupMember groupMember : groupMemberRepository.findGroupMembersByGroupId(group.getId())){
+            StringBuilder mine = new StringBuilder();
+            for(Win win : titles){
+                if(win.groupMember().getId().equals(groupMember.getId())){
+                    mine.append(mine.length() == 0 ? "" : ",").append(win.title());
+                }
+            }
+            groupMember.setTitle(mine.length() == 0 ? null : mine.toString());
+            groupMemberRepository.save(groupMember);
+        }
         return titles;
+    }
+
+    // saved in GroupSettlement.titles: IRON=4;ROCKET=7 (the id of the GroupMember)
+    public String encode(List<Win> titles){
+        StringBuilder text = new StringBuilder();
+        for(Win win : titles){
+            text.append(text.length() == 0 ? "" : ";").append(win.title()).append("=").append(win.groupMember().getId());
+        }
+        return text.length() == 0 ? null : text.toString();
+    }
+
+    // the titles a member won in his groups between two dates (for the monthly wrapped)
+    public List<String> titlesOf(Member member, LocalDate from, LocalDate to){
+        List<String> list = new ArrayList<>();
+        for(GroupMember groupMember : groupMemberRepository.findGroupMembersByMemberId(member.getId())){
+            for(GroupSettlement settlement : groupSettlementRepository.findGroupSettlementsByGroupGoalGroupIdAndWeekStartBetween(groupMember.getGroup().getId(), from, to)){
+                for(String[] pair : decode(settlement.getTitles())){
+                    if(pair[1].equals(String.valueOf(groupMember.getId()))){
+                        list.add(pair[0]);
+                    }
+                }
+            }
+        }
+        return list;
     }
 
     // the titles of the last week
     public List<GroupTitleResponse> getLatestTitles(Integer groupId, Integer memberId){
         groupAccessService.getActiveMembership(groupId, memberId);
-        List<GroupTitle> all = groupTitleRepository.findGroupTitlesByGroupIdOrderByWeekStartDesc(groupId);
-        List<GroupTitleResponse> list = new ArrayList<>();
-        if(all.isEmpty()){
-            return list;
+        for(GroupSettlement settlement : groupSettlementRepository.findGroupSettlementsByGroupGoalGroupIdOrderByCreatedAtDesc(groupId)){
+            if(settlement.getTitles() != null){
+                return toResponses(settlement);
+            }
         }
-        LocalDate last = all.get(0).getWeekStart();
-        for(GroupTitle title : groupTitleRepository.findGroupTitlesByGroupIdAndWeekStart(groupId, last)){
-            list.add(toResponse(title));
-        }
-        return list;
+        return new ArrayList<>();
     }
 
     public List<GroupTitleResponse> getTitlesHistory(Integer groupId, Integer memberId){
         groupAccessService.getActiveMembership(groupId, memberId);
         List<GroupTitleResponse> list = new ArrayList<>();
-        for(GroupTitle title : groupTitleRepository.findGroupTitlesByGroupIdOrderByWeekStartDesc(groupId)){
-            list.add(toResponse(title));
+        for(GroupSettlement settlement : groupSettlementRepository.findGroupSettlementsByGroupGoalGroupIdOrderByCreatedAtDesc(groupId)){
+            list.addAll(toResponses(settlement));
         }
         return list;
     }
 
-    public String nameOf(GroupTitle title){
-        return groupAccessService.nameOf(title.getGroupMember().getMember());
+    public String nameOf(Win win){
+        return groupAccessService.nameOf(win.groupMember().getMember());
     }
 
-    private GroupTitleResponse toResponse(GroupTitle title){
-        return new GroupTitleResponse(title.getWeekStart(), title.getTitle(),
-                title.getGroupMember().getMember().getId(), nameOf(title));
+    private List<GroupTitleResponse> toResponses(GroupSettlement settlement){
+        List<GroupTitleResponse> list = new ArrayList<>();
+        for(String[] pair : decode(settlement.getTitles())){
+            GroupMember winner = groupMemberRepository.findGroupMemberById(Integer.valueOf(pair[1]));
+            if(winner != null){
+                list.add(new GroupTitleResponse(settlement.getWeekStart(), pair[0], winner.getMember().getId(), groupAccessService.nameOf(winner.getMember())));
+            }
+        }
+        return list;
+    }
+
+    private List<String[]> decode(String titles){
+        List<String[]> list = new ArrayList<>();
+        if(titles == null || titles.isBlank()){
+            return list;
+        }
+        for(String part : titles.split(";")){
+            String[] pair = part.split("=");
+            if(pair.length == 2){
+                list.add(pair);
+            }
+        }
+        return list;
     }
 
     // the member with the highest value, values below zero do not win
@@ -155,17 +212,10 @@ public class GroupTitleService {
         return best;
     }
 
-    private void add(List<GroupTitle> titles, Group group, MemberWeek winner, String title, LocalDate weekStart){
-        if(winner == null){
-            return;
+    private void add(List<Win> titles, Group group, MemberWeek winner, String title, LocalDate weekStart){
+        if(winner != null){
+            titles.add(new Win(title, winner.groupMember()));
         }
-        GroupTitle groupTitle = new GroupTitle();
-        groupTitle.setWeekStart(weekStart);
-        groupTitle.setTitle(title);
-        groupTitle.setGroup(group);
-        groupTitle.setGroupMember(winner.groupMember());
-        groupTitleRepository.save(groupTitle);
-        titles.add(groupTitle);
     }
 
     private boolean isFull(MemberWeek w){

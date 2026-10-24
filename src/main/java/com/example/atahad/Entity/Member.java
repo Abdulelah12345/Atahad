@@ -84,18 +84,23 @@ public class Member {
     private User user;
 
     @OneToMany(cascade = CascadeType.ALL, mappedBy = "member")
+    @JsonIgnore
     private Set<Commitment> commitments;
 
     @OneToMany(cascade = CascadeType.ALL, mappedBy = "member")
+    @JsonIgnore
     private Set<GraceDay> graceDays;
 
     @OneToMany(cascade = CascadeType.ALL, mappedBy = "member")
+    @JsonIgnore
     private Set<Objection> objections;
 
     @OneToMany(cascade = CascadeType.ALL, mappedBy = "member")
+    @JsonIgnore
     private Set<Penalty> penalties;
 
     @OneToMany(cascade = CascadeType.ALL, mappedBy = "member")
+    @JsonIgnore
     private Set<DonationProof> donationProofs;
 
     @OneToMany(cascade = CascadeType.ALL, mappedBy = "member")

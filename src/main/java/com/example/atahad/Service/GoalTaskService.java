@@ -50,6 +50,9 @@ public class GoalTaskService {
         if(task.getAmountPerTime() == null || task.getAmountPerTime().compareTo(new BigDecimal("5.00")) < 0){
             throw new ApiException("Amount per time must be at least 5");
         }
+        if(task.getProofMethod() == null || !task.getProofMethod().matches("^(LOCATION|PHOTO|QUIZ|TIMER)$")){
+            throw new ApiException("Proof method must be LOCATION, PHOTO, QUIZ or TIMER");
+        }
         if(goal.getStatus().equals("WITHDRAWN") || goal.getStatus().equals("ENDED")){
             throw new ApiException("Goal is finished and cannot be changed");
         }
@@ -63,6 +66,7 @@ public class GoalTaskService {
             copy.setTimesPerWeek(task.getTimesPerWeek());
             copy.setAmountPerTime(task.getAmountPerTime());
             copy.setPlannedDays(task.getPlannedDays() == null ? null : new HashSet<>(task.getPlannedDays()));
+            copy.setProofMethod(task.getProofMethod());
             saveNewTask(goal, copy, week);
         }
     }
