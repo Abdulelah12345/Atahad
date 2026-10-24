@@ -45,6 +45,13 @@ class SecurityConfigTest {
 
     static Stream<Route> restrictedRoutes() {
         return Stream.of(
+                new Route("POST", "/api/v1/quiz/create/1/2", "MEMBER"),
+                new Route("POST", "/api/v1/challenge/create/1/2", "MEMBER"),
+                new Route("POST", "/api/v1/visit/enter/1/2", "MEMBER"),
+                new Route("POST", "/api/v1/visit/exit/1/2", "MEMBER"),
+                new Route("GET", "/api/v1/visit/my/1", "MEMBER"),
+                new Route("POST", "/api/v1/proof-attempt/start/1", "MEMBER"),
+                new Route("POST", "/api/v1/proof-attempt/timer/1/state", "MEMBER"),
                 new Route("GET", "/api/v1/proof/get-all", "ADMIN"),
                 new Route("GET", "/api/v1/proof/get/1", "MEMBER"),
                 new Route("GET", "/api/v1/proof/get-my-proofs", "MEMBER"),
@@ -198,10 +205,10 @@ class SecurityConfigTest {
         }
 
         @Bean
-        UserDetailsService testUsers(PasswordEncoder encoder) {
+        MyUserDetailsService testUsers() {
             // Exercise the production loader and entity with an isolated repository.
             UserRepository repository = mock(UserRepository.class);
-            String hash = encoder.encode("test-password");
+            String hash = new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder().encode("test-password");
             for (String email : new String[]{"member@example.test", "locked@example.test", "disabled@example.test", "banned@example.test"}) {
                 com.example.atahad.Entity.User user = new com.example.atahad.Entity.User();
                 user.setId(1);

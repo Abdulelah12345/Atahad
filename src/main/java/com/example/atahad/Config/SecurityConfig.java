@@ -49,6 +49,9 @@ public class SecurityConfig {
                 )
                 .authorizeHttpRequests(auth -> auth
 
+                        // صفحة التجربة فقط؛ كل بياناتها وعملياتها خلف صلاحيات API.
+                        .requestMatchers(HttpMethod.GET,"/proof-session.html").permitAll()
+
                         // Public endpoints
                         .requestMatchers(
                                 HttpMethod.POST,
@@ -107,7 +110,8 @@ public class SecurityConfig {
                                 "/api/v1/objection/get/{id}",
                                 "/api/v1/donation-proof/gmail/connect/{memberId}",
                                 "/api/v1/donation-proof/my/{memberId}",
-                                "/api/v1/penalty/my/{memberId}"
+                                "/api/v1/penalty/my/{memberId}",
+                                "/api/v1/visit/my/{memberId}"
                         ).hasAuthority("MEMBER")
 
                         .requestMatchers(
@@ -120,7 +124,11 @@ public class SecurityConfig {
                                 "/api/v1/objection/add/excuse/{excuseId}",
                                 "/api/v1/donation-proof/screenshot/{memberId}",
                                 "/api/v1/donation-proof/email/{memberId}",
-                                "/api/v1/donation-proof/objection/{memberId}/{donationProofId}"
+                                "/api/v1/donation-proof/objection/{memberId}/{donationProofId}",
+                                "/api/v1/quiz/create/{memberId}/{weekId}",
+                                "/api/v1/challenge/create/{memberId}/{weekId}",
+                                "/api/v1/visit/enter/{memberId}/{commitmentId}",
+                                "/api/v1/visit/exit/{memberId}/{commitmentId}"
                         ).hasAuthority("MEMBER")
 
                         .requestMatchers(
@@ -246,8 +254,14 @@ public class SecurityConfig {
                                 "/api/v1/n8n/whatsapp/failed/{id}"
                         ).permitAll()
 
+                        // محاولات البروف والجلسات والكاميرا للأعضاء؛ الملكية داخل السيرفس.
+                        .requestMatchers("/api/v1/proof-attempt/**").hasAuthority("MEMBER")
+
                         // Deny unconfigured endpoints in these controllers
                         .requestMatchers(
+                                "/api/v1/quiz/**",
+                                "/api/v1/challenge/**",
+                                "/api/v1/visit/**",
                                 "/api/v1/proof/**",
                                 "/api/v1/excuse/**",
                                 "/api/v1/objection/**",

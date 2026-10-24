@@ -76,7 +76,7 @@ class AcceptanceGuardServiceTest {
         when(entityManager.find(Proof.class, 3)).thenReturn(proof);
         guard.lockAndCheck(1, 2, day, 3, null);
         verify(entityManager).refresh(task, LockModeType.PESSIMISTIC_WRITE);
-        verify(entityManager).refresh(proof, LockModeType.PESSIMISTIC_WRITE);
+        verify(entityManager).lock(proof, LockModeType.PESSIMISTIC_WRITE);
         verify(proofQuery).setParameter("proofId", 3);
         verify(proofQuery).setParameter("goalTaskId", 2);
     }

@@ -27,7 +27,8 @@ public class Quiz {
     @Column(columnDefinition = "VARCHAR(200)")
     private String topic;
 
-    @Column(columnDefinition = "VARCHAR(3000)")
+    @JsonIgnore
+    @Column(columnDefinition = "TEXT")
     private String questions; // the questions and their options, as the AI wrote them
 
     @JsonIgnore
@@ -39,6 +40,11 @@ public class Quiz {
 
     @Column(columnDefinition = "DATETIME")
     private LocalDateTime usedAt; // a quiz is used once
+
+    private Integer proofId;
+    private java.time.LocalDate activityDate;
+    private Integer attemptNumber;
+    private Integer score;
 
     //Relations
     @ManyToOne

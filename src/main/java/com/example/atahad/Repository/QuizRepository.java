@@ -7,4 +7,5 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface QuizRepository extends JpaRepository<Quiz, Integer> {
     Quiz findQuizById(Integer id);
+    java.util.List<Quiz> findByCommitmentWeekIdOrderById(Integer weekId);
 }

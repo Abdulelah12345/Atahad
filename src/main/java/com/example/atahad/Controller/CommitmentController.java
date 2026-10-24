@@ -1,7 +1,7 @@
 package com.example.atahad.Controller;
 
 import com.example.atahad.Api.ApiResponse;
-=import com.example.atahad.Entity.User;
+import com.example.atahad.Entity.User;
 
 import com.example.atahad.Dto.In.CommitmentTargetRequest;
 import jakarta.validation.Valid;

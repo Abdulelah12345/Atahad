@@ -20,6 +20,8 @@ public class AdminReviewService {
     private final AuthenticatedUserService authenticatedUserService;
     private final AdminRepository adminRepository;
     private final ProofRepository proofRepository;
+    private final ProofEvidenceRepository proofEvidenceRepository;
+    private final ProofCaptureRepository proofCaptureRepository;
     private final ExcuseRepository excuseRepository;
     private final ObjectionRepository objectionRepository;
     private final ProofDecisionService proofDecisionService;
@@ -34,7 +36,7 @@ public class AdminReviewService {
         for(Proof proof : proofDecisionService.getEscalated()){
             Member member = proof.getCommitmentWeek().getCommitment().getMember();
             list.add(new ReviewItemResponse("PROOF", proof.getId(), member.getId(), name(member), title(proof.getCommitmentWeek(), proof.getGoalTask()),
-                    proof.getType() + " at " + proof.getActivityTime(), List.of(proof.getEvidenceData()), proof.getRejectionReason(), proof.getSubmittedAt()));
+                    proofDetails(proof), proofImages(proof), proof.getRejectionReason(), proof.getSubmittedAt()));
         }
         for(Excuse excuse : excuseDecisionService.getEscalated()){
             Member member = excuse.getCommitmentWeek().getCommitment().getMember();
@@ -77,7 +79,7 @@ public class AdminReviewService {
                 if(proof == null || !"ESCALATED".equals(proof.getResult())){
                     throw new ApiException("Proof not found in the admin list");
                 }
-                proofDecisionService.applyDecision(proof, accept ? "ACCEPTED" : "REJECTED", note);
+                proofDecisionService.reviewDecision(proof, accept, note);
             }
             case "EXCUSE" -> {
                 Excuse excuse = excuseRepository.findExcuseById(id);
@@ -100,6 +102,28 @@ public class AdminReviewService {
         adminRepository.save(admin);
     }
 
+    // نعرض للأدمن نتيجة كل دليل والصور المرتبطة به، ليتمكن من مراجعة المحاولة كاملة.
+    private String proofDetails(Proof proof) {
+        StringBuilder details = new StringBuilder(proof.getType() + " at " + proof.getActivityTime());
+        for (ProofEvidence item : proofEvidenceRepository.findByProofIdOrderById(proof.getId())) {
+            details.append("\n").append(item.getType()).append(": ").append(item.getResult());
+            if (item.getReason() != null) { details.append(" - ").append(item.getReason()); }
+        }
+        return details.toString();
+    }
+    private List<String> proofImages(Proof proof) {
+        List<String> images = new ArrayList<>();
+        if (proof.getEvidenceData() != null) { images.add(proof.getEvidenceData()); }
+        for (ProofEvidence item : proofEvidenceRepository.findByProofIdOrderById(proof.getId())) {
+            for (Integer captureId : new Integer[]{item.getBeforeCaptureId(), item.getAfterCaptureId()}) {
+                if (captureId != null) {
+                    ProofCapture capture = proofCaptureRepository.findById(captureId).orElse(null);
+                    if (capture != null && capture.getImageData() != null) { images.add(capture.getImageData()); }
+                }
+            }
+        }
+        return images;
+    }
     private Admin getAdmin(Integer adminId){
         authenticatedUserService.checkAdmin(adminId);
         Admin admin = adminRepository.findAdminById(adminId);
