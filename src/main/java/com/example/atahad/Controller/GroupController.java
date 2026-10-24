@@ -5,8 +5,10 @@ import com.example.atahad.Dto.In.GroupCreateRequest;
 import com.example.atahad.Dto.In.GroupUpdateRequest;
 import com.example.atahad.Service.GroupService;
 import jakarta.validation.Valid;
+import com.example.atahad.Entity.User;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -27,39 +29,32 @@ public class GroupController {
         return ResponseEntity.status(200).body(groupService.getGroupById(id));
     }
 
-    @PostMapping("/add/{memberId}")
-    public ResponseEntity<?> addGroup(@PathVariable Integer memberId, @RequestBody @Valid GroupCreateRequest dto) {
-        return ResponseEntity.status(200).body(groupService.addGroup(memberId, dto));
+    @PostMapping("/add")
+    public ResponseEntity<?> addGroup(@AuthenticationPrincipal User user, @RequestBody @Valid GroupCreateRequest dto) {
+        return ResponseEntity.status(200).body(groupService.addGroup(user.getId(), dto));
     }
 
-    @PutMapping("/update/{groupId}/{memberId}")
-    public ResponseEntity<?> updateGroup(@PathVariable Integer groupId, @PathVariable Integer memberId, @RequestBody @Valid GroupUpdateRequest dto) {
-        groupService.updateGroup(groupId, memberId, dto);
+    @PutMapping("/update/{groupId}")
+    public ResponseEntity<?> updateGroup(@AuthenticationPrincipal User user, @PathVariable Integer groupId, @RequestBody @Valid GroupUpdateRequest dto) {
+        groupService.updateGroup(groupId, user.getId(), dto);
         return ResponseEntity.status(200).body(new ApiResponse("Group updated successfully"));
     }
 
-    // GENTLE or HYPE
-    @PutMapping("/humor/{groupId}/{memberId}/{humorLevel}")
-    public ResponseEntity<?> updateHumorLevel(@PathVariable Integer groupId, @PathVariable Integer memberId, @PathVariable String humorLevel) {
-        groupService.updateHumorLevel(groupId, memberId, humorLevel);
-        return ResponseEntity.status(200).body(new ApiResponse("Humor level updated"));
-    }
-
     // the invite code and the QR content
-    @GetMapping("/invite/{groupId}/{memberId}")
-    public ResponseEntity<?> getInvite(@PathVariable Integer groupId, @PathVariable Integer memberId) {
-        return ResponseEntity.status(200).body(groupService.getInvite(groupId, memberId));
+    @GetMapping("/invite/{groupId}")
+    public ResponseEntity<?> getInvite(@AuthenticationPrincipal User user, @PathVariable Integer groupId) {
+        return ResponseEntity.status(200).body(groupService.getInvite(groupId, user.getId()));
     }
 
-    @PutMapping("/resetInvite/{groupId}/{memberId}")
-    public ResponseEntity<?> resetInviteCode(@PathVariable Integer groupId, @PathVariable Integer memberId) {
-        return ResponseEntity.status(200).body(groupService.resetInviteCode(groupId, memberId));
+    @PutMapping("/resetInvite/{groupId}")
+    public ResponseEntity<?> resetInviteCode(@AuthenticationPrincipal User user, @PathVariable Integer groupId) {
+        return ResponseEntity.status(200).body(groupService.resetInviteCode(groupId, user.getId()));
     }
 
     // archived, the history stays
-    @DeleteMapping("/delete/{groupId}/{memberId}")
-    public ResponseEntity<?> deleteGroup(@PathVariable Integer groupId, @PathVariable Integer memberId) {
-        groupService.deleteGroup(groupId, memberId);
+    @DeleteMapping("/delete/{groupId}")
+    public ResponseEntity<?> deleteGroup(@AuthenticationPrincipal User user, @PathVariable Integer groupId) {
+        groupService.deleteGroup(groupId, user.getId());
         return ResponseEntity.status(200).body(new ApiResponse("Group archived successfully"));
     }
 }

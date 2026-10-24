@@ -26,32 +26,32 @@ public class WhatsAppService {
     // a time was lost (or the member withdrew), the app is locked now
     public void lockMessage(Member member, String commitmentTitle, int times, BigDecimal amountPerTime, BigDecimal totalToDonate, boolean withdrawal){
         String reason = withdrawal
-                ? "انسحبت من *" + commitmentTitle + "*، والمرات الباقية هالأسبوع صارت تبرّع"
-                : "فاتتك " + (times == 1 ? "مرة" : times == 2 ? "مرتين" : times + " مرات") + " في *" + commitmentTitle + "* والأيام الباقية ما تكفي";
-        String body = "🔒 *أتعهّد | التطبيق انقفل*\n"
+                ? "انسحبت من *" + commitmentTitle + "*، والمرات المتبقية هذا الأسبوع تحوّلت إلى تبرّع"
+                : "فاتتك " + (times == 1 ? "مرة" : times == 2 ? "مرتان" : times + " مرات") + " في *" + commitmentTitle + "*، والأيام المتبقية لا تكفي";
+        String body = "*أتعهّد | تم قفل التطبيق* 🔒\n"
                 + LINE + "\n\n"
-                + "هلا " + name(member) + "،\n"
+                + "مرحباً " + name(member) + "،\n"
                 + reason + ".\n\n"
-                + "💰 *المطلوب منك:* " + money(totalToDonate) + " ريال\n"
-                + "   (" + times + " × " + money(amountPerTime) + " ريال)\n\n"
-                + "*عشان يرجع التطبيق:*\n"
-                + "1️⃣ تبرّع بالمبلغ لمنصة *إحسان*\n"
-                + "2️⃣ افتح أتعهّد واضغط *تبرّعت* 🧾\n\n"
-                + "عندك عذر؟ اضغط *عندي عذر* 📝\n\n"
+                + "*المبلغ المطلوب:* " + money(totalToDonate) + " ريال\n"
+                + "(" + times + " × " + money(amountPerTime) + " ريال)\n\n"
+                + "*لإعادة فتح التطبيق:*\n"
+                + "1. تبرّع بالمبلغ عبر منصة *إحسان*\n"
+                + "2. افتح أتعهّد واضغط *تبرّعت*\n\n"
+                + "أو أدخِل العذر.\n\n"
                 + LINE + "\n"
-                + "_تبرعك يروح لمحتاج، والتزامك يرجع لك_ 🤍";
+                + "_الالتزام يُبنى بالاستمرار، وتبرّعك أجرٌ لك بإذن الله._";
         enqueue(member, "LOCK", body);
     }
 
     // the donation was accepted, the app is open again
     public void unlockMessage(Member member, BigDecimal donated){
-        String body = "🔓 *أتعهّد | التطبيق انفتح*\n"
+        String body = "*أتعهّد | تم فتح التطبيق*\n"
                 + LINE + "\n\n"
-                + "شكراً " + name(member) + " 🤍\n"
-                + "تأكدنا من تبرعك بـ *" + money(donated) + " ريال* لإحسان.\n\n"
-                + "التطبيق رجع لك، وكمّل التزامك 💪\n\n"
+                + "شكراً " + name(member) + "،\n"
+                + "تأكدنا من تبرّعك بمبلغ *" + money(donated) + " ريال* لمنصة إحسان.\n\n"
+                + "التطبيق متاح لك الآن، واصل التزامك.\n\n"
                 + LINE + "\n"
-                + "_جزاك الله خير_";
+                + "_جزاك الله خيراً._";
         enqueue(member, "UNLOCK", body);
     }
 
@@ -59,18 +59,17 @@ public class WhatsAppService {
     public void reminderMessage(Member member, List<String> lines){
         StringBuilder items = new StringBuilder();
         for(String line : lines){
-            items.append("▫️ ").append(line).append("\n");
+            items.append("• ").append(line).append("\n");
         }
-        String body = "⏰ *أتعهّد | تذكير اليوم*\n"
+        String body = "*أتعهّد | تذكير اليوم* ⏰\n"
                 + LINE + "\n\n"
-                + "هلا " + name(member) + " 👋\n"
-                + "اليوم لازم تسوي:\n\n"
+                + "مرحباً " + name(member) + "،\n"
+                + "عليك اليوم:\n\n"
                 + items
-                + "\nلو ما سويتها اليوم بتروح عليك مرة،\n"
-                + "ويتقفل التطبيق لين تتبرّع 🔒\n\n"
-                + "📸 ارفع الإثبات قبل *11:59 الليل*\n\n"
+                + "\nاليوم هو آخر يوم متاح لإنجازها هذا الأسبوع، وفي حال فاتتك سيُقفل التطبيق حتى إتمام التبرّع.\n"
+                + "ارفع الإثبات قبل *11:59 مساءً*.\n\n"
                 + LINE + "\n"
-                + "_قدها وقدود_ 💪";
+                + "_بالتوفيق._";
         enqueue(member, "REMINDER", body);
     }
 
@@ -82,11 +81,11 @@ public class WhatsAppService {
             table.append(row).append("\n");
         }
         String mine = myAmount.signum() == 0
-                ? "✅ *ما عليك شي هالأسبوع*"
-                : "💰 *عليك تبرّع:* " + money(myAmount) + " ريال لإحسان\n"
-                + "   افتح أتعهّد واضغط *تبرّعت* بعد ما تتبرّع";
-        String body = "⚖️ *أتعهّد | تسوية الأسبوع*\n"
-                + "👥 " + groupName + " • " + goalTitle + "\n"
+                ? "*لا يوجد عليك مبلغ هذا الأسبوع.*"
+                : "*المطلوب منك:* " + money(myAmount) + " ريال لمنصة إحسان\n"
+                + "بعد التبرّع افتح أتعهّد واضغط *تبرّعت*.";
+        String body = "*أتعهّد | تسوية الأسبوع*\n"
+                + groupName + " — " + goalTitle + "\n"
                 + LINE + "\n\n"
                 + table
                 + "\n" + settlementText + "\n\n"

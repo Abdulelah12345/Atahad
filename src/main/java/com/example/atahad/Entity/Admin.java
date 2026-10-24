@@ -39,14 +39,18 @@ public class Admin {
     private User user;
 
     @OneToMany(cascade = CascadeType.ALL, mappedBy = "admin")
+    @JsonIgnore
     private Set<Objection> decidedObjections;
 
     @OneToMany(cascade = CascadeType.ALL, mappedBy = "admin")
+    @JsonIgnore
     private Set<Excuse> reviewedExcuses;
 
     @OneToMany(cascade = CascadeType.ALL, mappedBy = "admin")
+    @JsonIgnore
     private Set<GraceDay> grantedGraceDays;
 
     @OneToMany(cascade = CascadeType.ALL, mappedBy = "admin")
+    @JsonIgnore
     private Set<DonationProof> reviewedDonationProofs;
 }

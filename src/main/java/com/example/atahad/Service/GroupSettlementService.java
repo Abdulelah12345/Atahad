@@ -112,7 +112,7 @@ public class GroupSettlementService {
         List<String> board = new ArrayList<>();
         for(MemberWeek w : weeks){
             boolean done = Boolean.TRUE.equals(w.week().getIsFullWeek());
-            board.add((done ? "✅ " : "❌ ") + groupAccessService.nameOf(w.groupMember().getMember())
+            board.add((done ? "✓ " : "✗ ") + groupAccessService.nameOf(w.groupMember().getMember())
                     + "  " + w.week().getCompleted() + "/" + w.week().getRequired());
         }
         for(MemberWeek w : weeks){
@@ -160,7 +160,7 @@ public class GroupSettlementService {
         return aiService.ask(
                 "You write the weekly settlement message of a group in a commitment app (max 80 words). "
                         + "Keep every name, number and amount exactly as given, do not add new penalties. "
-                        + "Donations go to Ehsan charity. " + aiService.tone(group.getHumorLevel()),
+                        + "Donations go to Ehsan charity. " + aiService.tone(),
                 facts + "\nSettlement:\n" + fallback,
                 fallback);
     }

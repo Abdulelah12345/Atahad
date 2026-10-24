@@ -68,6 +68,7 @@ public class Excuse {
     private Admin admin; // Null unless it was escalated
 
     @OneToOne(cascade = CascadeType.ALL, mappedBy = "excuse")
+    @JsonIgnore
     private Objection objection;
 
 

@@ -76,7 +76,7 @@ public class GroupAlertService {
 
         String text = aiService.ask(
                 "You write one short push notification (max 20 words) that wakes up a friend to do his task. "
-                        + aiService.tone(group.getHumorLevel()),
+                        + aiService.tone(),
                 "Friend: " + receiverName + "\nSent by: " + senderName + (collective ? " and " + today.size() + " other friends" : "")
                         + "\nTask: " + goal.getTitle() + "\nTimes left this week: " + remaining + "\nDays left: " + daysLeft,
                 fallback);

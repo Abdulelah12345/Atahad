@@ -82,6 +82,7 @@ public abstract class Commitment {
     private Member member;
 
     @OneToMany(cascade = CascadeType.ALL, mappedBy = "commitment")
+    @JsonIgnore
     private Set<CommitmentWeek> weeks;
 
     @ManyToOne

@@ -127,7 +127,7 @@ public class MonthlyWrappedService {
 
         String summary = aiService.ask(
                 "You write a short monthly wrapped card for a commitment app (max 70 words), proud and personal, "
-                        + "keep every number exactly as given. Write in Saudi Arabic dialect.",
+                        + "keep every number exactly as given. " + aiService.tone(),
                 facts, fallback);
 
         MonthlyWrapped wrapped = monthlyWrappedRepository.findMonthlyWrappedByMemberIdAndMonth(member.getId(), month.toString());

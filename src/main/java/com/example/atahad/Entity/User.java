@@ -54,9 +54,11 @@ public class User {
     //Relations
     @OneToOne(cascade = CascadeType.ALL, mappedBy = "user")
     @PrimaryKeyJoinColumn
+    @JsonIgnore
     private Member member;
 
     @OneToOne(cascade = CascadeType.ALL, mappedBy = "user")
     @PrimaryKeyJoinColumn
+    @JsonIgnore
     private Admin admin;
 }

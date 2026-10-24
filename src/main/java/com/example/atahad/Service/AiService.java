@@ -163,12 +163,11 @@ public class AiService {
         return "ESCALATED";
     }
 
-    // GENTLE is kind, HYPE is loud and funny, both stay respectful
-    public String tone(String humorLevel){
-        if("HYPE".equals(humorLevel)){
-            return "Write in Saudi Arabic dialect, loud, funny and full of energy like friends teasing each other, never insulting.";
-        }
-        return "Write in Saudi Arabic dialect, kind, warm and encouraging.";
+    // one style for every text the AI writes to the members
+    public String tone(){
+        return "Write in simple white Saudi Arabic that every Arab understands, a little formal, with some Modern Standard Arabic words, "
+                + "natural and relaxed. Do not try to be funny: no jokes, no teasing, no slang like (يا ناشفين), no exaggeration. "
+                + "Use no emojis, or one at most.";
     }
 
     // Gemini does not open links by itself, so the image is downloaded and sent inside the request

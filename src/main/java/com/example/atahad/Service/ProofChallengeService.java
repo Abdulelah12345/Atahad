@@ -29,8 +29,8 @@ public class ProofChallengeService {
     public static final int VALID_MINUTES = 10;
     private static final SecureRandom RANDOM = new SecureRandom();
     private static final List<String> MOVES = List.of(
-            "ارفع يدك اليمين", "ارفع يدك اليسار", "أشّر بإصبعين ✌️", "سوّ علامة 👍",
-            "لوّح للكاميرا بيدك", "حط يدك على راسك", "قرّب الكاميرا من وجهك ثانيتين");
+            "ارفع يدك اليمين", "ارفع يدك اليسار", "أشّر بإصبعين", "ارفع إبهامك",
+            "لوّح للكاميرا بيدك", "حط يدك على راسك");
 
     public ProofChallengeResponse create(Integer memberId, Integer weekId, Integer goalTaskId){
         CommitmentWeek week = commitmentWeekRepository.findCommitmentWeekById(weekId);

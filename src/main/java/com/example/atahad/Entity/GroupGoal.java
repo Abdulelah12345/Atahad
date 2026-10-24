@@ -82,5 +82,6 @@ public class GroupGoal {
     private Set<Commitment> commitments; // one for every member
 
     @OneToMany(cascade = CascadeType.ALL, mappedBy = "groupGoal")
+    @JsonIgnore
     private Set<GroupSettlement> settlements;
 }

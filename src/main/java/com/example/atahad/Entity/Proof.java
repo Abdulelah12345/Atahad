@@ -63,6 +63,7 @@ public class Proof {
     private CommitmentWeek commitmentWeek;
 
     @OneToOne(cascade = CascadeType.ALL, mappedBy = "proof")
+    @JsonIgnore
     private Objection objection;
 
 

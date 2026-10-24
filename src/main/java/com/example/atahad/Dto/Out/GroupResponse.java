@@ -16,7 +16,6 @@ public class GroupResponse {
     private String inviteCode;
     private LocalDateTime createdAt;
     private Integer membersCount;
-    private String humorLevel;
     private Integer points;
     private Integer pointsForGraceDay;
     private String status;

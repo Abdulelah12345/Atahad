@@ -4,6 +4,7 @@ import com.example.atahad.Api.ApiException;
 import com.example.atahad.Dto.In.GoalProposalRequest;
 import com.example.atahad.Dto.Out.GoalProposalResponse;
 import com.example.atahad.Entity.*;
+import com.example.atahad.Repository.CommitmentWeekRepository;
 import com.example.atahad.Repository.GroupMemberRepository;
 import com.example.atahad.Repository.GroupGoalRepository;
 import lombok.RequiredArgsConstructor;
@@ -14,12 +15,14 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-// choosing the next goal: the AI suggests 3, members can add theirs, everyone votes, the owner confirms
+// choosing the next goal: the AI suggests 3 (from what the members achieved, or general ones when nobody achieved anything yet),
+// members can add theirs, everyone votes, the owner confirms
 // a proposal is a GroupGoal with status PROPOSED, and the vote of a member is GroupMember.votedGoal
 @Service
 @RequiredArgsConstructor
 public class GoalProposalService {
     private final GroupMemberRepository groupMemberRepository;
+    private final CommitmentWeekRepository commitmentWeekRepository;
     private final GroupGoalRepository groupGoalRepository;
     private final GroupAccessService groupAccessService;
     private final AiService aiService;
@@ -39,19 +42,37 @@ public class GoalProposalService {
             return getOpenProposals(groupId, memberId); // already suggested, no need to call the AI again
         }
 
+        // what the members achieved: their personal commitments with a full week at least
+        java.util.Set<String> achieved = new java.util.LinkedHashSet<>();
+        for(GroupMember member : groupMemberRepository.findGroupMembersByGroupIdAndStatus(groupId, "ACTIVE")){
+            for(CommitmentWeek week : commitmentWeekRepository.findCommitmentWeeksByCommitmentMember(member.getMember())){
+                if(Boolean.TRUE.equals(week.getIsFullWeek()) && week.getCommitment().getGroupGoal() == null){
+                    achieved.add(week.getCommitment().getTitle());
+                }
+            }
+        }
+        StringBuilder done = new StringBuilder();
+        for(String title : achieved){
+            done.append("- ").append(title).append("\n");
+        }
         StringBuilder history = new StringBuilder();
         for(GroupGoal goal : groupGoalRepository.findGroupGoalsByGroupIdAndStatusInOrderByStartDateDesc(groupId, List.of("ACTIVE", "ENDED"))){
             history.append("- ").append(goal.getTitle()).append("\n");
         }
-        String fallback = "Walk 30 minutes | Walk at least 30 minutes, proof by location or photo\n"
-                + "Read 20 pages | Read 20 pages of any book, proof by a photo of the page\n"
-                + "Sleep before 12 | Be in bed before midnight, proof by a timer";
+        String fallback = "المشي 30 دقيقة | امشِ 30 دقيقة على الأقل، والإثبات بالموقع أو صورة\n"
+                + "قراءة 20 صفحة | اقرأ 20 صفحة من أي كتاب، والإثبات صورة الصفحة\n"
+                + "النوم قبل 12 | كن في سريرك قبل منتصف الليل، والإثبات بالمؤقت";
+        String basis = achieved.isEmpty()
+                ? "Nobody in the group achieved a goal yet, so suggest 3 different, simple and useful goals that suit any group. "
+                : "Base the 3 goals on what the members already achieved: goals of the same kind or one step further, so they keep going together. ";
         String answer = aiService.ask(
-                "You suggest weekly goals for a group of friends in a commitment app. Answer with exactly 3 lines, "
+                "You suggest weekly goals for a group of friends in a commitment app. " + basis
+                        + "Do not repeat a goal the group did before. Answer with exactly 3 lines, "
                         + "every line is: title | details. The title is short (max 6 words). No numbering. "
-                        + aiService.tone(group.getHumorLevel()),
+                        + aiService.tone(),
                 "Group name: " + group.getName() + "\nDescription: " + group.getDescription()
-                        + "\nGoals they did before:\n" + (history.length() == 0 ? "none\n" : history),
+                        + "\nWhat the members achieved:\n" + (done.length() == 0 ? "nothing yet\n" : done)
+                        + "Group goals they did before:\n" + (history.length() == 0 ? "none\n" : history),
                 fallback);
 
         int added = 0;
