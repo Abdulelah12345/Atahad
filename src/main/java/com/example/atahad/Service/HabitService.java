@@ -50,6 +50,7 @@ public class HabitService {
         habit.setEffectiveFrom(LocalDate.now());
         habit.setPendingTimesPerWeek(null);
         habit.setPendingBaseAmount(null);
+        CommitmentService.checkTargets(habit);
         habitRepository.save(habit);
 
         commitmentWeekService.startFirstWeek(habit);

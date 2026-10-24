@@ -1,6 +1,7 @@
 package com.example.atahad.Service;
 
 import com.example.atahad.Api.ApiException;
+import com.example.atahad.Dto.In.CommitmentTargetRequest;
 import com.example.atahad.Dto.Out.LockStatusResponse;
 import com.example.atahad.Dto.Out.MemberStatsResponse;
 import com.example.atahad.Dto.Out.PendingPenaltyResponse;
@@ -11,6 +12,7 @@ import com.example.atahad.Repository.CommitmentRepository;
 import com.example.atahad.Repository.CommitmentWeekRepository;
 import com.example.atahad.Repository.MemberRepository;
 import com.example.atahad.Repository.PenaltyRepository;
+import com.example.atahad.Repository.ProofRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,6 +30,7 @@ public class CommitmentService {
     private final PenaltyRepository penaltyRepository;
     private final CommitmentWeekRepository commitmentWeekRepository;
     private final CommitmentWeekService commitmentWeekService;
+    private final ProofRepository proofRepository;
 
     // habits and goals together
     public List<Commitment> getMyCommitments(Integer memberId){
@@ -107,6 +110,57 @@ public class CommitmentService {
                 commitmentRepository.findCommitmentsByMemberAndStatus(member, "ACTIVE").size(),
                 donated
         );
+    }
+
+    // LOCATION needs its place and TIMER its minutes, the proof is checked against them
+    public static void checkTargets(Commitment commitment){
+        if("LOCATION".equals(commitment.getProofMethod()) && commitment.getGroupGoal() == null
+                && (commitment.getTargetLatitude() == null || commitment.getTargetLongitude() == null)){
+            throw new ApiException("A LOCATION commitment needs the place (latitude and longitude)");
+        }
+        if("TIMER".equals(commitment.getProofMethod()) && commitment.getTargetMinutes() == null){
+            throw new ApiException("A TIMER commitment needs the minutes of one time");
+        }
+    }
+
+    // the place: only before the first accepted proof, so it can not be moved closer to make it easier
+    // the minutes (TIMER, or the time in the place for LOCATION): can change any time
+    public void setTarget(Integer memberId, Integer id, CommitmentTargetRequest dto){
+        Commitment commitment = getCommitment(memberId, id);
+        if(!"ACTIVE".equals(commitment.getStatus())){
+            throw new ApiException("Commitment is finished");
+        }
+        String method = commitment.getProofMethod();
+        if(!"LOCATION".equals(method) && !"TIMER".equals(method)){
+            throw new ApiException("Only LOCATION and TIMER commitments have a target");
+        }
+        boolean placeSent = dto.getLatitude() != null || dto.getLongitude() != null;
+        if("TIMER".equals(method) && dto.getMinutes() == null){
+            throw new ApiException("Minutes are required");
+        }
+        if("LOCATION".equals(method) && !placeSent && dto.getMinutes() == null){
+            throw new ApiException("Send the place or the minutes");
+        }
+
+        if(dto.getMinutes() != null){
+            if(commitment.getGroupGoal() != null){
+                throw new ApiException("The minutes of a group goal are the same for every member");
+            }
+            commitment.setTargetMinutes(dto.getMinutes());
+        }
+        if("LOCATION".equals(method) && placeSent){
+            if(dto.getLatitude() == null || dto.getLongitude() == null){
+                throw new ApiException("Latitude and longitude are required");
+            }
+            if(!proofRepository.findProofsByCommitmentWeekCommitmentIdAndResult(id, "ACCEPTED").isEmpty()){
+                throw new ApiException("The place can not change after the first accepted proof");
+            }
+            commitment.setTargetLatitude(dto.getLatitude());
+            commitment.setTargetLongitude(dto.getLongitude());
+            commitment.setTargetRadiusMeters(dto.getRadiusMeters());
+            commitment.setTargetPlaceName(dto.getPlaceName());
+        }
+        commitmentRepository.save(commitment);
     }
 
     private Member getMember(Integer memberId){

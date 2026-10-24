@@ -62,8 +62,8 @@ public class GoalTask {
 ///////////////احتاجها في البروف
     @NotBlank(message = "Proof method cannot be empty")
     @Pattern(
-            regexp = "^(LOCATION|PHOTO|QUIZ|PLATFORM|TIMER)$",
-            message = "Proof method must be LOCATION, PHOTO, QUIZ, PLATFORM or TIMER"
+            regexp = "^(LOCATION|PHOTO|QUIZ|TIMER)$",
+            message = "Proof method must be LOCATION, PHOTO, QUIZ or TIMER"
     )
     @Column(columnDefinition = "VARCHAR(8) NOT NULL")
     private String proofMethod;

@@ -76,4 +76,6 @@ public interface ProofRepository extends JpaRepository<Proof, Integer> {
     List<Proof> findProofsByResult(String result);
 
     List<Proof> findProofsByCommitmentWeekId(Integer commitmentWeekId);
+
+    List<Proof> findProofsByCommitmentWeekCommitmentIdAndResult(Integer commitmentId, String result);
 }

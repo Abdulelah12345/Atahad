@@ -34,7 +34,8 @@ public class ChatMessageService {
     public List<ChatMessageResponse> getMessages(Integer groupId, Integer memberId){
         groupAccessService.getActiveMembership(groupId, memberId);
         List<ChatMessageResponse> list = new ArrayList<>();
-        for(ChatMessage message : chatMessageRepository.findChatMessagesByGroupIdOrderBySentAtAsc(groupId)){
+        // the alerts are private to their receiver, the chat shows the members' messages and the app messages
+        for(ChatMessage message : chatMessageRepository.findChatMessagesByGroupIdAndTypeInOrderBySentAtAsc(groupId, List.of("TEXT", "SYSTEM"))){
             GroupMember sender = message.getSender();
             list.add(new ChatMessageResponse(message.getId(), message.getType(), message.getContent(),
                     sender == null ? null : sender.getMember().getId(),

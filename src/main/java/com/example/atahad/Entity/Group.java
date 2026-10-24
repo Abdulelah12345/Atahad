@@ -35,9 +35,6 @@ public class Group {
     @Column(columnDefinition = "VARCHAR(500)")
     private String qrCodeUrl;
 
-    @Pattern(regexp = "^(GENTLE|HYPE)$", message = "Humor level must be GENTLE or HYPE")
-    @Column(columnDefinition = "VARCHAR(6)")
-    private String humorLevel = "GENTLE"; // tone of the settlement and the alerts
 
     @Min(value = 0, message = "Points must be zero or more")
     @Column(columnDefinition = "INTEGER DEFAULT 0")
@@ -55,23 +52,16 @@ public class Group {
     private LocalDateTime createdAt;
 
     @OneToMany(mappedBy = "group")
+    @JsonIgnore
     private Set<GroupMember> members;
 
     @OneToMany(cascade = CascadeType.ALL, mappedBy = "group")
     @JsonIgnore
-    private Set<GroupGoal> goals; // one active goal at a time, the rest is history
-
-    @OneToMany(cascade = CascadeType.ALL, mappedBy = "group")
-    @JsonIgnore
-    private Set<GoalProposal> goalProposals;
+    private Set<GroupGoal> goals; // the proposals, one active goal at a time, and the old goals
 
     @OneToMany(cascade = CascadeType.ALL, mappedBy = "group")
     @JsonIgnore
     private Set<ChatMessage> chatMessages;
-
-    @OneToMany(cascade = CascadeType.ALL, mappedBy = "group")
-    @JsonIgnore
-    private Set<GroupTitle> titles;
 
     @OneToMany(cascade = CascadeType.ALL, mappedBy = "group")
     @JsonIgnore

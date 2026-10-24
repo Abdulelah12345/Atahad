@@ -75,8 +75,10 @@ public class DonationProof {
     private Admin admin; // Null unless it was escalated
 
     @OneToMany(mappedBy = "donationProof")
+    @JsonIgnore
     private Set<Penalty> penalties; // one donation can pay many penalties
 
     @OneToOne(cascade = CascadeType.ALL, mappedBy = "donationProof")
+    @JsonIgnore
     private Objection objection;
 }

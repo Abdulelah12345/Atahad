@@ -17,7 +17,7 @@ public class GroupGoalRequest {
     private String title;
 
     @NotEmpty(message = "Proof method cannot be empty")
-    @Pattern(regexp = "^(LOCATION|PHOTO|QUIZ|PLATFORM|TIMER)$", message = "Proof method must be LOCATION, PHOTO, QUIZ, PLATFORM or TIMER")
+    @Pattern(regexp = "^(LOCATION|PHOTO|QUIZ|TIMER)$", message = "Proof method must be LOCATION, PHOTO, QUIZ or TIMER")
     private String proofMethod;
 
     @NotNull(message = "Times per week cannot be empty")
@@ -35,4 +35,9 @@ public class GroupGoalRequest {
     private Integer totalWeeks;
 
     private Integer proposalId; // optional, the chosen proposal
+
+    // TIMER only: the minutes of one time, the same for every member
+    @Min(value = 1, message = "Minutes must be at least 1")
+    @Max(value = 600, message = "Minutes must be at most 600")
+    private Integer targetMinutes;
 }

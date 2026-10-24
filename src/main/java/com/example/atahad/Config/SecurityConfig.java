@@ -1,4 +1,3 @@
-
 package com.example.atahad.Config;
 
 import com.example.atahad.Service.MyUserDetailsService;
@@ -41,10 +40,13 @@ public class SecurityConfig {
     ) throws Exception {
 
         return http
+                // هذا يعطل حماية CSRF، ولا يغني عن مراجعتها عند استخدام جلسات المتصفح.
                 .csrf(csrf -> csrf.disable())
 
                 .userDetailsService(myUserDetailsService)
 
+                .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
+                )
                 .authorizeHttpRequests(auth -> auth
 
                         // Public endpoints
@@ -82,7 +84,7 @@ public class SecurityConfig {
                                 "/api/v1/penalty/cancel/{adminId}/{penaltyId}",
                                 "/api/v1/admin-review/decide/{adminId}/{kind}/{id}/{accept}",
                                 "/api/v1/admin/update",
-                                "/api/v1/account/unban/{memberId}"
+                                "/api/v1/account/unban/{adminId}/{memberId}"
                         ).hasAuthority("ADMIN")
 
                         .requestMatchers(
@@ -262,14 +264,26 @@ public class SecurityConfig {
                                 "/api/v1/monthly-wrapped/**"
                         ).denyAll()
 
+                        //admin only
+                        .requestMatchers("/api/v1/group/get", "/api/v1/group-member/member/*").hasAuthority("ADMIN")
+
+                        //member, groups (being a member or the owner of the group is checked in the service)
+                        .requestMatchers("/api/v1/group/add", "/api/v1/group/update/*", "/api/v1/group/invite/*", "/api/v1/group/resetInvite/*", "/api/v1/group/delete/*",
+                                "/api/v1/group-member/group/*", "/api/v1/group-member/my", "/api/v1/group-member/join/*", "/api/v1/group-member/add/*/*", "/api/v1/group-member/leave/*",
+                                "/api/v1/group-goal/add/*", "/api/v1/group-goal/active/*", "/api/v1/group-goal/history/*", "/api/v1/group-goal/board/*",
+                                "/api/v1/goal-proposal/ai/*", "/api/v1/goal-proposal/add/*", "/api/v1/goal-proposal/open/*", "/api/v1/goal-proposal/vote/*", "/api/v1/goal-proposal/reject/*",
+                                "/api/v1/group-match/suggest/*", "/api/v1/group-match/challenge/*", "/api/v1/group-match/respond/*/*", "/api/v1/group-match/get/*",
+                                "/api/v1/group-settlement/get/*", "/api/v1/group-settlement/latest/*",
+                                "/api/v1/group-title/latest/*", "/api/v1/group-title/history/*",
+                                "/api/v1/group-alert/send/*/*", "/api/v1/group-alert/today/*",
+                                "/api/v1/chat-message/send/*", "/api/v1/chat-message/get/*", "/api/v1/chat-message/delete/*",
+                                "/api/v1/moment/add", "/api/v1/moment/my", "/api/v1/moment/group/*", "/api/v1/moment/widget", "/api/v1/moment/delete/*").hasAuthority("MEMBER")
+
+                        //member or admin
+                        .requestMatchers("/api/v1/group/get/*").hasAnyAuthority("MEMBER", "ADMIN")
+
                         // All remaining endpoints require authentication
                         .anyRequest().authenticated()
-                )
-
-                .sessionManagement(session -> session
-                        .sessionCreationPolicy(
-                                SessionCreationPolicy.IF_REQUIRED
-                        )
                 )
 
                 .exceptionHandling(exception -> exception
@@ -302,11 +316,9 @@ public class SecurityConfig {
                 )
 
                 .logout(logout -> logout
-                        .logoutUrl("/api/v1/user/logout")
+                        .logoutUrl("/api/v1/user/auth/logout")
                         .invalidateHttpSession(true)
-                        .deleteCookies("JSESSIONID")
                 )
-
                 .formLogin(form -> form.disable())
 
                 .httpBasic(basic -> {})

@@ -33,5 +33,6 @@ public class Goal extends Commitment {
 
     //Relations
     @OneToMany(cascade = CascadeType.ALL, mappedBy = "goal")
+    @JsonIgnore
     private Set<GoalTask> tasks; // Tasks of every week of the goal
 }

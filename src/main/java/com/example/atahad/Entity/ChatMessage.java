@@ -22,9 +22,9 @@ public class ChatMessage {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
-    @Pattern(regexp = "^(TEXT|SYSTEM)$", message = "Type must be TEXT or SYSTEM")
-    @Column(columnDefinition = "VARCHAR(6)")
-    private String type = "TEXT"; // SYSTEM for app messages like a new settlement
+    @Pattern(regexp = "^(TEXT|SYSTEM|ALERT|COLLECTIVE)$", message = "Type must be TEXT, SYSTEM, ALERT or COLLECTIVE")
+    @Column(columnDefinition = "VARCHAR(10)")
+    private String type = "TEXT"; // SYSTEM: app messages like a new settlement, ALERT: the siren to one friend (COLLECTIVE when 2 or more alerted him the same day)
 
     @NotEmpty(message = "Message cannot be empty")
     @Size(max = 1000, message = "Message must be 1000 characters max")
@@ -44,4 +44,9 @@ public class ChatMessage {
     @JoinColumn
     @JsonIgnore
     private GroupMember sender; // Null for SYSTEM messages
+
+    @ManyToOne
+    @JoinColumn(name = "receiver_id")
+    @JsonIgnore
+    private GroupMember receiver; // alerts only, they are not shown in the group chat
 }

@@ -100,6 +100,7 @@ public class ObjectionDecisionService {
         String decision = aiService.decision(answer);
         objection.setAiReason(cut(aiService.field(answer, "REASON")));
         if("ESCALATED".equals(decision)){
+            objection.setReviewStartedAt(LocalDateTime.now()); // with the admin now: the member can not change or delete it
             objectionRepository.save(objection); // stays PENDING, it is in the admin list
             return;
         }

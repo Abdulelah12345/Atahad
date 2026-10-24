@@ -9,7 +9,7 @@ import java.time.LocalDateTime;
 public class ProofRequest {
 
     @NotBlank(message = "Type cannot be empty")
-    @Pattern(regexp = "^(LOCATION|PHOTO|QUIZ|PLATFORM|TIMER)$",
+    @Pattern(regexp = "^(LOCATION|PHOTO|QUIZ|TIMER)$",
             message = "Invalid proof type")
     private String type;
 

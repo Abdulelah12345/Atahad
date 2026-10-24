@@ -10,6 +10,8 @@ import java.util.List;
 public interface GroupMemberRepository extends JpaRepository<GroupMember, Integer> {
     GroupMember findGroupMemberById(Integer id);
 
+    List<GroupMember> findGroupMembersByVotedGoalId(Integer goalId);
+
     GroupMember findGroupMemberByGroupIdAndMemberId(Integer groupId, Integer memberId);
 
     List<GroupMember> findGroupMembersByGroupId(Integer groupId);

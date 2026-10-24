@@ -67,15 +67,19 @@ public class CommitmentWeek {
     private Commitment commitment;
 
     @OneToMany(cascade = CascadeType.ALL, mappedBy = "commitmentWeek")
+    @JsonIgnore
     private Set<Proof> proofs;
 
     @OneToMany(cascade = CascadeType.ALL, mappedBy = "commitmentWeek")
+    @JsonIgnore
     private Set<Excuse> excuses;
 
     @OneToMany(cascade = CascadeType.ALL, mappedBy = "commitmentWeek")
+    @JsonIgnore
     private Set<Penalty> penalties; // One for every lost time
 
     @OneToOne(cascade = CascadeType.ALL, mappedBy = "commitmentWeek")
+    @JsonIgnore
     private GraceDay graceDay; // Null if no grace day was used
 
     @OneToMany(cascade = CascadeType.ALL, mappedBy = "commitmentWeek")

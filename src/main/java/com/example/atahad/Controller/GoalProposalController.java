@@ -4,8 +4,10 @@ import com.example.atahad.Api.ApiResponse;
 import com.example.atahad.Dto.In.GoalProposalRequest;
 import com.example.atahad.Service.GoalProposalService;
 import jakarta.validation.Valid;
+import com.example.atahad.Entity.User;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -15,32 +17,32 @@ public class GoalProposalController {
     private final GoalProposalService goalProposalService;
 
     // the AI suggests 3 goals
-    @PostMapping("/ai/{groupId}/{memberId}")
-    public ResponseEntity<?> suggestWithAi(@PathVariable Integer groupId, @PathVariable Integer memberId){
-        return ResponseEntity.status(200).body(goalProposalService.suggestWithAi(groupId, memberId));
+    @PostMapping("/ai/{groupId}")
+    public ResponseEntity<?> suggestWithAi(@AuthenticationPrincipal User user, @PathVariable Integer groupId){
+        return ResponseEntity.status(200).body(goalProposalService.suggestWithAi(groupId, user.getId()));
     }
 
-    @PostMapping("/add/{groupId}/{memberId}")
-    public ResponseEntity<?> propose(@PathVariable Integer groupId, @PathVariable Integer memberId, @RequestBody @Valid GoalProposalRequest dto){
-        goalProposalService.propose(groupId, memberId, dto);
+    @PostMapping("/add/{groupId}")
+    public ResponseEntity<?> propose(@AuthenticationPrincipal User user, @PathVariable Integer groupId, @RequestBody @Valid GoalProposalRequest dto){
+        goalProposalService.propose(groupId, user.getId(), dto);
         return ResponseEntity.status(200).body(new ApiResponse("Proposal added"));
     }
 
     // with the votes, most voted first
-    @GetMapping("/open/{groupId}/{memberId}")
-    public ResponseEntity<?> getOpenProposals(@PathVariable Integer groupId, @PathVariable Integer memberId){
-        return ResponseEntity.status(200).body(goalProposalService.getOpenProposals(groupId, memberId));
+    @GetMapping("/open/{groupId}")
+    public ResponseEntity<?> getOpenProposals(@AuthenticationPrincipal User user, @PathVariable Integer groupId){
+        return ResponseEntity.status(200).body(goalProposalService.getOpenProposals(groupId, user.getId()));
     }
 
-    @PutMapping("/vote/{proposalId}/{memberId}")
-    public ResponseEntity<?> vote(@PathVariable Integer proposalId, @PathVariable Integer memberId){
-        goalProposalService.vote(proposalId, memberId);
+    @PutMapping("/vote/{proposalId}")
+    public ResponseEntity<?> vote(@AuthenticationPrincipal User user, @PathVariable Integer proposalId){
+        goalProposalService.vote(proposalId, user.getId());
         return ResponseEntity.status(200).body(new ApiResponse("Vote saved"));
     }
 
-    @PutMapping("/reject/{proposalId}/{ownerId}")
-    public ResponseEntity<?> reject(@PathVariable Integer proposalId, @PathVariable Integer ownerId){
-        goalProposalService.reject(proposalId, ownerId);
+    @PutMapping("/reject/{proposalId}")
+    public ResponseEntity<?> reject(@AuthenticationPrincipal User user, @PathVariable Integer proposalId){
+        goalProposalService.reject(proposalId, user.getId());
         return ResponseEntity.status(200).body(new ApiResponse("Proposal rejected"));
     }
 }

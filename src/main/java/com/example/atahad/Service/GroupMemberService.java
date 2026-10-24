@@ -27,8 +27,9 @@ public class GroupMemberService {
     private final GroupAccessService groupAccessService;
     private final GroupGoalService groupGoalService;
 
-    public List<GroupMemberResponse> getGroupMembers(Integer groupId) {
-        groupAccessService.getGroup(groupId);
+    // only a member of the group sees its members
+    public List<GroupMemberResponse> getGroupMembers(Integer groupId, Integer memberId) {
+        groupAccessService.getActiveMembership(groupId, memberId);
         List<GroupMemberResponse> list = new ArrayList<>();
         for (GroupMember groupMember : groupMemberRepository.findGroupMembersByGroupIdAndStatus(groupId, "ACTIVE")) {
             list.add(convertToDTO(groupMember));

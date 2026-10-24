@@ -23,7 +23,7 @@ public class Proof {
     private Integer id;
 
     @NotEmpty(message = "Type cannot be empty")
-    @Pattern(regexp = "^(LOCATION|PHOTO|QUIZ|PLATFORM|TIMER)$", message = "Type must be LOCATION, PHOTO, QUIZ, PLATFORM or TIMER")
+    @Pattern(regexp = "^(LOCATION|PHOTO|QUIZ|TIMER)$", message = "Type must be LOCATION, PHOTO, QUIZ or TIMER")
     @Column(columnDefinition = "VARCHAR(8) NOT NULL")
     private String type;
 //ممكن يحتوي رابط او موقع ، عشان بعدين نشيك عليه
@@ -63,6 +63,7 @@ public class Proof {
     private CommitmentWeek commitmentWeek;
 
     @OneToOne(cascade = CascadeType.ALL, mappedBy = "proof")
+    @JsonIgnore
     private Objection objection;
 
 
