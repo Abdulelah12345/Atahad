@@ -1,8 +1,10 @@
 package com.example.atahad.Controller;
 
+import com.example.atahad.Entity.User;
 import com.example.atahad.Service.MonthlyWrappedService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -11,14 +13,14 @@ import org.springframework.web.bind.annotation.*;
 public class MonthlyWrappedController {
     private final MonthlyWrappedService monthlyWrappedService;
 
-    @GetMapping("/my/{memberId}")
-    public ResponseEntity<?> getMyWrapped(@PathVariable Integer memberId){
-        return ResponseEntity.status(200).body(monthlyWrappedService.getMyWrapped(memberId));
+    @GetMapping("/my")
+    public ResponseEntity<?> getMyWrapped(@AuthenticationPrincipal User user){
+        return ResponseEntity.status(200).body(monthlyWrappedService.getMyWrapped(user.getId()));
     }
 
     // month like 2026-10, makes it again if it exists
-    @PostMapping("/generate/{memberId}/{month}")
-    public ResponseEntity<?> generate(@PathVariable Integer memberId, @PathVariable String month){
-        return ResponseEntity.status(200).body(monthlyWrappedService.generate(memberId, month));
+    @PostMapping("/generate/{month}")
+    public ResponseEntity<?> generate(@AuthenticationPrincipal User user, @PathVariable String month){
+        return ResponseEntity.status(200).body(monthlyWrappedService.generate(user.getId(), month));
     }
 }

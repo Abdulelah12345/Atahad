@@ -51,6 +51,13 @@ public class CommitmentWeekService {
         return week;
     }
 
+    // same as getWeekById but only for the owner of the week
+    public CommitmentWeek getMyWeek(Integer memberId, Integer id){
+        CommitmentWeek week = getWeekById(id);
+        getMyCommitment(memberId, week.getCommitment().getId());
+        return week;
+    }
+
     public List<CommitmentWeek> getHistory(Integer memberId, Integer commitmentId){
         Commitment commitment = getMyCommitment(memberId, commitmentId);
         return commitmentWeekRepository.findCommitmentWeeksByCommitmentOrderByWeekNumberDesc(commitment);

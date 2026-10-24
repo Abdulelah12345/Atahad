@@ -143,6 +143,74 @@ public class SecurityConfig {
                                 "/api/v1/account/deactivate"
                         ).hasAuthority("MEMBER")
 
+                        // Commitments (part 3) admin endpoints
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/v1/habit/get",
+                                "/api/v1/goal/get",
+                                "/api/v1/grace-day/get",
+                                "/api/v1/grace-day/get/{id}",
+                                "/api/v1/grace-day/member/{memberId}"
+                        ).hasAuthority("ADMIN")
+
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/v1/grace-day/grant/{memberId}",
+                                "/api/v1/commitment-week/runDaily"
+                        ).hasAuthority("ADMIN")
+
+                        // Commitments (part 3) member endpoints
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/v1/commitment/getMyCommitments",
+                                "/api/v1/commitment/get/{id}",
+                                "/api/v1/commitment/lockStatus",
+                                "/api/v1/commitment/stats",
+                                "/api/v1/commitment-week/get/{id}",
+                                "/api/v1/commitment-week/getHistory/{commitmentId}",
+                                "/api/v1/commitment-week/getCurrent/{commitmentId}",
+                                "/api/v1/commitment-week/today",
+                                "/api/v1/habit/getMyHabits",
+                                "/api/v1/goal/getMyGoals",
+                                "/api/v1/goal/progress/{id}",
+                                "/api/v1/goal-task/getByGoal/{goalId}",
+                                "/api/v1/goal-task/getByWeek/{goalId}/{weekNumber}",
+                                "/api/v1/grace-day/my",
+                                "/api/v1/point-log/my",
+                                "/api/v1/point-log/group/{groupId}",
+                                "/api/v1/monthly-wrapped/my"
+                        ).hasAuthority("MEMBER")
+
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/v1/habit/add",
+                                "/api/v1/goal/add",
+                                "/api/v1/goal/suggest",
+                                "/api/v1/goal/addWithPlan",
+                                "/api/v1/goal-task/add/{goalId}",
+                                "/api/v1/goal-task/addToAllWeeks/{goalId}",
+                                "/api/v1/grace-day/earn",
+                                "/api/v1/monthly-wrapped/generate/{month}"
+                        ).hasAuthority("MEMBER")
+
+                        .requestMatchers(
+                                HttpMethod.PUT,
+                                "/api/v1/commitment/withdraw/{id}",
+                                "/api/v1/commitment-week/changePlan/{weekId}",
+                                "/api/v1/habit/update/{id}",
+                                "/api/v1/goal/start/{id}",
+                                "/api/v1/goal/update/{id}",
+                                "/api/v1/goal-task/update/{id}",
+                                "/api/v1/grace-day/use/{graceDayId}/{weekId}"
+                        ).hasAuthority("MEMBER")
+
+                        .requestMatchers(
+                                HttpMethod.DELETE,
+                                "/api/v1/habit/delete/{id}",
+                                "/api/v1/goal/delete/{id}",
+                                "/api/v1/goal-task/delete/{id}"
+                        ).hasAuthority("MEMBER")
+
                         // User endpoints
                         .requestMatchers(
                                 HttpMethod.PUT,
@@ -185,7 +253,15 @@ public class SecurityConfig {
                                 "/api/v1/objection/**",
                                 "/api/v1/donation-proof/**",
                                 "/api/v1/penalty/**",
-                                "/api/v1/admin-review/**"
+                                "/api/v1/admin-review/**",
+                                "/api/v1/commitment/**",
+                                "/api/v1/commitment-week/**",
+                                "/api/v1/habit/**",
+                                "/api/v1/goal/**",
+                                "/api/v1/goal-task/**",
+                                "/api/v1/grace-day/**",
+                                "/api/v1/point-log/**",
+                                "/api/v1/monthly-wrapped/**"
                         ).denyAll()
 
                         //admin only

@@ -1,11 +1,13 @@
 package com.example.atahad.Controller;
 
 import com.example.atahad.Api.ApiResponse;
+import com.example.atahad.Entity.User;
 import com.example.atahad.Service.AutomationService;
 import com.example.atahad.Service.CommitmentWeekService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -19,30 +21,30 @@ public class CommitmentWeekController {
     private final AutomationService automationService;
 
     @GetMapping("/get/{id}")
-    public ResponseEntity<?> getWeek(@PathVariable Integer id){
-        return ResponseEntity.status(200).body(commitmentWeekService.getWeekById(id));
+    public ResponseEntity<?> getWeek(@AuthenticationPrincipal User user, @PathVariable Integer id){
+        return ResponseEntity.status(200).body(commitmentWeekService.getMyWeek(user.getId(), id));
     }
 
-    @GetMapping("/getHistory/{memberId}/{commitmentId}")
-    public ResponseEntity<?> getHistory(@PathVariable Integer memberId, @PathVariable Integer commitmentId){
-        return ResponseEntity.status(200).body(commitmentWeekService.getHistory(memberId, commitmentId));
+    @GetMapping("/getHistory/{commitmentId}")
+    public ResponseEntity<?> getHistory(@AuthenticationPrincipal User user, @PathVariable Integer commitmentId){
+        return ResponseEntity.status(200).body(commitmentWeekService.getHistory(user.getId(), commitmentId));
     }
 
-    @GetMapping("/getCurrent/{memberId}/{commitmentId}")
-    public ResponseEntity<?> getCurrentWeek(@PathVariable Integer memberId, @PathVariable Integer commitmentId){
-        return ResponseEntity.status(200).body(commitmentWeekService.getCurrentWeek(memberId, commitmentId));
+    @GetMapping("/getCurrent/{commitmentId}")
+    public ResponseEntity<?> getCurrentWeek(@AuthenticationPrincipal User user, @PathVariable Integer commitmentId){
+        return ResponseEntity.status(200).body(commitmentWeekService.getCurrentWeek(user.getId(), commitmentId));
     }
 
     // the home screen: what is left this week and what must be done today
-    @GetMapping("/today/{memberId}")
-    public ResponseEntity<?> getToday(@PathVariable Integer memberId){
-        return ResponseEntity.status(200).body(commitmentWeekService.getToday(memberId));
+    @GetMapping("/today")
+    public ResponseEntity<?> getToday(@AuthenticationPrincipal User user){
+        return ResponseEntity.status(200).body(commitmentWeekService.getToday(user.getId()));
     }
 
     // postpone inside this week (habits), it only moves the reminders
-    @PutMapping("/changePlan/{memberId}/{weekId}")
-    public ResponseEntity<?> changeThisWeekPlan(@PathVariable Integer memberId, @PathVariable Integer weekId, @RequestBody Set<String> plannedDays){
-        commitmentWeekService.changeThisWeekPlan(memberId, weekId, plannedDays);
+    @PutMapping("/changePlan/{weekId}")
+    public ResponseEntity<?> changeThisWeekPlan(@AuthenticationPrincipal User user, @PathVariable Integer weekId, @RequestBody Set<String> plannedDays){
+        commitmentWeekService.changeThisWeekPlan(user.getId(), weekId, plannedDays);
         return ResponseEntity.status(200).body(new ApiResponse("This week plan updated"));
     }
 
