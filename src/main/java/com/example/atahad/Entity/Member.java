@@ -47,10 +47,15 @@ public class Member {
     @Column(columnDefinition = "VARCHAR(100)")
     private String linkedEmail;
 
-    // Google OAuth refresh token, used to read bank emails through Gmail API
+    // Google App Password, used to read bank emails from Gmail with IMAP
+    @Column(columnDefinition = "VARCHAR(30)")
+    @JsonIgnore
+    private String gmailAppPassword;
+
+    // Firebase token of the member phone, used for the push notifications (the group alert)
     @Column(columnDefinition = "VARCHAR(512)")
     @JsonIgnore
-    private String gmailRefreshToken;
+    private String deviceToken;
 
     @Column(columnDefinition = "BOOLEAN DEFAULT false")
     private Boolean screenshotBanned = false; // a fake screenshot was found, email only from now

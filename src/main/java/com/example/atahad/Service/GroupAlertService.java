@@ -4,6 +4,7 @@ import com.example.atahad.Api.ApiException;
 import com.example.atahad.Dto.Out.GroupAlertResponse;
 import com.example.atahad.Entity.*;
 import com.example.atahad.Repository.ChatMessageRepository;
+import com.example.atahad.Repository.MemberRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,6 +26,8 @@ public class GroupAlertService {
     private final GroupGoalService groupGoalService;
     private final CommitmentWeekService commitmentWeekService;
     private final AiService aiService;
+    private final PushService pushService;
+    private final MemberRepository memberRepository;
 
     public static final int QUIET_UNTIL_HOUR = 7; // from 00:00 to 06:59 no alerts
     public static final List<String> ALERT_TYPES = List.of("ALERT", "COLLECTIVE");
@@ -89,8 +92,26 @@ public class GroupAlertService {
         alert.setSender(sender);
         alert.setReceiver(receiver);
         chatMessageRepository.save(alert);
-        // TODO: send it with Firebase Cloud Messaging and the siren sound
+        // push to the phone with the alert sound (skipped when Firebase or the device token is missing)
+        pushService.sendAlert(receiver.getMember(), group.getName(), alert.getContent());
         return toResponse(alert);
+    }
+
+    // the phone sends its Firebase token after login (and when it changes)
+    public void saveDeviceToken(Integer memberId, String token){
+        Member member = memberRepository.findMemberById(memberId);
+        if(member == null){
+            throw new ApiException("Member not found");
+        }
+        if(token == null || token.isBlank() || token.length() > 512){
+            throw new ApiException("Device token is not valid");
+        }
+        member.setDeviceToken(token.trim());
+        memberRepository.save(member);
+    }
+
+    public String pushStatus(){
+        return pushService.check();
     }
 
     // the alerts the member got today in this group

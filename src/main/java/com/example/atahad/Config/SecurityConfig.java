@@ -105,7 +105,6 @@ public class SecurityConfig {
                                 "/api/v1/proof/get-my-proofs",
                                 "/api/v1/excuse/get/{id}",
                                 "/api/v1/objection/get/{id}",
-                                "/api/v1/donation-proof/gmail/connect/{memberId}",
                                 "/api/v1/donation-proof/my/{memberId}",
                                 "/api/v1/penalty/my/{memberId}"
                         ).hasAuthority("MEMBER")
@@ -120,6 +119,7 @@ public class SecurityConfig {
                                 "/api/v1/objection/add/excuse/{excuseId}",
                                 "/api/v1/donation-proof/screenshot/{memberId}",
                                 "/api/v1/donation-proof/email/{memberId}",
+                                "/api/v1/donation-proof/gmail/connect/{memberId}",
                                 "/api/v1/donation-proof/objection/{memberId}/{donationProofId}"
                         ).hasAuthority("MEMBER")
 
@@ -136,6 +136,7 @@ public class SecurityConfig {
                                 "/api/v1/proof/delete/goal-task/{proofId}",
                                 "/api/v1/excuse/delete/goal-task/{excuseId}",
                                 "/api/v1/objection/delete/{objectionId}",
+                                "/api/v1/donation-proof/gmail/disconnect/{memberId}",
                                 "/api/v1/member/delete"
                         ).hasAuthority("MEMBER")
 
@@ -196,6 +197,7 @@ public class SecurityConfig {
                         .requestMatchers(
                                 HttpMethod.PUT,
                                 "/api/v1/commitment/withdraw/{id}",
+                                "/api/v1/commitment/target/{id}",
                                 "/api/v1/commitment-week/changePlan/{weekId}",
                                 "/api/v1/habit/update/{id}",
                                 "/api/v1/goal/start/{id}",
@@ -225,7 +227,6 @@ public class SecurityConfig {
                         // Google OAuth callbacks
                         .requestMatchers(
                                 HttpMethod.GET,
-                                "/api/v1/donation-proof/gmail/callback",
                                 "/api/v1/google-calendar/callback"
                         ).permitAll()
 
@@ -275,7 +276,7 @@ public class SecurityConfig {
                                 "/api/v1/group-match/suggest/*", "/api/v1/group-match/challenge/*", "/api/v1/group-match/respond/*/*", "/api/v1/group-match/get/*",
                                 "/api/v1/group-settlement/get/*", "/api/v1/group-settlement/latest/*",
                                 "/api/v1/group-title/latest/*", "/api/v1/group-title/history/*",
-                                "/api/v1/group-alert/send/*/*", "/api/v1/group-alert/today/*",
+                                "/api/v1/group-alert/send/*/*", "/api/v1/group-alert/today/*", "/api/v1/group-alert/device-token", "/api/v1/group-alert/push-status",
                                 "/api/v1/chat-message/send/*", "/api/v1/chat-message/get/*", "/api/v1/chat-message/delete/*",
                                 "/api/v1/moment/add", "/api/v1/moment/my", "/api/v1/moment/group/*", "/api/v1/moment/widget", "/api/v1/moment/delete/*").hasAuthority("MEMBER")
 

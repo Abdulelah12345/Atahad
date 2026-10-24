@@ -1,7 +1,7 @@
 package com.example.atahad.Controller;
 
 import com.example.atahad.Api.ApiResponse;
-=import com.example.atahad.Entity.User;
+import com.example.atahad.Entity.User;
 
 import com.example.atahad.Dto.In.CommitmentTargetRequest;
 import jakarta.validation.Valid;
@@ -37,9 +37,9 @@ public class CommitmentController {
     }
 
     // LOCATION: the place from the map (a group member sets his own), TIMER: the minutes
-    @PutMapping("/target/{memberId}/{id}")
-    public ResponseEntity<?> setTarget(@PathVariable Integer memberId, @PathVariable Integer id, @RequestBody @Valid CommitmentTargetRequest dto){
-        commitmentService.setTarget(memberId, id, dto);
+    @PutMapping("/target/{id}")
+    public ResponseEntity<?> setTarget(@AuthenticationPrincipal User user, @PathVariable Integer id, @RequestBody @Valid CommitmentTargetRequest dto){
+        commitmentService.setTarget(user.getId(), id, dto);
         return ResponseEntity.status(200).body(new ApiResponse("Target saved"));
     }
 
