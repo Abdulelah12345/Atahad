@@ -1,9 +1,11 @@
 package com.example.atahad.Controller;
 
 import com.example.atahad.Api.ApiResponse;
+import com.example.atahad.Entity.User;
 import com.example.atahad.Service.CommitmentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -12,19 +14,19 @@ import org.springframework.web.bind.annotation.*;
 public class CommitmentController {
     private final CommitmentService commitmentService;
 
-    @GetMapping("/getMyCommitments/{memberId}")
-    public ResponseEntity<?> getMyCommitments(@PathVariable Integer memberId){
-        return ResponseEntity.status(200).body(commitmentService.getMyCommitments(memberId));
+    @GetMapping("/getMyCommitments")
+    public ResponseEntity<?> getMyCommitments(@AuthenticationPrincipal User user){
+        return ResponseEntity.status(200).body(commitmentService.getMyCommitments(user.getId()));
     }
 
-    @GetMapping("/get/{memberId}/{id}")
-    public ResponseEntity<?> getCommitment(@PathVariable Integer memberId, @PathVariable Integer id){
-        return ResponseEntity.status(200).body(commitmentService.getCommitment(memberId, id));
+    @GetMapping("/get/{id}")
+    public ResponseEntity<?> getCommitment(@AuthenticationPrincipal User user, @PathVariable Integer id){
+        return ResponseEntity.status(200).body(commitmentService.getCommitment(user.getId(), id));
     }
 
-    @PutMapping("/withdraw/{memberId}/{id}")
-    public ResponseEntity<?> withdraw(@PathVariable Integer memberId, @PathVariable Integer id){
-        Integer penalties = commitmentService.withdraw(memberId, id);
+    @PutMapping("/withdraw/{id}")
+    public ResponseEntity<?> withdraw(@AuthenticationPrincipal User user, @PathVariable Integer id){
+        Integer penalties = commitmentService.withdraw(user.getId(), id);
         if(penalties == 0){
             return ResponseEntity.status(200).body(new ApiResponse("Withdrawn from the commitment"));
         }
@@ -32,14 +34,14 @@ public class CommitmentController {
     }
 
     // the lock screen
-    @GetMapping("/lockStatus/{memberId}")
-    public ResponseEntity<?> getLockStatus(@PathVariable Integer memberId){
-        return ResponseEntity.status(200).body(commitmentService.getLockStatus(memberId));
+    @GetMapping("/lockStatus")
+    public ResponseEntity<?> getLockStatus(@AuthenticationPrincipal User user){
+        return ResponseEntity.status(200).body(commitmentService.getLockStatus(user.getId()));
     }
 
     // level, points, grace days and total donated
-    @GetMapping("/stats/{memberId}")
-    public ResponseEntity<?> getStats(@PathVariable Integer memberId){
-        return ResponseEntity.status(200).body(commitmentService.getStats(memberId));
+    @GetMapping("/stats")
+    public ResponseEntity<?> getStats(@AuthenticationPrincipal User user){
+        return ResponseEntity.status(200).body(commitmentService.getStats(user.getId()));
     }
 }
