@@ -7,6 +7,7 @@ import com.example.atahad.Repository.CommitmentWeekRepository;
 import com.example.atahad.Repository.ExcuseRepository;
 import com.example.atahad.Repository.MemberRepository;
 import com.example.atahad.Repository.ProofRepository;
+import com.example.atahad.Repository.ObjectionRepository;
 import lombok.RequiredArgsConstructor;
 import org.hibernate.Hibernate;
 import org.springframework.stereotype.Service;
@@ -22,17 +23,22 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class ProofDecisionService {
+    private final AuthenticatedUserService authenticatedUserService;
     private final ProofRepository proofRepository;
     private final ExcuseRepository excuseRepository;
+    private final ObjectionRepository objectionRepository;
     private final CommitmentWeekRepository commitmentWeekRepository;
     private final MemberRepository memberRepository;
     private final CommitmentWeekService commitmentWeekService;
     private final LockService lockService;
     private final AiService aiService;
+    private final AcceptanceGuardService acceptanceGuardService;
 
     // a proof of a habit (personal or group): same rules as the goal tasks
     @Transactional
     public Proof addHabitProof(Integer memberId, Integer weekId, ProofRequest request){
+        // المعرف في الرابط يجب أن يخص العضو المسجل، وليس أي عضو موجود.
+        authenticatedUserService.checkMember(memberId);
         Member member = memberRepository.findMemberById(memberId);
         if(member == null){
             throw new ApiException("Member not found");
@@ -71,6 +77,47 @@ public class ProofDecisionService {
 
         // one proof for every day
         LocalDate day = activityTime.toLocalDate();
+
+        // بداية يوم النشاط، مثل الأحد الساعة 00:00.
+        LocalDateTime dayStart = day.atStartOfDay();
+
+        // بداية اليوم التالي، حتى يشمل البحث يوم النشاط كاملًا.
+        LocalDateTime nextDayStart = day.plusDays(1).atStartOfDay();
+
+        // إثبات العادة لا يرتبط بمهمة هدف، لذلك يكون معرف المهمة فارغًا.
+        Integer goalTaskId = null;
+
+        // نبحث عن اعتراض معلق على إثبات سابق لنفس العادة والأسبوع واليوم.
+        // لا نسمح بإثبات بديل حتى ينتهي الاعتراض السابق.
+        boolean hasPendingProofObjection =
+                objectionRepository.existsPendingProofObjection(
+                        weekId,
+                        goalTaskId,
+                        dayStart,
+                        nextDayStart
+                );
+
+        if (hasPendingProofObjection) {
+            throw new ApiException(
+                    "Wait until the proof objection for this day is resolved"
+            );
+        }
+
+        // نبحث عن اعتراض معلق على عذر لنفس العادة والأسبوع واليوم.
+        // قبول الاعتراض قد يحتسب اليوم كعذر، لذلك نمنع تداخل إثبات جديد معه.
+        boolean hasPendingExcuseObjection =
+                objectionRepository.existsPendingExcuseObjection(
+                        weekId,
+                        goalTaskId,
+                        day
+                );
+
+        if (hasPendingExcuseObjection) {
+            throw new ApiException(
+                    "Wait until the excuse objection for this day is resolved"
+            );
+        }
+
         for(Proof old : proofRepository.findProofsByCommitmentWeekId(weekId)){
             boolean sameDay = old.getActivityTime() != null && old.getActivityTime().toLocalDate().equals(day);
             if(sameDay && !"REJECTED".equals(old.getResult())){
@@ -128,6 +175,27 @@ public class ProofDecisionService {
     // shared with the admin review and the objection
     @Transactional
     public void applyDecision(Proof proof, String decision, String reason){
+        if (decision == null) {
+            throw new ApiException("Decision is required");
+        }
+
+        boolean isAccepted = decision.equals("ACCEPTED");
+        if (isAccepted) {
+            Integer goalTaskId = null;
+            if (proof.getGoalTask() != null) {
+                goalTaskId = proof.getGoalTask().getId();
+            }
+
+            // نحجز الأسبوع ونمنع احتساب اليوم مرتين قبل حفظ القبول وتحديث العداد.
+            acceptanceGuardService.lockAndCheck(
+                    proof.getCommitmentWeek().getId(),
+                    goalTaskId,
+                    proof.getActivityTime().toLocalDate(),
+                    proof.getId(),
+                    null
+            );
+        }
+
         boolean wasAccepted = "ACCEPTED".equals(proof.getResult());
         proof.setProcessingStatus("FINISHED");
         proof.setDecidedAt(LocalDateTime.now());

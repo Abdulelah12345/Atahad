@@ -4,6 +4,7 @@ import com.example.atahad.Api.ApiException;
 import com.example.atahad.Entity.Member;
 import com.example.atahad.Repository.MemberRepository;
 import lombok.RequiredArgsConstructor;
+import jakarta.servlet.http.HttpSession;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
@@ -26,6 +27,7 @@ import java.util.regex.Pattern;
 @Service
 @RequiredArgsConstructor
 public class GmailService {
+    private final AuthenticatedUserService authenticatedUserService;
     private final MemberRepository memberRepository;
 
     @Value("${google.client-id:}")
@@ -45,19 +47,42 @@ public class GmailService {
     public record BankEmail(String domain, String subject, String text, LocalDateTime receivedAt) {}
 
     // step 1: the app opens this link, the member allows reading his emails
-    public String connectLink(Integer memberId){
+    public String connectLink(Integer memberId, HttpSession session){
+        // المعرف في الرابط يجب أن يخص العضو المسجل، وليس أي عضو موجود.
+        authenticatedUserService.checkMember(memberId);
         checkConfigured();
+        // نخزن صاحب طلب الربط في السيرفر مع رمز عشوائي؛ لا نثق بمعرف داخل state.
+        String state = UUID.randomUUID().toString();
+        session.setAttribute("gmailOAuthState", state);
+        session.setAttribute("gmailOAuthMemberId", memberId);
+        session.setAttribute("gmailOAuthExpiresAt", Instant.now().plusSeconds(600).getEpochSecond());
         return "https://accounts.google.com/o/oauth2/v2/auth"
                 + "?client_id=" + encode(clientId)
                 + "&redirect_uri=" + encode(redirectUri)
                 + "&response_type=code"
                 + "&scope=" + encode("https://www.googleapis.com/auth/gmail.readonly")
                 + "&access_type=offline&prompt=consent"
-                + "&state=" + memberId;
+                + "&state=" + encode(state);
     }
 
     // step 2: Google sends the member back here with a code, we keep the refresh token
-    public void finishConnect(String code, Integer memberId){
+    public void finishConnect(String code, String state, HttpSession session){
+        String expectedState = (String) session.getAttribute("gmailOAuthState");
+        Integer memberId = (Integer) session.getAttribute("gmailOAuthMemberId");
+        Long expiresAt = (Long) session.getAttribute("gmailOAuthExpiresAt");
+        if (expectedState == null || state == null || memberId == null || expiresAt == null) {
+            throw new ApiException("Start linking Gmail from your signed-in account first");
+        }
+        if (!expectedState.equals(state)) {
+            throw new ApiException("Invalid Gmail authorization state");
+        }
+        if (Instant.now().getEpochSecond() >= expiresAt) {
+            throw new ApiException("Gmail authorization expired, start again");
+        }
+        // نستهلك الرمز مرة واحدة قبل الاتصال بـ Google لمنع إعادة استخدامه.
+        session.removeAttribute("gmailOAuthState");
+        session.removeAttribute("gmailOAuthMemberId");
+        session.removeAttribute("gmailOAuthExpiresAt");
         checkConfigured();
         Member member = memberRepository.findMemberById(memberId);
         if(member == null){
