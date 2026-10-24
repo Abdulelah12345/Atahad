@@ -18,7 +18,9 @@ import java.util.List;
 @RequiredArgsConstructor
 public class AdminReviewService {
     private final AuthenticatedUserService authenticatedUserService;
+    private final ProofAttachmentService proofAttachmentService;
     private final AdminRepository adminRepository;
+    private final PenaltyRepository penaltyRepository;
     private final ProofRepository proofRepository;
     private final ProofEvidenceRepository proofEvidenceRepository;
     private final ProofCaptureRepository proofCaptureRepository;
@@ -41,23 +43,43 @@ public class AdminReviewService {
         for(Excuse excuse : excuseDecisionService.getEscalated()){
             Member member = excuse.getCommitmentWeek().getCommitment().getMember();
             list.add(new ReviewItemResponse("EXCUSE", excuse.getId(), member.getId(), name(member), title(excuse.getCommitmentWeek(), excuse.getGoalTask()),
-                    excuse.getType() + " on " + excuse.getExcuseDate(), excuse.getEvidenceUrl() == null ? List.of() : List.of(excuse.getEvidenceUrl()),
+                    excuse.getType() + " on " + excuse.getExcuseDate(), excuse.getEvidenceUrl() == null ? List.of() : List.of(proofAttachmentService.resolve(member.getId(), excuse.getEvidenceUrl())),
                     excuse.getAiAssessment(), excuse.getDecidedAt()));
         }
         for(Objection objection : objectionDecisionService.getWaitingForAdmin()){
             Member member = objection.getMember();
-            String about = objection.getProof() != null ? "Objection on proof " + objection.getProof().getId()
-                    : objection.getExcuse() != null ? "Objection on excuse " + objection.getExcuse().getId()
-                    : "Objection on donation proof " + objection.getDonationProof().getId();
+            // يظهر للأدمن النشاط وصوره الأصلية مع سبب الاعتراض، حتى يستطيع مراجعة القرار.
+            String about;
+            List<String> images = new ArrayList<>();
+            if (objection.getProof() != null) {
+                Proof proof = objection.getProof();
+                about = title(proof.getCommitmentWeek(), proof.getGoalTask());
+                images.addAll(proofImages(proof));
+            } else if (objection.getExcuse() != null) {
+                Excuse excuse = objection.getExcuse();
+                about = title(excuse.getCommitmentWeek(), excuse.getGoalTask());
+                if (excuse.getEvidenceUrl() != null) {
+                    images.add(proofAttachmentService.resolve(member.getId(), excuse.getEvidenceUrl()));
+                }
+            } else {
+                DonationProof proof = objection.getDonationProof();
+                about = "إثبات التبرع";
+                if (proof.getBankMessageImageUrl() != null) {
+                    images.add(proofAttachmentService.resolve(member.getId(), proof.getBankMessageImageUrl()));
+                }
+                if (proof.getEhsanMessageImageUrl() != null) {
+                    images.add(proofAttachmentService.resolve(member.getId(), proof.getEhsanMessageImageUrl()));
+                }
+            }
             list.add(new ReviewItemResponse("OBJECTION", objection.getId(), member.getId(), name(member), about,
-                    objection.getReason(), List.of(), objection.getAiReason(), objection.getCreatedAt()));
+                    objection.getReason(), images, objection.getAiReason(), objection.getCreatedAt()));
         }
         for(DonationProof proof : donationProofService.getEscalated()){
             Member member = proof.getMember();
             List<String> evidence = new ArrayList<>();
             if(proof.getBankMessageImageUrl() != null){
-                evidence.add(proof.getBankMessageImageUrl());
-                evidence.add(proof.getEhsanMessageImageUrl());
+                evidence.add(proofAttachmentService.resolve(member.getId(), proof.getBankMessageImageUrl()));
+                evidence.add(proofAttachmentService.resolve(member.getId(), proof.getEhsanMessageImageUrl()));
             }
             list.add(new ReviewItemResponse("DONATION", proof.getId(), member.getId(), name(member),
                     proof.getAmount() + " SAR to " + proof.getRecipient(),
@@ -124,6 +146,34 @@ public class AdminReviewService {
         }
         return images;
     }
+    @Transactional(readOnly = true)
+    public List<java.util.Map<String, Object>> getPenaltyWorkspace(Integer adminId) {
+        getAdmin(adminId);
+        List<java.util.Map<String, Object>> result = new ArrayList<>();
+        for (Penalty penalty : penaltyRepository.findAll()) {
+            java.util.Map<String, Object> item = new java.util.LinkedHashMap<>();
+            item.put("id", penalty.getId()); item.put("amount", penalty.getAmount());
+            item.put("status", penalty.getStatus()); item.put("createdAt", penalty.getCreatedAt());
+            item.put("memberName", name(penalty.getMember()));
+            item.put("title", penalty.getCommitmentWeek() == null ? "التزام جماعي" : title(penalty.getCommitmentWeek(), penalty.getGoalTask()));
+            result.add(item);
+        }
+        return result;
+    }
+
+    // بداية مراجعة الاعتراض تقفل تعديل السبب وحذفه عند العضو، دون إصدار قرار بالنيابة عن الأدمن.
+    @Transactional
+    public void startObjectionReview(Integer adminId, Integer objectionId) {
+        getAdmin(adminId);
+        Objection objection = objectionRepository.findObjectionById(objectionId);
+        if (objection == null) { throw new ApiException("Objection not found"); }
+        if (!"PENDING".equals(objection.getStatus())) { throw new ApiException("Only pending objections can be reviewed"); }
+        if (objection.getReviewStartedAt() == null) {
+            objection.setReviewStartedAt(LocalDateTime.now(java.time.ZoneId.of("Asia/Riyadh")));
+            objectionRepository.save(objection);
+        }
+    }
+
     private Admin getAdmin(Integer adminId){
         authenticatedUserService.checkAdmin(adminId);
         Admin admin = adminRepository.findAdminById(adminId);

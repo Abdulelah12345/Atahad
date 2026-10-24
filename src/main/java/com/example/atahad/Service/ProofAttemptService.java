@@ -146,6 +146,9 @@ public class ProofAttemptService {
         Map<String,Object> result = new LinkedHashMap<>(); result.put("proof",proof);
         result.put("weekId",proof.getCommitmentWeek().getId());
         result.put("goalTaskId",proof.getGoalTask()==null?null:proof.getGoalTask().getId());
+        // زر الاعتراض يظهر فقط عندما يسمح القرار والمهلة وعدم وجود اعتراض سابق.
+        result.put("canObject", "REJECTED".equals(proof.getResult()) && proof.getDecidedAt() != null
+                && proof.getObjection() == null && !time.now().isAfter(proof.getDecidedAt().plusHours(48)));
         result.put("evidence",evidence.findByProofIdOrderById(proofId)); result.put("timer",timers.findByProofId(proofId));
         return result;
     }

@@ -63,6 +63,8 @@ public class SecurityConfig {
                                 "/api/v1/account/login"
                         ).permitAll()
 
+                        .requestMatchers(HttpMethod.GET, "/api/v1/admin-review/penalties/{adminId}").hasAuthority("ADMIN")
+
                         // Admin endpoints
                         .requestMatchers(
                                 "/api/v1/admin/**"
@@ -100,6 +102,15 @@ public class SecurityConfig {
                                 HttpMethod.GET,
                                 "/api/v1/admin/profile"
                         ).hasAuthority("ADMIN")
+
+                        // صفحات الإثباتات تقرأ سجلات العضو فقط؛ لا يوجد معرف مستخدم يختاره العميل.
+                        .requestMatchers(HttpMethod.GET, "/api/v1/proof-workspace/my", "/api/v1/proof-workspace/attachment/{captureId}").hasAuthority("MEMBER")
+                        .requestMatchers(HttpMethod.POST,
+                                "/api/v1/excuse/attachment", "/api/v1/excuse/attachment/{captureId}",
+                                "/api/v1/donation-proof/attachment", "/api/v1/donation-proof/attachment/{captureId}"
+                        ).hasAuthority("MEMBER")
+                        .requestMatchers(HttpMethod.POST, "/api/v1/admin-review/start/{adminId}/{objectionId}")
+                        .hasAuthority("ADMIN")
 
                         // Member endpoints
                         .requestMatchers(

@@ -45,6 +45,14 @@ class SecurityConfigTest {
 
     static Stream<Route> restrictedRoutes() {
         return Stream.of(
+                new Route("GET", "/api/v1/proof-workspace/my", "MEMBER"),
+                new Route("GET", "/api/v1/proof-workspace/attachment/1", "MEMBER"),
+                new Route("POST", "/api/v1/excuse/attachment", "MEMBER"),
+                new Route("POST", "/api/v1/excuse/attachment/1", "MEMBER"),
+                new Route("POST", "/api/v1/donation-proof/attachment", "MEMBER"),
+                new Route("POST", "/api/v1/donation-proof/attachment/1", "MEMBER"),
+                new Route("GET", "/api/v1/admin-review/penalties/1", "ADMIN"),
+                new Route("POST", "/api/v1/admin-review/start/1/2", "ADMIN"),
                 new Route("POST", "/api/v1/quiz/create/1/2", "MEMBER"),
                 new Route("POST", "/api/v1/challenge/create/1/2", "MEMBER"),
                 new Route("POST", "/api/v1/visit/enter/1/2", "MEMBER"),

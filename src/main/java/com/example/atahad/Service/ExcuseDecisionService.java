@@ -27,6 +27,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class ExcuseDecisionService {
     private final AuthenticatedUserService authenticatedUserService;
+    private final ProofAttachmentService proofAttachmentService;
     private final ExcuseRepository excuseRepository;
     private final ProofRepository proofRepository;
     private final ObjectionRepository objectionRepository;
@@ -161,6 +162,8 @@ public class ExcuseDecisionService {
 
         Excuse excuse = new Excuse();
         excuse.setType(request.getType());
+        // لا نقبل مرجعا لصورة تخص عضوا آخر.
+        proofAttachmentService.resolve(memberId, request.getEvidenceUrl());
         excuse.setEvidenceUrl(request.getEvidenceUrl());
         excuse.setExcuseDate(day);
         excuse.setStatus("PENDING");
@@ -191,7 +194,7 @@ public class ExcuseDecisionService {
                         + "DECISION: ACCEPTED or REJECTED or ESCALATED\nREASON: one short sentence in Arabic",
                 "Task: " + commitment.getTitle() + "\nExcuse type: " + excuse.getType() + "\nExcuse date: " + excuse.getExcuseDate()
                         + "\nThe evidence is attached.",
-                List.of(excuse.getEvidenceUrl()),
+                List.of(proofAttachmentService.resolve(commitment.getMember().getId(), excuse.getEvidenceUrl())),
                 "DECISION: ESCALATED\nREASON: الذكاء الاصطناعي غير متاح الحين، بيراجعه الأدمن");
         applyDecision(excuse, aiService.decision(answer), aiService.field(answer, "REASON"), null);
     }

@@ -14,6 +14,8 @@ import java.time.LocalDateTime;
 @Repository
 public interface ObjectionRepository extends JpaRepository<Objection, Integer> {
     Objection findObjectionById(Integer id);
+    // لا تعرض واجهة العضو اعتراضات أي مستخدم آخر.
+    List<Objection> findByMemberIdOrderByIdDesc(Integer memberId);
 
     /*
      تصل من الاعتراض إلى البروف المرتبطة به، وتبحث عن اعتراض PENDING
