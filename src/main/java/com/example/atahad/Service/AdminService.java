@@ -9,6 +9,7 @@ import com.example.atahad.Entity.User;
 import com.example.atahad.Repository.AdminRepository;
 import com.example.atahad.Repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
@@ -40,8 +41,10 @@ public class AdminService {
         user.setPhone(dto.getPhone());
         user.setRole("ADMIN");
         user.setCreatedAt(LocalDateTime.now());
+
         // نخزن BCrypt فقط؛ لا نخزن كلمة المرور الأصلية.
-        user.setPassword(passwordEncoder.encode(dto.getPassword()));
+
+  user.setPassword(passwordEncoder.encode(dto.getPassword()));
 
         userRepository.save(user);
 

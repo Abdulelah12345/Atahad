@@ -1,6 +1,5 @@
 package com.example.atahad.Entity;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
@@ -8,13 +7,12 @@ import lombok.*;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
-import java.util.Collection;
+
 import java.util.Collections;
 
-import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.Set;
+import java.util.Collection;
+import java.util.List;
 
 @Setter
 @Getter
@@ -41,7 +39,7 @@ public class User implements UserDetails {
     @NotEmpty(message = "Phone cannot be empty")
     @Pattern(regexp = "^\\+[1-9]\\d{7,14}$", message = "Phone must be in international format, e.g. +966501234567")
     @Column(columnDefinition = "VARCHAR(16) NOT NULL")
-    private String phone; // International format
+    private String phone;
 
     @NotEmpty(message = "Password cannot be empty")
     @Size(min = 8, message = "Password must be at least 8 characters")
@@ -51,10 +49,10 @@ public class User implements UserDetails {
 
     @Pattern(regexp = "^(MEMBER|ADMIN)$", message = "Role must be MEMBER or ADMIN")
     @Column(columnDefinition = "VARCHAR(6)")
-    private String role; // MEMBER by default, ADMIN is set from the database
+    private String role;
 
     @Column(columnDefinition = "DATETIME")
-    private LocalDateTime createdAt; // Set in service
+    private LocalDateTime createdAt;
 
     // تسجيل الدخول بالبريد؛ اسم الميثود مفروض من واجهة UserDetails.
     @Override
@@ -115,4 +113,40 @@ public class User implements UserDetails {
     @OneToOne(cascade = CascadeType.ALL, mappedBy = "user")
     @PrimaryKeyJoinColumn
     private Admin admin;
+
+    //Security
+    @Override
+    public Collection<? extends GrantedAuthority> getAuthorities() {
+        return List.of(new SimpleGrantedAuthority("ROLE_" + role));
+    }
+
+    @Override
+    public String getUsername() {
+        return email;
+    }
+
+    @Override
+    public String getPassword() {
+        return password;
+    }
+
+    @Override
+    public boolean isAccountNonExpired() {
+        return true;
+    }
+
+    @Override
+    public boolean isAccountNonLocked() {
+        return true;
+    }
+
+    @Override
+    public boolean isCredentialsNonExpired() {
+        return true;
+    }
+
+    @Override
+    public boolean isEnabled() {
+        return true;
+    }
 }
