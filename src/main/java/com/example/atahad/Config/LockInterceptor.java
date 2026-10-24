@@ -3,10 +3,12 @@ package com.example.atahad.Config;
 import com.example.atahad.Entity.Member;
 import com.example.atahad.Entity.User;
 import com.example.atahad.Repository.MemberRepository;
+import com.example.atahad.Repository.UserRepository;
 import com.example.atahad.Service.LockService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.authentication.AuthenticationTrustResolverImpl;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
@@ -24,21 +26,25 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class LockInterceptor implements HandlerInterceptor {
     private final MemberRepository memberRepository;
+    private final UserRepository userRepository;
     private final LockService lockService;
 
     private static final List<String> MEMBER_KEYS = List.of("memberId", "userId", "senderId", "ownerId");
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
-        if(!(handler instanceof HandlerMethod)){
-            return true;
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null) {
+            return true; // السكيورتي تتولى رفض الطلبات التي تحتاج تسجيل الدخول.
+        }
+        if (new AuthenticationTrustResolverImpl().isAnonymous(authentication)) {
+            return true; // مثل تسجيل حساب عضو أو رجوع Google.
         }
         Integer memberId = loggedInMember();
         if(memberId == null){
             if(isLoggedInAdmin()){
                 return true; // an admin is never locked
             }
-            memberId = memberFromPath(request);
         }
         if(memberId == null){
             return true;

@@ -1,11 +1,15 @@
 package com.example.atahad.Service;
 
+import com.example.atahad.Api.ApiException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
-
+import com.example.atahad.Dto.In.AiScheduleRequest;
+import com.example.atahad.DTO.Out.AiScheduleResponse;
+import tools.jackson.databind.ObjectMapper;import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
@@ -237,5 +241,65 @@ public class AiService {
         String prompt = "First goal: " + goal1 + "\nSecond goal: " + goal2;
 
         return ask(instructions, prompt, "SCORE: 0\nREASON: تعذر تحليل توافق الأهداف");
+    }
+    public AiScheduleResponse suggestSchedule(AiScheduleRequest request){
+
+        if(request.getDescription() == null || request.getDescription().isBlank()){
+            throw new ApiException("Goal description is required");
+        }
+
+        String instructions = """
+            You are an AI scheduling assistant for Atahad.
+
+            Create a realistic weekly schedule based on the user's goal.
+
+            Rules:
+            1. Understand the user's preferred days, times, and frequency.
+            2. Suggest specific future dates.
+            3. Use Asia/Riyadh timezone.
+            4. Respect the user's preferences.
+            5. Never suggest past dates.
+            6. Return 3 suggestions unless the user requests a different number.
+            7. Do not claim to have checked Google Calendar availability.
+            8. Return ONLY valid JSON without markdown.
+
+            JSON format:
+            {
+              "title": "Reading",
+              "durationMinutes": 30,
+              "suggestions": [
+                {
+                  "date": "2026-10-27",
+                  "startTime": "19:00",
+                  "endTime": "19:30"
+                }
+              ]
+            }
+            """;
+
+        String prompt = "Today's date: " + LocalDate.now(ZoneId.of("Asia/Riyadh"))
+                + "\nUser goal: " + request.getDescription();
+
+        String answer = ask(instructions, prompt, "");
+
+        if(answer == null || answer.isBlank()){
+            throw new ApiException("AI scheduling is currently unavailable");
+        }
+
+        try{
+            ObjectMapper mapper = new ObjectMapper();
+
+            AiScheduleResponse response = mapper.readValue(answer, AiScheduleResponse.class);
+
+            if(response.getTitle() == null || response.getTitle().isBlank()
+                    || response.getSuggestions() == null || response.getSuggestions().isEmpty()){
+                throw new ApiException("AI returned an invalid schedule");
+            }
+
+            return response;
+
+        }catch(Exception e){
+            throw new ApiException("Failed to generate AI schedule");
+        }
     }
 }

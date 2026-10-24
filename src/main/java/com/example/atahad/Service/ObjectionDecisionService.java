@@ -19,6 +19,7 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class ObjectionDecisionService {
+    private final AuthenticatedUserService authenticatedUserService;
     private final ObjectionRepository objectionRepository;
     private final MemberRepository memberRepository;
     private final ProofDecisionService proofDecisionService;
@@ -29,6 +30,8 @@ public class ObjectionDecisionService {
     // the objections on proofs and excuses are added in ObjectionService, the donation ones here
     @Transactional
     public Objection addDonationObjection(Integer memberId, Integer donationProofId, ObjectionRequest request){
+        // المعرف في الرابط يجب أن يخص العضو المسجل، وليس أي عضو موجود.
+        authenticatedUserService.checkMember(memberId);
         Member member = memberRepository.findMemberById(memberId);
         if(member == null){
             throw new ApiException("Member not found");

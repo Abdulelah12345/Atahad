@@ -6,7 +6,6 @@ import com.example.atahad.Entity.*;
 import com.example.atahad.Repository.CommitmentWeekRepository;
 import com.example.atahad.Repository.ExcuseRepository;
 import com.example.atahad.Repository.MemberRepository;
-import com.example.atahad.Repository.PlaceVisitRepository;
 import com.example.atahad.Repository.ProofRepository;
 import lombok.RequiredArgsConstructor;
 import org.hibernate.Hibernate;
@@ -25,11 +24,13 @@ import java.util.List;
 public class ProofDecisionService {
     private final ProofRepository proofRepository;
     private final ExcuseRepository excuseRepository;
+    private final ObjectionRepository objectionRepository;
     private final CommitmentWeekRepository commitmentWeekRepository;
     private final MemberRepository memberRepository;
     private final CommitmentWeekService commitmentWeekService;
     private final LockService lockService;
     private final AiService aiService;
+    private final AcceptanceGuardService acceptanceGuardService;
     private final QuizService quizService;
     private final ProofChallengeService proofChallengeService;
     private final PlaceVisitRepository placeVisitRepository;
@@ -81,6 +82,47 @@ public class ProofDecisionService {
 
         // one proof for every day
         LocalDate day = activityTime.toLocalDate();
+
+        // بداية يوم النشاط، مثل الأحد الساعة 00:00.
+        LocalDateTime dayStart = day.atStartOfDay();
+
+        // بداية اليوم التالي، حتى يشمل البحث يوم النشاط كاملًا.
+        LocalDateTime nextDayStart = day.plusDays(1).atStartOfDay();
+
+        // إثبات العادة لا يرتبط بمهمة هدف، لذلك يكون معرف المهمة فارغًا.
+        Integer goalTaskId = null;
+
+        // نبحث عن اعتراض معلق على إثبات سابق لنفس العادة والأسبوع واليوم.
+        // لا نسمح بإثبات بديل حتى ينتهي الاعتراض السابق.
+        boolean hasPendingProofObjection =
+                objectionRepository.existsPendingProofObjection(
+                        weekId,
+                        goalTaskId,
+                        dayStart,
+                        nextDayStart
+                );
+
+        if (hasPendingProofObjection) {
+            throw new ApiException(
+                    "Wait until the proof objection for this day is resolved"
+            );
+        }
+
+        // نبحث عن اعتراض معلق على عذر لنفس العادة والأسبوع واليوم.
+        // قبول الاعتراض قد يحتسب اليوم كعذر، لذلك نمنع تداخل إثبات جديد معه.
+        boolean hasPendingExcuseObjection =
+                objectionRepository.existsPendingExcuseObjection(
+                        weekId,
+                        goalTaskId,
+                        day
+                );
+
+        if (hasPendingExcuseObjection) {
+            throw new ApiException(
+                    "Wait until the excuse objection for this day is resolved"
+            );
+        }
+
         for(Proof old : proofRepository.findProofsByCommitmentWeekId(weekId)){
             boolean sameDay = old.getActivityTime() != null && old.getActivityTime().toLocalDate().equals(day);
             if(sameDay && !"REJECTED".equals(old.getResult())){
@@ -111,8 +153,6 @@ public class ProofDecisionService {
     }
 
     // called right after a proof is saved (habits here, goal tasks from ProofService)
-    // every proof is checked by the method of its commitment only:
-    // LOCATION -> distance from the place, TIMER -> the minutes, QUIZ -> the answers, PHOTO and PLATFORM -> the AI looks at the image
     @Transactional
     public void decide(Proof proof){
         proof.setProcessingStatus("PROCESSING");
@@ -229,21 +269,11 @@ public class ProofDecisionService {
     // PHOTO: a camera photo or a live clip of the activity, PLATFORM: a screenshot from the app or website of the activity
     private void decideImage(Proof proof, Commitment commitment){
         String task = proof.getGoalTask() == null ? commitment.getTitle() : commitment.getTitle() + " - " + proof.getGoalTask().getTitle();
-        boolean platform = "PLATFORM".equals(proof.getType());
-        if(!platform){
-            ProofChallengeService.Checked checked = proofChallengeService.check(proof);
-            if(checked != null){
-                decideClip(proof, task, checked);
-                return;
-            }
-        }
-        String rules = platform
-                ? "The image is a screenshot from an app or a website (like Duolingo, LeetCode, a reading app, a fitness app). "
-                  + "ACCEPTED when it shows the task was done on the activity date. REJECTED when it shows another activity, another day, or looks edited. "
-                : "The image is a camera photo of the person doing the task. "
-                  + "REJECTED when it clearly does not match the task, or it is a screenshot, from the internet, or of another day. ";
+        boolean photo = "PHOTO".equals(proof.getType());
+
         String answer = aiService.askWithImages(
-                "You check proofs in a commitment app. " + rules
+                "You check proofs in a commitment app. Decide if the evidence shows that the person really did the task. "
+                        + "REJECTED when it clearly does not match the task, or the photo is a screenshot, from the internet, or of another day. "
                         + "ESCALATED when you are not sure. Answer only with two lines:\n"
                         + "DECISION: ACCEPTED or REJECTED or ESCALATED\nREASON: one short sentence in Arabic",
                 "Task: " + task + "\nProof type: " + proof.getType() + "\nActivity time: " + proof.getActivityTime()
@@ -302,6 +332,27 @@ public class ProofDecisionService {
     // shared with the admin review and the objection
     @Transactional
     public void applyDecision(Proof proof, String decision, String reason){
+        if (decision == null) {
+            throw new ApiException("Decision is required");
+        }
+
+        boolean isAccepted = decision.equals("ACCEPTED");
+        if (isAccepted) {
+            Integer goalTaskId = null;
+            if (proof.getGoalTask() != null) {
+                goalTaskId = proof.getGoalTask().getId();
+            }
+
+            // نحجز الأسبوع ونمنع احتساب اليوم مرتين قبل حفظ القبول وتحديث العداد.
+            acceptanceGuardService.lockAndCheck(
+                    proof.getCommitmentWeek().getId(),
+                    goalTaskId,
+                    proof.getActivityTime().toLocalDate(),
+                    proof.getId(),
+                    null
+            );
+        }
+
         boolean wasAccepted = "ACCEPTED".equals(proof.getResult());
         proof.setProcessingStatus("FINISHED");
         proof.setDecidedAt(LocalDateTime.now());
