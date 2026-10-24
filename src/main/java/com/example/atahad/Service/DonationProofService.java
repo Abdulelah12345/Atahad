@@ -27,6 +27,7 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class DonationProofService {
+    private final AuthenticatedUserService authenticatedUserService;
     private final DonationProofRepository donationProofRepository;
     private final PenaltyRepository penaltyRepository;
     private final MemberRepository memberRepository;
@@ -45,6 +46,8 @@ public class DonationProofService {
 
     @Transactional
     public DonationProof submitScreenshot(Integer memberId, DonationScreenshotRequest dto){
+        // المعرف في الرابط يجب أن يخص العضو المسجل، وليس أي عضو موجود.
+        authenticatedUserService.checkMember(memberId);
         Member member = getMember(memberId);
         if(Boolean.TRUE.equals(member.getScreenshotBanned())){
             throw new ApiException("A fake screenshot was found before, prove your donation with the bank email");
@@ -68,6 +71,8 @@ public class DonationProofService {
     // looks for the bank email in Gmail, sent after the oldest penalty
     @Transactional
     public DonationProof submitEmail(Integer memberId){
+        // المعرف في الرابط يجب أن يخص العضو المسجل، وليس أي عضو موجود.
+        authenticatedUserService.checkMember(memberId);
         Member member = getMember(memberId);
         List<Penalty> pending = pendingPenalties(member);
         List<BankEmail> emails = gmailService.findBankEmails(member, pending.get(0).getCreatedAt());
@@ -199,6 +204,8 @@ public class DonationProofService {
     }
 
     public List<DonationProof> getMyProofs(Integer memberId){
+        // المعرف في الرابط يجب أن يخص العضو المسجل، وليس أي عضو موجود.
+        authenticatedUserService.checkMember(memberId);
         getMember(memberId);
         return donationProofRepository.findDonationProofsByMemberIdOrderByCreatedAtDesc(memberId);
     }

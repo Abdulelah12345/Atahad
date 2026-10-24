@@ -16,6 +16,11 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @RestControllerAdvice
 public class ControllerAdvice {
+    @ExceptionHandler(org.springframework.security.access.AccessDeniedException.class)
+    public ResponseEntity<?> handleAccessDenied(org.springframework.security.access.AccessDeniedException exception) {
+        return ResponseEntity.status(403).body(new ApiResponse(exception.getMessage()));
+    }
+
     @ExceptionHandler(ApiException.class)
     public ResponseEntity<?> ApiException(ApiException e){
         return ResponseEntity.status(400).body(new ApiResponse(e.getMessage()));

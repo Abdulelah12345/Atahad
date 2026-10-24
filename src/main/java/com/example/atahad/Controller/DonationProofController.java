@@ -7,6 +7,7 @@ import com.example.atahad.Service.DonationProofService;
 import com.example.atahad.Service.GmailService;
 import com.example.atahad.Service.ObjectionDecisionService;
 import jakarta.validation.Valid;
+import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -36,14 +37,14 @@ public class DonationProofController {
 
     // the app opens this link so the member allows reading his bank emails
     @GetMapping("/gmail/connect/{memberId}")
-    public ResponseEntity<?> connectGmail(@PathVariable Integer memberId){
-        return ResponseEntity.status(200).body(Map.of("url", gmailService.connectLink(memberId)));
+    public ResponseEntity<?> connectGmail(@PathVariable Integer memberId, HttpSession session){
+        return ResponseEntity.status(200).body(Map.of("url", gmailService.connectLink(memberId, session)));
     }
 
-    // Google sends the member back here (state = the member id)
+    // Google يرجع رمز state؛ نطابقه مع طلب الربط المحفوظ في جلسة المتصفح.
     @GetMapping("/gmail/callback")
-    public ResponseEntity<?> gmailCallback(@RequestParam String code, @RequestParam String state){
-        gmailService.finishConnect(code, Integer.valueOf(state));
+    public ResponseEntity<?> gmailCallback(@RequestParam String code, @RequestParam String state, HttpSession session){
+        gmailService.finishConnect(code, state, session);
         return ResponseEntity.status(200).body(new ApiResponse("Gmail linked, go back to the app"));
     }
 

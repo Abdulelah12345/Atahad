@@ -19,6 +19,7 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class PenaltyService {
+    private final AuthenticatedUserService authenticatedUserService;
     private final PenaltyRepository penaltyRepository;
     private final MemberRepository memberRepository;
     private final AdminRepository adminRepository;
@@ -26,6 +27,8 @@ public class PenaltyService {
 
     // the donations history of the member: waiting, paid and cancelled
     public List<PenaltyResponse> getMyPenalties(Integer memberId){
+        // المعرف في الرابط يجب أن يخص العضو المسجل، وليس أي عضو موجود.
+        authenticatedUserService.checkMember(memberId);
         if(memberRepository.findMemberById(memberId) == null){
             throw new ApiException("Member not found");
         }
@@ -75,6 +78,7 @@ public class PenaltyService {
     }
 
     private Admin getAdmin(Integer adminId){
+        authenticatedUserService.checkAdmin(adminId);
         Admin admin = adminRepository.findAdminById(adminId);
         if(admin == null){
             throw new ApiException("Admin not found");

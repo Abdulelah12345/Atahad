@@ -11,6 +11,7 @@ import com.example.atahad.Repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
@@ -24,6 +25,7 @@ public class MemberService {
 
     private final MemberRepository memberRepository;
     private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
     private final CommitmentWeekService commitmentWeekService;
     private final PasswordEncoder passwordEncoder;
 
@@ -40,6 +42,7 @@ public class MemberService {
         user.setName(dto.getName());
         user.setEmail(dto.getEmail());
         user.setPhone(dto.getPhone());
+
         user.setPassword(passwordEncoder.encode(dto.getPassword()));
         user.setRole("MEMBER");
         user.setCreatedAt(LocalDateTime.now());

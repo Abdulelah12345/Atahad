@@ -8,6 +8,8 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
+import java.util.Collections;
+
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
@@ -51,6 +53,57 @@ public class User implements UserDetails {
 
     @Column(columnDefinition = "DATETIME")
     private LocalDateTime createdAt;
+
+    // تسجيل الدخول بالبريد؛ اسم الميثود مفروض من واجهة UserDetails.
+    @Override
+    @JsonIgnore
+    public String getUsername() {
+        return email;
+    }
+
+    // نرجع نفس الدور المستخدم في hasAuthority: MEMBER أو ADMIN.
+    @Override
+    @JsonIgnore
+    public Collection<? extends GrantedAuthority> getAuthorities() {
+        return Collections.singleton(new SimpleGrantedAuthority(role));
+    }
+
+    @Override
+    @JsonIgnore
+    public boolean isAccountNonExpired() {
+        return true;
+    }
+
+    /*
+     لا نمنع تسجيل الدخول بسبب خصومات غير مدفوعة، حتى يبقى رفع إثبات التبرع متاحًا.
+     أما الحساب المعطل فيمنع من الدخول عن طريق isEnabled أدناه.
+     قفل الخصومات يقيّد العمليات حسب الفلو، ولا يقفل تسجيل الدخول نفسه.
+    */
+    @Override
+    @JsonIgnore
+    public boolean isAccountNonLocked() {
+        return true;
+    }
+
+    @Override
+    @JsonIgnore
+    public boolean isCredentialsNonExpired() {
+        return true;
+    }
+
+    // الحساب المعطل لا يدخل، أما الحساب المحظور فتطبق عليه قيود الفلو بعد الدخول.
+    @Override
+    @JsonIgnore
+    public boolean isEnabled() {
+        if (member == null) {
+            return true;
+        }
+        String status = member.getAccountStatus();
+        if (status == null) {
+            return true;
+        }
+        return !status.equals("DEACTIVATED");
+    }
 
     //Relations
     @OneToOne(cascade = CascadeType.ALL, mappedBy = "user")
