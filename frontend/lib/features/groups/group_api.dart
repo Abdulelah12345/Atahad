@@ -62,6 +62,9 @@ class GroupApi {
         body: {'goal': goal, 'endDate': endDate.toIso8601String().substring(0, 10)},
       ));
 
+  // my task of the goal this week (the same as the card of the today page)
+  Future<Map<String, dynamic>> myTask(int groupId) async => _map(await api.get('$_goal/my-task/$groupId'));
+
   // LOCATION goal: my own place (null until I choose it), chosen from the Google search
   Future<Map<String, dynamic>?> myPlace(int groupId) async {
     final data = await api.get('$_goal/my-place/$groupId');

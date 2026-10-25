@@ -140,7 +140,7 @@ class GroupActivity extends ChangeNotifier {
           if (alertId != null && !_notified.contains(alertId)) {
             _notified.add(alertId);
             changed = true;
-            final from = a['isCollective'] == true ? 'تنبيه من المجموعة' : '${a['senderName'] ?? ''} ينبهك';
+            final from = a['isCollective'] == true ? 'تنبيه من المجموعة' : 'تنبيه من ${a['senderName'] ?? ''}';
             final place = '${a['groupName'] ?? groupName}';
             await _show(alertId, '$from · $place', '${a['message'] ?? ''}\nتلقاه في لوحة المجموعة');
           }

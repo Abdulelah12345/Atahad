@@ -47,6 +47,12 @@ public class GroupGoalController {
         return ResponseEntity.status(200).body(groupGoalService.getBoard(groupId, user.getId()));
     }
 
+    // my task of the goal this week, to prove it from the group page
+    @GetMapping("/my-task/{groupId}")
+    public ResponseEntity<?> getMyTask(@AuthenticationPrincipal User user, @PathVariable Integer groupId){
+        return ResponseEntity.status(200).body(groupGoalService.getMyTask(groupId, user.getId()));
+    }
+
     // LOCATION goal: the place of the member (null until he chooses it)
     @GetMapping("/my-place/{groupId}")
     public ResponseEntity<?> getMyPlace(@AuthenticationPrincipal User user, @PathVariable Integer groupId){

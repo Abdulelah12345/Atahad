@@ -1,6 +1,7 @@
 
 package com.example.atahad.Service;
 
+import com.example.atahad.AI.AiService;
 import com.example.atahad.Api.ApiException;
 import com.example.atahad.Dto.Out.TodayTaskResponse;
 import com.example.atahad.Dto.Out.WhatsAppOutResponse;

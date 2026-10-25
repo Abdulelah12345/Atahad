@@ -1,6 +1,7 @@
 package com.example.atahad.Service;
 
 import com.example.atahad.Dto.Out.PlaceResponse;
+import com.example.atahad.Dto.Out.TodayTaskResponse;
 import com.example.atahad.Dto.In.CommitmentTargetRequest;
 import com.example.atahad.Api.ApiException;
 import com.example.atahad.Dto.In.GoalSuggestRequest;
@@ -260,6 +261,21 @@ public class GroupGoalService {
             }
         }
         groupAccessService.systemMessage(goal.getGroup(), "The goal " + goal.getTitle() + " ended, vote for the next goal");
+    }
+
+    // my task of the group goal this week (the same card as the today page), the app opens its proof from the group
+    public TodayTaskResponse getMyTask(Integer groupId, Integer memberId){
+        GroupGoal goal = getActiveGoal(groupId, memberId);
+        Commitment commitment = getMemberCommitment(goal, groupAccessService.getMember(memberId));
+        if(commitment == null){
+            throw new ApiException("You are not in this goal");
+        }
+        for(TodayTaskResponse task : commitmentWeekService.getToday(memberId)){
+            if(commitment.getId().equals(task.getCommitmentId())){
+                return task;
+            }
+        }
+        throw new ApiException("No task of this goal this week");
     }
 
     // the place of the member in a LOCATION goal (every member has his own place, like his own gym)
