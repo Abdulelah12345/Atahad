@@ -52,6 +52,7 @@ public class AiService {
             return openRouterClient.complete(images == null || images.isEmpty() ? "text" : "vision", instructions, prompt, images, fallback);
         }
         if(apiKey == null || apiKey.isBlank()){
+            System.out.println("AI ERROR: API KEY IS MISSING");
             return fallback;
         }
         try{
@@ -86,6 +87,7 @@ public class AiService {
             String text = String.valueOf(message.get("content")).trim();
             return text.isBlank() ? fallback : text;
         }catch(Exception e){
+            System.out.println("AI ERROR: " + e.getMessage());
             return fallback;
         }
     }

@@ -6,6 +6,7 @@ import com.example.atahad.Entity.Member;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Repository
@@ -19,4 +20,5 @@ public interface CommitmentWeekRepository extends JpaRepository<CommitmentWeek, 
     Integer countCommitmentWeeksByCommitmentMemberAndIsFullWeekTrue(Member member);
 
     List<CommitmentWeek> findCommitmentWeeksByCommitmentMember(Member member);
+    List<CommitmentWeek> findCommitmentWeeksByWeekStartGreaterThanEqualAndWeekStartLessThan(LocalDateTime start, LocalDateTime end);
 }
