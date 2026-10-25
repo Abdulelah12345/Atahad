@@ -15,7 +15,8 @@ public class QuizController {
     @PostMapping("/create/{memberId}/{weekId}")
     public ResponseEntity<?> create(@PathVariable Integer memberId, @PathVariable Integer weekId,
                                     @RequestParam(required = false) Integer goalTaskId,
-                                    @RequestParam(required = false) String topic){
-        return ResponseEntity.status(200).body(quizService.create(memberId, weekId, goalTaskId, topic));
+                                    @RequestParam(required = false) String topic,
+                                    @jakarta.validation.Valid @RequestBody(required=false) com.example.atahad.Dto.In.QuizSourceRequest source){
+        return ResponseEntity.status(200).body(quizService.create(memberId, weekId, goalTaskId, topic, source==null?new com.example.atahad.Dto.In.QuizSourceRequest():source));
     }
 }

@@ -11,6 +11,10 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
+import com.example.atahad.AI.AiService;
+import com.example.atahad.Dto.In.AiScheduleRequest;
+import com.example.atahad.Dto.Out.AiScheduleResponse;
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/v1/google-calendar")

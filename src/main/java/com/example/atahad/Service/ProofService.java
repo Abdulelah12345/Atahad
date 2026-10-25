@@ -71,10 +71,15 @@ public class ProofService {
 
 
 
-    public void addGoalTaskProof(Integer userId,
-                                Integer goalTaskId,
-                                Integer commitmentWeekId,
-                                ProofRequest request) {
+    public void addGoalTaskProof(Integer userId, Integer goalTaskId, Integer commitmentWeekId, ProofRequest request) {
+        createGoalTaskProof(userId, goalTaskId, commitmentWeekId, request, true);
+    }
+
+    public Proof prepareGoalTaskProof(Integer userId, Integer goalTaskId, Integer commitmentWeekId, ProofRequest request) {
+        return createGoalTaskProof(userId, goalTaskId, commitmentWeekId, request, false);
+    }
+
+    private Proof createGoalTaskProof(Integer userId, Integer goalTaskId, Integer commitmentWeekId, ProofRequest request, boolean analyze) {
 
         // معرف المستخدم يأتي من جلسة الدخول، وليس من بيانات يختارها المستخدم.
         if (userId == null) {
@@ -325,7 +330,8 @@ public class ProofService {
         proofRepository.save(proof);
 
         // قرار الذكاء: مقبول (يزيد العداد) أو مرفوض أو يتحول للأدمن.
-        proofDecisionService.decide(proof);
+        if (analyze) { proofDecisionService.decide(proof); }
+        return proof;
     }
 
     public void updateGoalTaskProof(Integer userId,
@@ -592,6 +598,8 @@ public class ProofService {
             throw new ApiException("Task required count has already been fulfilled");
         }
 
+        if (proof.getAttemptDeadline() != null) { throw new ApiException("Use the proof attempt endpoints for this activity"); }
+
         // بعد جميع التشييكات نعدل بيانات الدليل ووقت النشاط فقط.
         proof.setActivityTime(activityTime);
         proof.setEvidenceData(evidenceData);
@@ -650,6 +658,8 @@ public class ProofService {
         if (!userId.equals(goalOwnerUserId)) {
             throw new ApiException("This goal does not belong to you");
         }
+
+        if (proof.getAttemptDeadline() != null) { throw new ApiException("Use the proof attempt endpoints for this activity"); }
 
         // نسمح بالحذف فقط قبل بدء تحليل البروف.
         if (!"WAITING".equals(proof.getProcessingStatus())) {
