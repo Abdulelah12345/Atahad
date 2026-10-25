@@ -9,6 +9,7 @@ import com.example.atahad.Entity.Member;
 import com.example.atahad.Repository.GroupGoalRepository;
 import com.example.atahad.Repository.GroupMemberRepository;
 import com.example.atahad.Repository.GroupRepository;
+import com.example.atahad.Repository.MemberRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,6 +26,7 @@ public class GroupMemberService {
     private final GroupRepository groupRepository;
     private final GroupGoalRepository groupGoalRepository;
     private final GroupAccessService groupAccessService;
+    private final MemberRepository memberRepository;
     private final GroupGoalService groupGoalService;
 
     // only a member of the group sees its members
@@ -61,6 +63,39 @@ public class GroupMemberService {
     public void addMemberDirectly(Integer groupId, Integer ownerId, Integer memberId) {
         GroupMember owner = groupAccessService.checkOwner(groupId, ownerId);
         addToGroup(owner.getGroup(), groupAccessService.getMember(memberId));
+    }
+
+    // the owner adds a friend by his phone number, returns his name
+    @Transactional
+    public String addMemberByPhone(Integer groupId, Integer ownerId, String phone) {
+        GroupMember owner = groupAccessService.checkOwner(groupId, ownerId);
+        Member member = memberRepository.findMemberByUserPhone(normalizePhone(phone));
+        if (member == null) {
+            throw new ApiException("No member with this phone number, ask him to register first");
+        }
+        addToGroup(owner.getGroup(), member);
+        return groupAccessService.nameOf(member);
+    }
+
+    // the phones are saved like +966501234567, so 0501234567, 501234567 and 966501234567 are changed to it
+    private String normalizePhone(String phone) {
+        String digits = phone.replaceAll("[^0-9+]", "");
+        if (digits.startsWith("+")) {
+            return digits;
+        }
+        if (digits.startsWith("00")) {
+            return "+" + digits.substring(2);
+        }
+        if (digits.startsWith("966")) {
+            return "+" + digits;
+        }
+        if (digits.startsWith("05") && digits.length() == 10) {
+            return "+966" + digits.substring(1);
+        }
+        if (digits.startsWith("5") && digits.length() == 9) {
+            return "+966" + digits;
+        }
+        return digits;
     }
 
     // if the group has a goal now, the new member starts it from today

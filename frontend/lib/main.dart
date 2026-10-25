@@ -9,12 +9,17 @@ import 'core/auth/auth_state.dart';
 import 'core/config.dart';
 import 'core/router.dart';
 import 'core/theme/app_theme.dart';
+import 'core/widgets/states.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final api = ApiClient();
   final auth = AuthState(api);
   await auth.restore(); // logs in again with the saved account
+  // flutter run --dart-define=DEV_EMAIL=... logs in with that account even if another one is saved (to test with 2 users)
+  if (kDebugMode && const bool.hasEnvironment('DEV_EMAIL') && auth.profile?['email'] != AppConfig.devEmail) {
+    await auth.logout(callServer: false);
+  }
   if (!auth.isLoggedIn && kDebugMode) {
     // no login page yet: use the test account from core/config.dart
     try {
@@ -49,6 +54,7 @@ class _AtahadAppState extends State<AtahadApp> {
       child: MaterialApp.router(
         title: 'أتعهّد',
         debugShowCheckedModeBanner: false,
+        scaffoldMessengerKey: appMessengerKey,
         theme: AppTheme.light(),
         darkTheme: AppTheme.dark(),
         themeMode: ThemeMode.system,

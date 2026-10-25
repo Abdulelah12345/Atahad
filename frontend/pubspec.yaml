@@ -23,6 +23,21 @@ dependencies:
   google_fonts: ^6.2.1
   # the riyal symbol and the logo
   flutter_svg: ^2.0.10+1
+  # the QR of the group invite
+  qr_flutter: ^4.1.0
+  # scans the QR of a group invite
+  mobile_scanner: ^6.0.2
+  # the live camera of the moments (like Locket)
+  camera: 0.11.0+2
+  # plays the video moments
+  video_player: 2.9.2
+  # the group alert as a notification with sound (while the app is open)
+  flutter_local_notifications: 17.2.4
+
+# the newest iOS parts of video_player and camera need a newer Xcode, these work with Xcode 16
+dependency_overrides:
+  video_player_avfoundation: 2.6.5
+  camera_avfoundation: 0.9.17+5
 
 dev_dependencies:
   flutter_test:
@@ -39,6 +54,9 @@ flutter_launcher_icons:
 
 flutter:
   uses-material-design: true
+  # the plugins are built with CocoaPods on iOS (the old versions above do not link with Swift Package Manager)
+  config:
+    enable-swift-package-manager: false
   assets:
     - assets/icons/
     - assets/images/

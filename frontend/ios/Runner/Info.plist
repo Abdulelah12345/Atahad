@@ -66,5 +66,18 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>الكاميرا لمسح باركود المجموعة وتصوير الإثبات</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>المايك لتسجيل صوت فيديو اللحظة</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>للاتصال بسيرفر أتعهّد على نفس الشبكة أثناء التطوير</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
+	</dict>
 </dict>
 </plist>

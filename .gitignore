@@ -38,3 +38,6 @@ src/main/resources/application-local.properties
 # Firebase service account key (secret)
 firebase-key.json
 .DS_Store
+
+# the uploaded photos and videos of the moments
+uploads/
