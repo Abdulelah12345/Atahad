@@ -9,10 +9,16 @@ import com.example.atahad.Repository.GroupMemberRepository;
 import com.example.atahad.Repository.MomentRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.UUID;
 
 // moments: a photo or a 15 seconds video, private or shared with a group (like Locket)
 // a moment is never a proof
@@ -23,6 +29,37 @@ public class MomentService {
     private final CommitmentWeekRepository commitmentWeekRepository;
     private final GroupMemberRepository groupMemberRepository;
     private final GroupAccessService groupAccessService;
+
+    // the photos and videos of the moments are saved on the server in this folder (not in git)
+    public static final Path UPLOADS = Path.of("uploads", "moments");
+    private static final long MAX_SIZE = 20L * 1024 * 1024; // 20 MB
+    private static final List<String> PHOTO_TYPES = List.of("jpg", "jpeg", "png", "heic", "webp");
+    private static final List<String> VIDEO_TYPES = List.of("mp4", "mov", "m4v");
+
+    // the app sends the photo or the video from the camera first, then adds the moment with the returned link
+    // returns the file name, the controller turns it into a link
+    public String upload(MultipartFile file){
+        if(file == null || file.isEmpty()){
+            throw new ApiException("Send a photo or a video");
+        }
+        if(file.getSize() > MAX_SIZE){
+            throw new ApiException("The file must be 20 MB max");
+        }
+        String original = file.getOriginalFilename() == null ? "" : file.getOriginalFilename();
+        int dot = original.lastIndexOf('.');
+        String extension = dot < 0 ? "" : original.substring(dot + 1).toLowerCase(Locale.ROOT);
+        if(!PHOTO_TYPES.contains(extension) && !VIDEO_TYPES.contains(extension)){
+            throw new ApiException("Only photos and videos are allowed");
+        }
+        String name = UUID.randomUUID() + "." + extension;
+        try{
+            Files.createDirectories(UPLOADS);
+            file.transferTo(UPLOADS.resolve(name).toAbsolutePath());
+        }catch(IOException e){
+            throw new ApiException("The file was not saved, try again");
+        }
+        return name;
+    }
 
     public MomentResponse add(Integer memberId, MomentRequest dto){
         Member member = groupAccessService.getMember(memberId);

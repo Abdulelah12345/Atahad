@@ -7,6 +7,7 @@ import 'core/api/api_client.dart';
 import 'core/auth/auth_state.dart';
 import 'core/router.dart';
 import 'core/theme/app_theme.dart';
+import 'core/widgets/states.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -39,6 +40,7 @@ class _AtahadAppState extends State<AtahadApp> {
       child: MaterialApp.router(
         title: 'أتعهّد',
         debugShowCheckedModeBanner: false,
+        scaffoldMessengerKey: appMessengerKey,
         theme: AppTheme.light(),
         darkTheme: AppTheme.dark(),
         themeMode: ThemeMode.system,

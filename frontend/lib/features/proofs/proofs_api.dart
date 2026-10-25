@@ -43,7 +43,7 @@ class ProofsApi {
 
   void checkImage(Uint8List bytes) {
     if (bytes.isEmpty || bytes.length > 2 * 1024 * 1024) {
-      throw ApiException(400, 'اختاري صورة حجمها أقل من ٢ ميغابايت.');
+      throw ApiException(400, 'اختر صورة حجمها أقل من ٢ ميغابايت.');
     }
   }
 
@@ -83,16 +83,16 @@ String friendlyError(Object error) {
   final raw = error is ApiException ? error.message : '$error';
   if (RegExp(r'[\u0600-\u06FF]').hasMatch(raw)) return raw;
   if (raw.contains('no quiz attempt') || raw.contains('Quiz generation')) {
-    return 'تعذر تجهيز الأسئلة الآن. محاولتك محفوظة؛ جربي بعد شوي.';
+    return 'تعذر تجهيز الأسئلة الآن. محاولتك محفوظة؛ جرّب بعد شوي.';
   }
   if (raw.contains('Only one retry')) {
-    return 'استخدمتِ المحاولة والإعادة لهذا النشاط.';
+    return 'استخدمت المحاولة والإعادة لهذا النشاط.';
   }
   if (raw.contains('already has') || raw.contains('already succeeded')) {
-    return 'لهذا النشاط طلب سابق. افتحي السجل لمتابعته.';
+    return 'لهذا النشاط طلب سابق. افتح السجل لمتابعته.';
   }
   if (raw.contains('Wait until')) {
-    return 'انتظري انتهاء مراجعة الطلب السابق لنفس النشاط.';
+    return 'انتظر انتهاء مراجعة الطلب السابق لنفس النشاط.';
   }
   if (raw.contains('ended') ||
       raw.contains('expired') ||
@@ -100,20 +100,20 @@ String friendlyError(Object error) {
     return 'انتهت مهلة هذا النشاط أو الطلب.';
   }
   if (raw.contains('Could not connect to Gmail')) {
-    return 'تعذر ربط Gmail. تأكدي من البريد وكلمة مرور التطبيقات.';
+    return 'تعذر ربط Gmail. تأكد من البريد وكلمة مرور التطبيقات.';
   }
   if (raw.contains('No bank email')) {
-    return 'ما لقينا رسالة تحويل بنكي مناسبة حتى الآن. جربي لاحقًا.';
+    return 'ما لقينا رسالة تحويل بنكي مناسبة حتى الآن. جرّب لاحقًا.';
   }
   if (raw.contains('No pending penalties')) {
     return 'ما عليك مبلغ ينتظر التبرع حاليًا.';
   }
-  if (raw.contains('Unauthorized')) return 'سجلي الدخول مرة ثانية للمتابعة.';
+  if (raw.contains('Unauthorized')) return 'سجّل الدخول مرة ثانية للمتابعة.';
   if (raw.contains('Forbidden') || raw.contains('Not your')) {
     return 'هذا الإجراء غير متاح لهذا الحساب.';
   }
   if (raw.contains('before') || raw.contains('different captures')) {
-    return 'التقطي صورة البداية والنهاية بشكل مستقل وفي وقت النشاط.';
+    return 'التقط صورة البداية والنهاية بشكل مستقل وفي وقت النشاط.';
   }
-  return 'ما اكتمل الطلب. تأكدي من البيانات وحاولي مرة ثانية.';
+  return 'ما اكتمل الطلب. تأكد من البيانات وحاول مرة ثانية.';
 }

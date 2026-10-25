@@ -116,3 +116,6 @@ void showMessage(BuildContext context, String message) {
     ..hideCurrentSnackBar()
     ..showSnackBar(SnackBar(content: Text(message)));
 }
+
+// the messenger of the whole app (main.dart), to show a message on any page (like a new group alert)
+final GlobalKey<ScaffoldMessengerState> appMessengerKey = GlobalKey<ScaffoldMessengerState>();
