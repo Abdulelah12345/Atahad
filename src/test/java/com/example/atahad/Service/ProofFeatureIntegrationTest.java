@@ -163,6 +163,7 @@ class ProofFeatureIntegrationTest {
     }
     @Test void quizExpiresAtExactlyOneHourAndRequiresExactlyFourLetters() {
         quizActivity();var quiz=quizzes.create(memberId,proof.getCommitmentWeek().getId(),null,null,quizRequest());
+        assertEquals(LocalDateTime.parse("2026-10-24T11:00:00"), quiz.getExpiresAt());
         proof.setEvidenceData(quiz.getQuizId()+":ABC");assertNotNull(quizzes.grade(proof));
         proof.setEvidenceData(quiz.getQuizId()+":ABCA");at("2026-10-24T11:00:00");assertEquals("انتهت صلاحية الساعة",quizzes.grade(proof));
     }
@@ -174,5 +175,6 @@ class ProofFeatureIntegrationTest {
     @Test void duplicateCreateReturnsTheCurrentQuizInsteadOfUsingTheRetry() {
         quizActivity();var first=quizzes.create(memberId,proof.getCommitmentWeek().getId(),null,null,quizRequest());
         var same=quizzes.create(memberId,proof.getCommitmentWeek().getId(),null,null,quizRequest());assertEquals(first.getQuizId(),same.getQuizId());assertEquals(4,same.getQuestions().size());
+        assertEquals(first.getExpiresAt(), same.getExpiresAt());
     }
 }

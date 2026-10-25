@@ -188,6 +188,12 @@ class _ExcuseFormScreenState extends State<ExcuseFormScreen> {
   bool _busy = false;
   Json get _activity => widget.activities[_selected];
   Future<void> _save() async {
+    if (_busy) return;
+    final previous = widget.existing?['evidenceUrl'] as String?;
+    if (_attachment == null && (previous == null || previous.trim().isEmpty)) {
+      showMessage(context, 'أرفقي مستندًا داعمًا للعذر قبل الإرسال.');
+      return;
+    }
     setState(() => _busy = true);
     try {
       final client = context.read<ApiClient>();
@@ -259,7 +265,7 @@ class _ExcuseFormScreenState extends State<ExcuseFormScreen> {
             style: Theme.of(context).textTheme.headlineMedium),
         const SizedBox(height: 10),
         const Text(
-            'اختاري النشاط واليوم، وأرفقي ما يساعد على مراجعة عذرك إذا كان متوفرًا.'),
+            'اختاري النشاط واليوم، وأرفقي مستندًا داعمًا للعذر لتقييمه.'),
         const SizedBox(height: 24),
         DropdownButtonFormField<int>(
             initialValue: _selected,
@@ -300,7 +306,7 @@ class _ExcuseFormScreenState extends State<ExcuseFormScreen> {
             ])),
         const SizedBox(height: 20),
         AttachmentPicker(
-            label: 'مستند يساعدنا نفهم ظرفك — اختياري',
+            label: 'مستند داعم للعذر — مطلوب',
             image: _attachment,
             onChanged: (value) => setState(() => _attachment = value)),
         if (widget.existing?['evidenceUrl'] != null && _attachment == null)

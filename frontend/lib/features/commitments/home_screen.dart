@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/api/api_client.dart';
@@ -19,15 +20,26 @@ class HomeScreen extends StatelessWidget {
     final name = context.watch<AuthState>().profile?['name'] ?? '';
     final text = Theme.of(context).textTheme;
     return Scaffold(
-      appBar: AppBar(title: Text('هلا $name')),
+      appBar: AppBar(title: Text('هلا $name'), actions: [
+        IconButton(
+            tooltip: 'إضافة نشاط',
+            icon: const Icon(Icons.add),
+            onPressed: () => context.push('/commitments/new')),
+      ]),
       body: AsyncView<List<dynamic>>(
         load: () async =>
             await api.get('/api/v1/commitment-week/today') as List<dynamic>,
         builder: (context, tasks, reload) {
           if (tasks.isEmpty) {
-            return const EmptyView(
-                message: 'ما عندك تعهّدات للحين. ابدأ بعادة وحدة.',
-                icon: Icons.flag_outlined);
+            return Center(
+                child: Column(mainAxisSize: MainAxisSize.min, children: [
+              const EmptyView(
+                  message: 'ما عندك تعهّدات للحين. ابدأ بعادة وحدة.',
+                  icon: Icons.flag_outlined),
+              AtButton('إضافة نشاط',
+                  expand: false,
+                  onPressed: () => context.push('/commitments/new')),
+            ]));
           }
           return RefreshIndicator(
             onRefresh: reload,

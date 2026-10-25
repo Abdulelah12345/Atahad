@@ -14,7 +14,8 @@ public class ExcuseRequest {
             message = "Type must be SICK, TRAVEL, EMERGENCY or OTHER")
     private String type;
 
-    // الدليل اختياري؛ تقييم العذر والتحويل للأدمن يحدثان لاحقا.
+    // المستند إلزامي قبل تقديم العذر للتقييم.
+    @NotBlank(message = "أرفقي مستندًا داعمًا للعذر")
     @Size(max = 500, message = "Evidence URL must be 500 characters max")
     private String evidenceUrl;
 
