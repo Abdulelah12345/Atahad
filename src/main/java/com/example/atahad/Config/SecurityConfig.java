@@ -266,7 +266,8 @@ public class SecurityConfig {
                                 "/api/v1/n8n/reminders",
                                 "/api/v1/n8n/whatsapp/pending",
                                 "/api/v1/n8n/whatsapp/sent/{id}",
-                                "/api/v1/n8n/whatsapp/failed/{id}"
+                                "/api/v1/n8n/whatsapp/failed/{id}",
+                                "/api/v1/n8n/weekly-reports"
                         ).permitAll()
 
                         // محاولات البروف والجلسات والكاميرا للأعضاء؛ الملكية داخل السيرفس.
