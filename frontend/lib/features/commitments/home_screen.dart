@@ -159,75 +159,47 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final name = context.watch<AuthState>().profile?['name'] ?? '';
     return Scaffold(
-      appBar: AppBar(title: Text('هلا $name'), actions: [
-        IconButton(
-            tooltip: 'إضافة نشاط',
-            icon: const Icon(Icons.add),
-            onPressed: () => context.push('/commitments/new')),
-      ]),
-      body: AsyncView<List<dynamic>>(
-        load: () async =>
-            await api.get('/api/v1/commitment-week/today') as List<dynamic>,
-        builder: (context, tasks, reload) {
-          if (tasks.isEmpty) {
-            return Center(
-                child: Column(mainAxisSize: MainAxisSize.min, children: [
-              const EmptyView(
-                  message: 'ما عندك تعهّدات للحين. ابدأ بعادة وحدة.',
-                  icon: Icons.flag_outlined),
-              AtButton('إضافة نشاط',
-                  expand: false,
-                  onPressed: () => context.push('/commitments/new')),
-            ]));
-          }
+      appBar: AppBar(
+        title: Text('هلا $name'),
+        actions: [
+          IconButton(tooltip: 'تعهّداتي', icon: const Icon(Icons.list_alt_rounded), onPressed: () => _open('/commitments')),
+          IconButton(tooltip: 'مستواي ونقاطي', icon: const Icon(Icons.insights_rounded), onPressed: () => _open('/stats')),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        icon: const Icon(Icons.add_rounded),
+        label: const Text('تعهّد جديد'),
+        onPressed: _newCommitment,
+      ),
+      body: AsyncView<JsonMap>(
+        key: ValueKey(_version),
+        load: _load,
+        builder: (context, data, reload) {
+          final tasks = data['tasks'] as List<JsonMap>;
+          final stats = data['stats'] as JsonMap?;
           return RefreshIndicator(
             onRefresh: reload,
-            child: ListView.separated(
-              padding: const EdgeInsets.all(Space.s4),
-              itemCount: tasks.length,
-              separatorBuilder: (context, i) =>
-                  const SizedBox(height: Space.s3),
-              itemBuilder: (context, i) {
-                final t = tasks[i] as Map;
-                return AppCard(
-                  onTap: () async {
-                    await openActivityProof(
-                        context, Map<String, dynamic>.from(t));
-                    if (context.mounted) await reload();
-                  },
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                              child: ActivityHeading(
-                                  title: '${t['title']}',
-                                  goalTitle: t['goalTitle'] as String?,
-                                  taskTitle: t['taskTitle'] as String?,
-                                  style: text.headlineSmall)),
-                          StatusBadge.track(t['trackStatus'] as String?),
-                        ],
-                      ),
-                      const SizedBox(height: Space.s1),
-                      Text(
-                        'باقي ${arabicDigits(t['remaining'])} من ${arabicDigits(t['required'])} هالأسبوع',
-                        style: text.bodySmall,
-                      ),
-                      const SizedBox(height: Space.s3),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: Space.s3, vertical: Space.s2),
-                        decoration: BoxDecoration(
-                            color: context.colors.surfaceSunken,
-                            borderRadius: BorderRadius.circular(Radii.md)),
-                        child: Row(
-                          children: [
-                            Expanded(
-                                child: Text('لكل مرة تفوتك',
-                                    style: text.bodySmall)),
-                            RiyalAmount(t['amountPerTime'] as num?),
-                          ],
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(Space.s4, Space.s4, Space.s4, Space.s16 + Space.s4),
+              children: [
+                if (stats != null) _StatsStrip(stats: stats, onTap: () => _open('/stats')),
+                SectionTitle('هالأسبوع', trailing: tasks.isEmpty ? null : Text(_todayLine(tasks), style: Theme.of(context).textTheme.labelSmall)),
+                if (tasks.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.only(top: Space.s8),
+                    child: EmptyView(message: 'ما عندك تعهّدات للحين. ابدأ بعادة وحدة.', icon: Icons.flag_outlined),
+                  )
+                else
+                  ...tasks.map((t) => Padding(
+                        padding: const EdgeInsets.only(bottom: Space.s3),
+                        child: _TaskCard(
+                          task: t,
+                          onTap: () async {
+                            await openActivityProof(context, Map<String, dynamic>.from(t));
+                            if (context.mounted) await reload();
+                          },
+                          onPostpone: () => _postpone(t, reload),
+                          onGraceDay: () => _useGraceDay(t, reload),
                         ),
                       )),
               ],
@@ -303,7 +275,12 @@ class _TaskCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Expanded(child: Text('${t['title']}', style: text.headlineSmall)),
+              Expanded(
+                  child: ActivityHeading(
+                      title: '${t['title']}',
+                      goalTitle: t['goalTitle'] as String?,
+                      taskTitle: t['taskTitle'] as String?,
+                      style: text.headlineSmall)),
               StatusBadge.track(t['trackStatus'] as String?),
             ],
           ),
