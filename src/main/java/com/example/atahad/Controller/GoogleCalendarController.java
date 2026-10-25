@@ -1,15 +1,16 @@
+
 package com.example.atahad.Controller;
 
 import com.example.atahad.Api.ApiResponse;
+import com.example.atahad.Entity.User;
 import com.example.atahad.Service.GoogleCalendarService;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
-import com.example.atahad.Service.AiService;
-import com.example.atahad.Dto.In.AiScheduleRequest;
-import com.example.atahad.Dto.Out.AiScheduleResponse;
-import jakarta.validation.Valid;
+
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/google-calendar")
@@ -17,37 +18,43 @@ import jakarta.validation.Valid;
 public class GoogleCalendarController {
 
     private final GoogleCalendarService googleCalendarService;
-    private final AiService aiService;
+
     @GetMapping("/connect")
-    public ResponseEntity<?> connect(HttpSession session){
-        return ResponseEntity.status(200).body(googleCalendarService.getAuthorizationUrl(session));
+    public ResponseEntity<?> connect(@AuthenticationPrincipal User user){
+        return ResponseEntity.status(200).body(googleCalendarService.getAuthorizationUrl(user.getId()));
     }
+
     @GetMapping("/callback")
-    public ResponseEntity<?> callback(@RequestParam String code, @RequestParam String state, HttpSession session){
-
-        googleCalendarService.handleCallback(code, state, session);
-
-        return ResponseEntity.status(200).body("Google Calendar connected successfully");
+    public ResponseEntity<?> callback(@RequestParam String code,@RequestParam String state){
+        googleCalendarService.handleCallback(code,state);
+        return ResponseEntity.status(200).body(new ApiResponse("Google Calendar connected successfully"));
     }
-    @PostMapping("/suggest-schedule")
-    public ResponseEntity<?> suggestSchedule(@RequestBody @Valid AiScheduleRequest request,HttpSession session){
 
-        AiScheduleResponse response=aiService.suggestSchedule(request);
+    @GetMapping("/status")
+    public ResponseEntity<?> status(@AuthenticationPrincipal User user){
+        return ResponseEntity.status(200).body(Map.of("connected",googleCalendarService.isConnected(user.getId())));
+    }
 
-        session.setAttribute("pendingSchedule",response);
+    @DeleteMapping("/disconnect")
+    public ResponseEntity<?> disconnect(@AuthenticationPrincipal User user){
+        googleCalendarService.disconnect(user.getId());
+        return ResponseEntity.status(200).body(new ApiResponse("Google Calendar disconnected successfully"));
+    }
 
-        return ResponseEntity.status(200).body(response);
+    @PostMapping("/generate")
+    public ResponseEntity<?> generate(@AuthenticationPrincipal User user,HttpSession session){
+        return ResponseEntity.status(200).body(googleCalendarService.generateSchedule(user.getId(),session));
     }
 
     @PostMapping("/approve-schedule")
-    public ResponseEntity<?> approveSchedule(HttpSession session){
-        googleCalendarService.approveSchedule(session);
+    public ResponseEntity<?> approveSchedule(@AuthenticationPrincipal User user,HttpSession session){
+        googleCalendarService.approveSchedule(user.getId(),session);
         return ResponseEntity.status(200).body(new ApiResponse("Schedule added to Google Calendar successfully"));
     }
 
     @PostMapping("/reject-schedule")
-    public ResponseEntity<?> rejectSchedule(HttpSession session){
-        googleCalendarService.rejectSchedule(session);
+    public ResponseEntity<?> rejectSchedule(@AuthenticationPrincipal User user,HttpSession session){
+        googleCalendarService.rejectSchedule(user.getId(),session);
         return ResponseEntity.status(200).body(new ApiResponse("Schedule rejected successfully"));
     }
 }
