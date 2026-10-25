@@ -51,12 +51,6 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-mail</artifactId>
         </dependency>
-        <!-- push notifications (the group alert) with Firebase Cloud Messaging -->
-        <dependency>
-            <groupId>com.google.firebase</groupId>
-            <artifactId>firebase-admin</artifactId>
-            <version>9.4.3</version>
-        </dependency>
 
         <dependency>
             <groupId>com.mysql</groupId>

@@ -3,6 +3,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../api/api_client.dart';
 import '../api/api_exception.dart';
+import '../theme/theme_state.dart';
 
 enum Role { member, admin }
 
@@ -116,6 +117,10 @@ class AuthState extends ChangeNotifier {
     role = null;
     profile = null;
     isLocked = false;
-    await _storage.deleteAll();
+    // everything of the account goes, the theme stays (it belongs to the phone, not the account)
+    final keys = (await _storage.readAll()).keys.where((key) => key != ThemeState.storageKey);
+    for (final key in keys) {
+      await _storage.delete(key: key);
+    }
   }
 }

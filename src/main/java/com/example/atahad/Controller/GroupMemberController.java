@@ -1,8 +1,10 @@
 package com.example.atahad.Controller;
 
 import com.example.atahad.Api.ApiResponse;
+import com.example.atahad.Dto.In.GroupAddByPhoneRequest;
 import com.example.atahad.Service.GroupMemberService;
 import com.example.atahad.Entity.User;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -45,6 +47,13 @@ public class GroupMemberController {
     public ResponseEntity<?> addMemberDirectly(@AuthenticationPrincipal User user, @PathVariable Integer groupId, @PathVariable Integer memberId) {
         groupMemberService.addMemberDirectly(groupId, user.getId(), memberId);
         return ResponseEntity.status(200).body(new ApiResponse("Member added to the group"));
+    }
+
+    // the owner adds a friend by his phone number
+    @PostMapping("/addByPhone/{groupId}")
+    public ResponseEntity<?> addMemberByPhone(@AuthenticationPrincipal User user, @PathVariable Integer groupId, @RequestBody @Valid GroupAddByPhoneRequest dto) {
+        String name = groupMemberService.addMemberByPhone(groupId, user.getId(), dto.getPhone());
+        return ResponseEntity.status(200).body(new ApiResponse(name + " added to the group"));
     }
 
     @DeleteMapping("/leave/{groupId}")

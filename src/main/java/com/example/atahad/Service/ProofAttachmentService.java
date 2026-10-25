@@ -9,6 +9,16 @@ import org.springframework.stereotype.Service;
 public class ProofAttachmentService {
     private final ProofCaptureService proofCaptureService;
 
+    public void requireExcuseDocument(Integer memberId, String reference) {
+        if (reference == null || reference.isBlank()) {
+            throw new ApiException("أرفق مستندًا داعمًا للعذر");
+        }
+        if (!reference.matches("capture:[0-9]+")) {
+            throw new ApiException("ارفعي صورة المستند أولًا ثم أرسل مرجع المرفق");
+        }
+        resolve(memberId, reference);
+    }
+
     // نحفظ مرجعا قصيرا للصورة، ونرسل محتواها الفعلي للذكاء؛ لا نرسل رابط localhost للمزود.
     public String resolve(Integer memberId, String value) {
         if (value == null || !value.startsWith("capture:")) { return value; }

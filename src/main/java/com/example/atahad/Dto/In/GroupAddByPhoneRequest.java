@@ -7,14 +7,14 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-// the Firebase token the phone gets from firebase_messaging
+// the owner adds a friend by his phone number: +966501234567, 966501234567, 0501234567 or 501234567
 @Getter
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
-public class DeviceTokenRequest {
+public class GroupAddByPhoneRequest {
 
-    @NotEmpty(message = "Device token cannot be empty")
-    @Size(max = 512, message = "Device token must be 512 characters max")
-    private String token;
+    @NotEmpty(message = "Phone cannot be empty")
+    @Size(max = 20, message = "Phone must be 20 characters max")
+    private String phone;
 }

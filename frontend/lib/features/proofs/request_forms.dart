@@ -50,7 +50,7 @@ class AttachmentPicker extends StatelessWidget {
           Text('صورة واضحة بصيغة صورة، حتى ٢ ميغابايت.',
               style: Theme.of(context).textTheme.bodySmall),
         const SizedBox(height: 12),
-        AtButton(image == null ? 'اختاري صورة' : 'غيّري الصورة',
+        AtButton(image == null ? 'اختر صورة' : 'غيّر الصورة',
             kind: AtButtonKind.outline, onPressed: () async {
           try {
             final file = await ImagePicker().pickImage(
@@ -59,14 +59,14 @@ class AttachmentPicker extends StatelessWidget {
             final bytes = await file.readAsBytes();
             if (bytes.length > 2 * 1024 * 1024) {
               if (context.mounted) {
-                showMessage(context, 'اختاري صورة أصغر من ٢ ميغابايت.');
+                showMessage(context, 'اختر صورة أصغر من ٢ ميغابايت.');
               }
               return;
             }
             onChanged(CapturedImage(bytes, imageMime(bytes)));
           } catch (error) {
             if (context.mounted) {
-              showMessage(context, 'تعذر فتح الصورة. جربي صورة ثانية.');
+              showMessage(context, 'تعذر فتح الصورة. جرّب صورة ثانية.');
             }
           }
         }),
@@ -133,7 +133,7 @@ class _ObjectionEditorState extends State<ObjectionEditor> {
   Widget build(BuildContext context) => AlertDialog(
         title: Text(widget.existing == null
             ? 'خلّينا نراجع القرار'
-            : 'عدّلي سبب الاعتراض'),
+            : 'عدّل سبب الاعتراض'),
         content: SizedBox(
             width: 460,
             child: Form(
@@ -144,7 +144,7 @@ class _ObjectionEditorState extends State<ObjectionEditor> {
                     children: [
                       Text(
                           widget.existing == null
-                              ? 'وضحي سبب اعتراضك. يصل طلبك للأدمن مع سبب القرار السابق.'
+                              ? 'وضّح سبب اعتراضك. يصل طلبك للأدمن مع سبب القرار السابق.'
                               : 'نعدل السبب فقط، دون تغيير تاريخ تقديم الاعتراض.',
                           style: Theme.of(context).textTheme.bodyMedium),
                       const SizedBox(height: 20),
@@ -158,14 +158,14 @@ class _ObjectionEditorState extends State<ObjectionEditor> {
                               hintText:
                                   'وش المعلومة اللي تساعدنا نراجع القرار؟'),
                           validator: (v) => v == null || v.trim().isEmpty
-                              ? 'اكتبي سبب الاعتراض.'
+                              ? 'اكتب سبب الاعتراض.'
                               : null),
                     ]))),
         actions: [
           TextButton(
               onPressed: _busy ? null : () => Navigator.pop(context, false),
               child: const Text('تراجع')),
-          AtButton('أرسلي الطلب',
+          AtButton('أرسل الطلب',
               expand: false, loading: _busy, onPressed: _save)
         ],
       );
@@ -188,6 +188,12 @@ class _ExcuseFormScreenState extends State<ExcuseFormScreen> {
   bool _busy = false;
   Json get _activity => widget.activities[_selected];
   Future<void> _save() async {
+    if (_busy) return;
+    final previous = widget.existing?['evidenceUrl'] as String?;
+    if (_attachment == null && (previous == null || previous.trim().isEmpty)) {
+      showMessage(context, 'أرفق مستندًا داعمًا للعذر قبل الإرسال.');
+      return;
+    }
     setState(() => _busy = true);
     try {
       final client = context.read<ApiClient>();
@@ -219,7 +225,7 @@ class _ExcuseFormScreenState extends State<ExcuseFormScreen> {
       showMessage(
           context,
           widget.existing == null
-              ? 'وصل عذرك، تابعي حالته من السجل.'
+              ? 'وصل عذرك، تابع حالته من السجل.'
               : 'حفظنا تعديلك.');
       Navigator.pop(context, true);
     } catch (error) {
@@ -258,8 +264,7 @@ class _ExcuseFormScreenState extends State<ExcuseFormScreen> {
         Text('ظروفك لها اعتبار',
             style: Theme.of(context).textTheme.headlineMedium),
         const SizedBox(height: 10),
-        const Text(
-            'اختاري النشاط واليوم، وأرفقي ما يساعد على مراجعة عذرك إذا كان متوفرًا.'),
+        const Text('اختر النشاط واليوم، وأرفق مستندًا داعمًا للعذر لتقييمه.'),
         const SizedBox(height: 24),
         DropdownButtonFormField<int>(
             initialValue: _selected,
@@ -300,7 +305,7 @@ class _ExcuseFormScreenState extends State<ExcuseFormScreen> {
             ])),
         const SizedBox(height: 20),
         AttachmentPicker(
-            label: 'مستند يساعدنا نفهم ظرفك — اختياري',
+            label: 'مستند داعم للعذر — مطلوب',
             image: _attachment,
             onChanged: (value) => setState(() => _attachment = value)),
         if (widget.existing?['evidenceUrl'] != null && _attachment == null)
@@ -311,7 +316,7 @@ class _ExcuseFormScreenState extends State<ExcuseFormScreen> {
         const ProofNotice(
             'آخر وقت لرفع الأعذار هو نهاية الأسبوع، السبت ١١:٥٩ مساءً. إذا بدأ التحليل أو التحويل للأدمن، يتوقف التعديل والحذف.'),
         const SizedBox(height: 24),
-        AtButton(widget.existing == null ? 'أرسلي العذر' : 'احفظي التعديل',
+        AtButton(widget.existing == null ? 'أرسل العذر' : 'احفظ التعديل',
             onPressed: _busy ? null : _save, loading: _busy),
       ]));
 }
@@ -338,13 +343,13 @@ class _LegacyProofEditScreenState extends State<LegacyProofEditScreen> {
         const SizedBox(height: 24),
         if (widget.proof['type'] == 'PHOTO') ...[
           if (_image != null) Image.memory(_image!.bytes, height: 220),
-          AtButton('التقطي صورة جديدة', kind: AtButtonKind.outline,
+          AtButton('التقط صورة جديدة', kind: AtButtonKind.outline,
               onPressed: () async {
             final image = await takeProofPhoto(context, 'تعديل صورة الإثبات');
             if (image != null && mounted) setState(() => _image = image);
           }),
           const SizedBox(height: 18),
-          AtButton('احفظي التعديل',
+          AtButton('احفظ التعديل',
               loading: _busy,
               onPressed: _image == null
                   ? null
@@ -371,6 +376,6 @@ class _LegacyProofEditScreenState extends State<LegacyProofEditScreen> {
                     }),
         ] else
           const ProofNotice(
-              'تابعي هذا الإثبات من طريقة النشاط الأصلية. لا يمكن تغيير نوع الإثبات إلى صورة.'),
+              'تابع هذا الإثبات من طريقة النشاط الأصلية. لا يمكن تغيير نوع الإثبات إلى صورة.'),
       ]));
 }

@@ -80,14 +80,14 @@ class _ProofStartScreenState extends State<ProofStartScreen> {
     final duration = int.tryParse(_minutes.text);
     if (activity['proofMethod'] == 'TIMER' &&
         (duration == null || duration < 1 || duration > 600)) {
-      showMessage(context, 'اختاري مدة من دقيقة إلى ٦٠٠ دقيقة.');
+      showMessage(context, 'اختر مدة من دقيقة إلى ٦٠٠ دقيقة.');
       return;
     }
     if (_withPhotos &&
         (_beforeId == null ||
             _beforeTaken == null ||
             DateTime.now().difference(_beforeTaken!).inMinutes >= 5)) {
-      showMessage(context, 'التقطي صورة البداية، ثم ابدئي خلال خمس دقائق.');
+      showMessage(context, 'التقط صورة البداية، ثم ابدأ خلال خمس دقائق.');
       return;
     }
     setState(() => _busy = true);
@@ -101,7 +101,7 @@ class _ProofStartScreenState extends State<ProofStartScreen> {
       }) as Map;
       if (mounted) {
         context.pushReplacement(
-            '/proofs/session/${proof['id']}?title=${Uri.encodeComponent('${activity['title']}')}');
+            '/proofs/session/${proof['id']}?started=1&title=${Uri.encodeComponent('${activity['title']}')}');
       }
     } catch (error) {
       if (mounted) proofError(context, error);
@@ -122,7 +122,7 @@ class _ProofStartScreenState extends State<ProofStartScreen> {
               title: 'إثبات النشاط',
               child: ErrorView(
                   message:
-                      'هذا النشاط غير متاح الآن. ارجعي لليوم وحدّثي القائمة.'));
+                      'هذا النشاط غير متاح الآن. ارجع لليوم وحدّث القائمة.'));
         }
         final task = snapshot.data!;
         if (task['proofMethod'] == 'LOCATION') {
@@ -134,7 +134,10 @@ class _ProofStartScreenState extends State<ProofStartScreen> {
               Icon(methodIcon(task['proofMethod'] as String?),
                   size: 54, color: context.colors.primary),
               const SizedBox(height: 20),
-              Text('${task['title']}',
+              ActivityHeading(
+                  title: '${task['title']}',
+                  goalTitle: task['goalTitle'] as String?,
+                  taskTitle: task['taskTitle'] as String?,
                   style: Theme.of(context).textTheme.headlineMedium,
                   textAlign: TextAlign.center),
               const SizedBox(height: 10),
@@ -144,11 +147,11 @@ class _ProofStartScreenState extends State<ProofStartScreen> {
               const SizedBox(height: 28),
               ProofNotice(switch (task['proofMethod']) {
                 'TIMER' =>
-                  'اختاري المدة اللي تناسبك. إكمالها يكفي لتوثيق النشاط، وتقدرين تاخذين استراحة أو تمددين بعدها.',
+                  'اختر المدة اللي تناسبك. إكمالها يكفي لتوثيق النشاط، وتقدر تاخذ استراحة أو تمدد بعدها.',
                 'QUIZ' =>
-                  'أربعة أسئلة سهلة، والنجاح من ثلاث. صور الصفحات اختيارية، وإذا ما أرفقتِ صورًا تكون الأسئلة عامة عن الموضوع.',
+                  'أربعة أسئلة سهلة، والنجاح من ثلاث. صور الصفحات اختيارية، وإذا ما أرفقت صورًا تكون الأسئلة عامة عن الموضوع.',
                 _ =>
-                  'بعد تنفيذ النشاط، التقطي صورة واضحة مباشرة بالكاميرا. نخلي الإثبات بسيطًا ويركز على إنجازك.',
+                  'بعد تنفيذ النشاط، التقط صورة واضحة مباشرة بالكاميرا. نخلي الإثبات بسيطًا ويركز على إنجازك.',
               }),
               const SizedBox(height: 24),
               if (task['proofMethod'] == 'TIMER') ...[
@@ -158,7 +161,7 @@ class _ProofStartScreenState extends State<ProofStartScreen> {
                     decoration: const InputDecoration(
                         labelText: 'مدة الجلسة بالدقائق',
                         helperText:
-                            'المدة مقترحة؛ عدّليها قبل البداية بما يناسبك.')),
+                            'المدة مقترحة؛ عدّلها قبل البداية بما يناسبك.')),
                 const SizedBox(height: 24),
               ],
               AppCard(
@@ -175,7 +178,7 @@ class _ProofStartScreenState extends State<ProofStartScreen> {
                 if (_withPhotos) ...[
                   const SizedBox(height: 12),
                   const Text(
-                      'صوّري البداية قبل تنفيذ النشاط، والنهاية بعده. نبحث عن تغيير واضح مرتبط بمهمتك.'),
+                      'صوّر البداية قبل تنفيذ النشاط، والنهاية بعده. نبحث عن تغيير واضح مرتبط بمهمتك.'),
                   const SizedBox(height: 16),
                   if (_before != null)
                     Padding(
@@ -183,8 +186,8 @@ class _ProofStartScreenState extends State<ProofStartScreen> {
                         child: Image.memory(_before!.bytes, height: 180)),
                   AtButton(
                       _before == null
-                          ? 'التقطي صورة البداية'
-                          : 'أعيدي صورة البداية',
+                          ? 'التقط صورة البداية'
+                          : 'أعد صورة البداية',
                       kind: AtButtonKind.outline,
                       loading: _busy,
                       onPressed: _takeBefore),
@@ -193,8 +196,8 @@ class _ProofStartScreenState extends State<ProofStartScreen> {
               const SizedBox(height: 24),
               AtButton(
                   task['proofMethod'] == 'TIMER'
-                      ? 'ابدئي الجلسة'
-                      : 'ابدئي توثيق النشاط',
+                      ? 'ابدأ الجلسة'
+                      : 'ابدأ توثيق النشاط',
                   loading: _busy,
                   onPressed: () => _start(task)),
               const SizedBox(height: 8),
@@ -214,8 +217,12 @@ class _ProofStartScreenState extends State<ProofStartScreen> {
 class ProofSessionScreen extends StatefulWidget {
   final int proofId;
   final String title;
+  final bool justStarted;
   const ProofSessionScreen(
-      {super.key, required this.proofId, required this.title});
+      {super.key,
+      required this.proofId,
+      required this.title,
+      this.justStarted = false});
   @override
   State<ProofSessionScreen> createState() => _ProofSessionScreenState();
 }
@@ -226,12 +233,19 @@ class _ProofSessionScreenState extends State<ProofSessionScreen> {
   Object? _error;
   bool _busy = false;
   bool _syncing = false;
+  bool _photoSubmitted = false;
   Timer? _poll;
   Timer? _clock;
+  Timer? _welcomeTimer;
+  bool _welcome = false;
   final _extension = TextEditingController(text: '5');
   @override
   void initState() {
     super.initState();
+    _welcome = widget.justStarted;
+    _welcomeTimer = Timer(const Duration(seconds: 4), () {
+      if (mounted) setState(() => _welcome = false);
+    });
     _refresh();
     _poll = Timer.periodic(const Duration(seconds: 10), (_) {
       if (!_busy) _refresh(silent: true);
@@ -243,6 +257,7 @@ class _ProofSessionScreenState extends State<ProofSessionScreen> {
 
   @override
   void dispose() {
+    _welcomeTimer?.cancel();
     _poll?.cancel();
     _clock?.cancel();
     _extension.dispose();
@@ -303,6 +318,10 @@ class _ProofSessionScreenState extends State<ProofSessionScreen> {
         await _api.client.post('/api/v1/proof-attempt/${widget.proofId}/submit',
             body: {'evidenceData': '$id'});
       }
+      if (mounted) {
+        if (kind == 'PHOTO') setState(() => _photoSubmitted = true);
+        showMessage(context, 'تم إرفاق الإثبات بنجاح');
+      }
     });
   }
 
@@ -341,6 +360,12 @@ class _ProofSessionScreenState extends State<ProofSessionScreen> {
     final proof = Map<String, dynamic>.from(_state!['proof'] as Map);
     final evidence = ProofsApi.maps(_state!['evidence']);
     final accepted = proof['result'] == 'ACCEPTED';
+    final hasPhoto = _photoSubmitted ||
+        proof['primaryCaptureId'] != null ||
+        '${proof['evidenceData'] ?? ''}'.startsWith('data:image/') ||
+        evidence.any((e) =>
+            e['type'] == 'PHOTO' &&
+            (e['decidedAt'] != null || e['result'] != 'PENDING'));
     final deadline = serverInstant(proof['attemptDeadline']);
     final closed = deadline != null && !DateTime.now().isBefore(deadline);
     final photosWaiting = evidence
@@ -354,25 +379,36 @@ class _ProofSessionScreenState extends State<ProofSessionScreen> {
               icon: const Icon(Icons.refresh))
         ],
         child: ListView(padding: const EdgeInsets.all(24), children: [
-          Text(widget.title, style: Theme.of(context).textTheme.headlineMedium),
+          ActivityHeading(
+              title: widget.title,
+              goalTitle: _state!['goalTitle'] as String?,
+              taskTitle: _state!['taskTitle'] as String?,
+              style: Theme.of(context).textTheme.headlineMedium),
           const SizedBox(height: 12),
           StatusBadge.review(proof['result'] as String?),
+          if (_welcome) ...[
+            const SizedBox(height: 12),
+            const ProofNotice('بداية موفقة'),
+          ],
           const SizedBox(height: 20),
           if (accepted)
             const ProofNotice(
-                'كفو، توثّق إنجازك! ما تحتاجين تضيفين دليلًا آخر، والنشاط ينحسب مرة واحدة.',
+                'كفو، توثّق إنجازك! ما تحتاج تضيف دليلًا آخر، والنشاط ينحسب مرة واحدة.',
                 icon: Icons.verified_outlined),
           if (closed && !accepted)
             const ProofNotice(
                 'انتهت مهلة هذه المحاولة. التفاصيل والنتائج محفوظة في سجلك.'),
           if (_state!['timer'] != null)
             _timer(Map<String, dynamic>.from(_state!['timer'] as Map), closed),
-          if (proof['type'] == 'PHOTO' && !accepted && !closed) ...[
+          if (proof['type'] == 'PHOTO' &&
+              !hasPhoto &&
+              !accepted &&
+              !closed) ...[
             const SizedBox(height: 24),
             const ProofNotice(
-                'صوّري النتيجة المرتبطة بالنشاط بوضوح. الصورة المباشرة فقط، دون رفع من المعرض.'),
+                'صوّر النتيجة المرتبطة بالنشاط بوضوح. الصورة المباشرة فقط، دون رفع من المعرض.'),
             const SizedBox(height: 16),
-            AtButton('التقطي صورة الإثبات',
+            AtButton('التقط صورة الإثبات',
                 loading: _busy,
                 onPressed: () => _photo('PHOTO'),
                 icon: const Icon(Icons.photo_camera_outlined)),
@@ -393,9 +429,9 @@ class _ProofSessionScreenState extends State<ProofSessionScreen> {
                       style: Theme.of(context).textTheme.titleLarge),
                   const SizedBox(height: 10),
                   const Text(
-                      'صورة البداية محفوظة. بعد التنفيذ صوّري النهاية؛ إذا نجحت الصور، يكفي هذا لقبول النشاط.'),
+                      'صورة البداية محفوظة. بعد التنفيذ صوّر النهاية؛ إذا نجحت الصور، يكفي هذا لقبول النشاط.'),
                   const SizedBox(height: 16),
-                  AtButton('التقطي صورة النهاية',
+                  AtButton('التقط صورة النهاية',
                       kind: AtButtonKind.outline,
                       loading: _busy,
                       onPressed: () => _photo('AFTER')),
@@ -452,18 +488,18 @@ class _ProofSessionScreenState extends State<ProofSessionScreen> {
             EvidenceImage('${proof['evidenceData']}'),
           if (_state!['canObject'] == true) ...[
             const SizedBox(height: 14),
-            AtButton('اعترضي على القرار', kind: AtButtonKind.outline,
+            AtButton('اعترض على القرار', kind: AtButtonKind.outline,
                 onPressed: () async {
               if (await editObjection(context,
                       kind: 'PROOF', targetId: widget.proofId) &&
                   context.mounted) {
-                showMessage(context, 'وصل اعتراضك، تابعي نتيجته من طلباتي.');
+                showMessage(context, 'وصل اعتراضك، تابع نتيجته من طلباتي.');
                 await _refresh();
               }
             })
           ],
           const SizedBox(height: 20),
-          AtButton('ارجعي لطلباتي',
+          AtButton('ارجع لطلباتي',
               kind: AtButtonKind.text,
               onPressed: () => context.go('/requests')),
         ]));
@@ -484,11 +520,20 @@ class _ProofSessionScreenState extends State<ProofSessionScreen> {
     return Column(children: [
       const SizedBox(height: 30),
       Text(
-          messageIndex < messages.length
-              ? messages[messageIndex]
-              : 'خذي وقتك، خطوة خطوة.',
-          textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.titleMedium),
+          switch (timer['status']) {
+            'PAUSED' => reached ? 'اكتملت المدة المطلوبة' : 'متوقف مؤقتًا',
+            'FINISHED' => 'اكتملت الجلسة',
+            'EXPIRED' => 'انتهت مهلة الجلسة',
+            _ => 'جارٍ التركيز',
+          },
+          textAlign: TextAlign.center),
+      if (messageIndex > 0)
+        Text(
+            messageIndex < messages.length
+                ? messages[messageIndex]
+                : 'خذ وقتك، خطوة خطوة.',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.titleMedium),
       const SizedBox(height: 24),
       SizedBox(
           width: 238,
@@ -507,7 +552,7 @@ class _ProofSessionScreenState extends State<ProofSessionScreen> {
                   style: Theme.of(context).textTheme.displayLarge),
               const SizedBox(height: 8),
               Text(timer['status'] == 'RUNNING'
-                  ? 'وقت لكِ ولإنجازك'
+                  ? 'وقت لك ولإنجازك'
                   : reached
                       ? 'اكتملت المدة الأصلية'
                       : 'الجلسة متوقفة')
@@ -521,18 +566,18 @@ class _ProofSessionScreenState extends State<ProofSessionScreen> {
             alignment: WrapAlignment.center,
             children: [
               if (timer['status'] == 'RUNNING')
-                AtButton('خذي استراحة',
+                AtButton('خذ استراحة',
                     expand: false,
                     kind: AtButtonKind.outline,
                     onPressed: _busy ? null : () => _timerAction('pause'),
                     icon: const Icon(Icons.pause)),
               if (timer['status'] == 'PAUSED' && elapsed < total)
-                AtButton('كمّلي الجلسة',
+                AtButton('كمّل الجلسة',
                     expand: false,
                     onPressed: _busy ? null : () => _timerAction('resume'),
                     icon: const Icon(Icons.play_arrow)),
               if (timer['status'] == 'RUNNING' || timer['status'] == 'PAUSED')
-                AtButton('أنهي الجلسة',
+                AtButton('أنهِ الجلسة',
                     expand: false,
                     kind: AtButtonKind.text,
                     onPressed: _busy ? null : () => _timerAction('finish')),
@@ -547,25 +592,24 @@ class _ProofSessionScreenState extends State<ProofSessionScreen> {
         AppCard(
             child:
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('ودّك تكملين شوي؟',
-              style: Theme.of(context).textTheme.titleLarge),
+          Text('ودّك تكمل شوي؟', style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 8),
           const Text(
-              'التمديد اختياري، وإنجازك الأصلي محفوظ. خذي راحة إذا احتجتِ.'),
+              'التمديد اختياري، وإنجازك الأصلي محفوظ. خذ راحة إذا احتجت.'),
           const SizedBox(height: 16),
           TextField(
               controller: _extension,
               keyboardType: TextInputType.number,
               decoration: const InputDecoration(labelText: 'كم دقيقة إضافية؟')),
           const SizedBox(height: 12),
-          AtButton('مدّدي الجلسة',
+          AtButton('مدّد الجلسة',
               kind: AtButtonKind.outline,
               onPressed: _busy
                   ? null
                   : () {
                       final minutes = int.tryParse(_extension.text);
                       if (minutes == null || minutes < 1 || minutes > 600) {
-                        showMessage(context, 'اختاري من دقيقة إلى ٦٠٠ دقيقة.');
+                        showMessage(context, 'اختر من دقيقة إلى ٦٠٠ دقيقة.');
                         return;
                       }
                       _timerAction('extend', body: {'minutes': minutes});
@@ -624,19 +668,41 @@ class _QuizPanelState extends State<QuizPanel> {
   Json? _quiz;
   bool _busy = false;
   String? _notice;
+  Timer? _expiryClock;
+  String? _pendingAction;
+  @override
+  void dispose() {
+    _expiryClock?.cancel();
+    super.dispose();
+  }
+
+  Duration? get _remaining {
+    final end = serverInstant(_quiz?['expiresAt']);
+    if (end == null) return null;
+    final left = end.difference(DateTime.now());
+    return left.isNegative ? Duration.zero : left;
+  }
+
   Future<void> _page() async {
+    if (_busy) return;
     if (_pages.length >= 6) {
       showMessage(context, 'يكفي حتى ست صور واضحة للصفحات.');
       return;
     }
     final photo = await takeProofPhoto(context, 'صفحة من المحتوى — اختياري');
     if (photo == null || !mounted) return;
-    setState(() => _busy = true);
+    setState(() {
+      _busy = true;
+      _pendingAction = 'page';
+    });
     try {
       final id = await ProofsApi(context.read<ApiClient>()).cameraUpload(
           'PAGE', photo.bytes,
           proofId: widget.proofId, mime: photo.mime);
-      if (mounted) setState(() => _pages.add(id));
+      if (mounted) {
+        setState(() => _pages.add(id));
+        showMessage(context, 'تم إرفاق الصفحة بنجاح');
+      }
     } catch (error) {
       if (mounted) proofError(context, error);
     } finally {
@@ -645,7 +711,12 @@ class _QuizPanelState extends State<QuizPanel> {
   }
 
   Future<void> _generate() async {
-    setState(() => _busy = true);
+    if (_busy) return;
+    setState(() {
+      _busy = true;
+      _pendingAction = 'generate';
+      _notice = null;
+    });
     final client = context.read<ApiClient>();
     final member = context.read<AuthState>().userId;
     try {
@@ -659,23 +730,38 @@ class _QuizPanelState extends State<QuizPanel> {
         _answers.clear();
         _quiz = quiz['quizId'] == null ? null : quiz;
         _notice = quiz['quizId'] == null
-            ? 'الصفحات ما كانت واضحة. صوّريها مرة ثانية، أو جهّزي أسئلة عامة بدون صور.'
+            ? 'الصفحات غير واضحة. صوّر الجزئية مرة ثانية، أو جهّز أسئلة عامة بدون صور. لم تُحتسب عليك محاولة.'
             : null;
       });
+      _expiryClock?.cancel();
+      if (_quiz != null) {
+        _expiryClock = Timer.periodic(const Duration(seconds: 1), (_) {
+          if (mounted) setState(() {});
+        });
+      }
     } catch (error) {
-      if (mounted) proofError(context, error);
+      if (mounted) setState(() => _notice = friendlyError(error));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
 
   Future<void> _submit() async {
-    final questions = ProofsApi.maps(_quiz!['questions']);
-    if (questions.any((q) => _answers[q['number']] == null)) {
-      showMessage(context, 'جاوبي الأسئلة الأربعة أولًا.');
+    if (_busy) return;
+    if (_remaining == Duration.zero) {
+      setState(() => _notice =
+          'انتهت مهلة الاختبار. جهّز اختبارًا جديدًا إذا كانت لديك محاولة متاحة.');
       return;
     }
-    setState(() => _busy = true);
+    final questions = ProofsApi.maps(_quiz!['questions']);
+    if (questions.any((q) => _answers[q['number']] == null)) {
+      showMessage(context, 'جاوب الأسئلة الأربعة أولًا.');
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _pendingAction = 'submit';
+    });
     try {
       final letters = questions.map((q) => _answers[q['number']]!).join();
       await context.read<ApiClient>().post(
@@ -684,9 +770,10 @@ class _QuizPanelState extends State<QuizPanel> {
       await widget.onSubmitted();
       if (mounted) {
         setState(() {
+          _expiryClock?.cancel();
           _quiz = null;
           _notice =
-              'حفظنا الإجابات. راجعي نتيجة الدليل بالأسفل؛ إذا ما نجحت المحاولة الأولى تقدرين تطلبين إعادة واحدة.';
+              'حفظنا الإجابات. راجع نتيجة الدليل بالأسفل؛ إذا ما نجحت المحاولة الأولى تقدر تطلب إعادة واحدة.';
         });
       }
     } catch (error) {
@@ -712,16 +799,31 @@ class _QuizPanelState extends State<QuizPanel> {
           ProofNotice(_notice!),
           const SizedBox(height: 16)
         ],
+        if (_busy && _pendingAction == 'generate') ...[
+          const ProofNotice('جارٍ تجهيز الأسئلة…'),
+          const SizedBox(height: 12),
+        ],
         if (_quiz == null) ...[
-          AtButton('صوّري صفحة — اختياري',
+          AtButton('صوّر صفحة — اختياري',
               kind: AtButtonKind.outline, onPressed: _busy ? null : _page),
+          for (final id in _pages) EvidenceImage('capture:$id'),
           if (_pages.isNotEmpty)
             Padding(
                 padding: const EdgeInsets.symmetric(vertical: 10),
                 child: Text('صور مرفقة: ${arabicDigits(_pages.length)}')),
           const SizedBox(height: 10),
-          AtButton('جهّزي الأسئلة', loading: _busy, onPressed: _generate),
+          AtButton('جهّز الأسئلة',
+              loading: _busy, onPressed: _busy ? null : _generate),
         ] else ...[
+          if (_remaining == Duration.zero)
+            AtButton('جهّز اختبارًا جديدًا',
+                loading: _busy, onPressed: _generate),
+          if (_remaining != null) ...[
+            Text(_remaining == Duration.zero
+                ? 'انتهى وقت الاختبار'
+                : 'الوقت المتبقي: ${arabicDigits(_remaining!.inMinutes.toString().padLeft(2, '0'))}:${arabicDigits((_remaining!.inSeconds % 60).toString().padLeft(2, '0'))}'),
+            const SizedBox(height: 16),
+          ],
           for (final (i, question)
               in ProofsApi.maps(_quiz!['questions']).indexed)
             Padding(
@@ -734,8 +836,12 @@ class _QuizPanelState extends State<QuizPanel> {
                       const SizedBox(height: 8),
                       RadioGroup<String>(
                           groupValue: _answers[question['number']],
-                          onChanged: (value) => setState(() =>
-                              _answers[question['number'] as int] = value),
+                          onChanged: (value) {
+                            if (!_busy && _remaining != Duration.zero) {
+                              setState(() =>
+                                  _answers[question['number'] as int] = value);
+                            }
+                          },
                           child: Column(children: [
                             for (final (option, text)
                                 in (question['options'] as List).indexed)
@@ -745,7 +851,9 @@ class _QuizPanelState extends State<QuizPanel> {
                                   title: Text('$text')),
                           ])),
                     ])),
-          AtButton('أرسلي الإجابات', loading: _busy, onPressed: _submit),
+          AtButton('أرسل الإجابات',
+              loading: _busy,
+              onPressed: _remaining == Duration.zero ? null : _submit),
         ],
       ])));
 }

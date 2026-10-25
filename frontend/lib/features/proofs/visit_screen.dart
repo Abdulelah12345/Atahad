@@ -66,12 +66,12 @@ class _VisitScreenState extends State<VisitScreen> {
             'longitude': position.longitude
           });
       if (mounted) {
-        setState(() => _notice = 'سجلنا وصولك. بعد ما تنتهين، سجلي مغادرتك.');
+        setState(() => _notice = 'سجلنا وصولك. بعد ما تنتهي، سجّل مغادرتك.');
       }
       await _load();
     } on PermissionDeniedException {
       if (mounted) {
-        showMessage(context, 'اسمحي للموقع باستخدام موقعك من إعدادات المتصفح.');
+        showMessage(context, 'اسمح للتطبيق باستخدام موقعك من الإعدادات.');
       }
     } catch (error) {
       if (mounted) proofError(context, error);
@@ -89,7 +89,7 @@ class _VisitScreenState extends State<VisitScreen> {
           as Map;
       if (mounted) {
         setState(() => _notice = result['note'] as String? ??
-            'حفظنا الزيارة، وتقدرين تتابعين نتيجة الإثبات من سجلك.');
+            'حفظنا الزيارة، وتقدر تتابع نتيجة الإثبات من سجلك.');
       }
       await _load();
     } catch (error) {
@@ -115,7 +115,7 @@ class _VisitScreenState extends State<VisitScreen> {
                     textAlign: TextAlign.center),
                 const SizedBox(height: 24),
                 const ProofNotice(
-                    'سجلي الوصول وأنتِ في المكان، ثم المغادرة بعد انتهاء نشاطك. نستخدم موقع الجهاز بإذنك؛ قد تختلف الدقة على اللابتوب.'),
+                    'سجّل الوصول وأنت في المكان، ثم المغادرة بعد انتهاء نشاطك. نستخدم موقع الجهاز بإذنك؛ قد تختلف الدقة على اللابتوب.'),
                 if (_notice != null) ...[
                   const SizedBox(height: 20),
                   ProofNotice(_notice!)
@@ -126,7 +126,7 @@ class _VisitScreenState extends State<VisitScreen> {
                       child: Text(
                           'دقة الموقع المتاحة: حوالي ${arabicDigits(_accuracy!.round())} متر.')),
                 const SizedBox(height: 26),
-                AtButton(open ? 'سجّلي مغادرتي' : 'سجّلي وصولي',
+                AtButton(open ? 'سجّل مغادرتي' : 'سجّل وصولي',
                     loading: _busy,
                     onPressed: open ? _exit : _enter,
                     icon: Icon(open ? Icons.logout : Icons.my_location)),
