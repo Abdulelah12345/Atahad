@@ -7,6 +7,7 @@ import '../../core/theme/at_colors.dart';
 import '../../core/theme/at_tokens.dart';
 import '../../core/utils/format.dart';
 import '../../core/widgets/widgets.dart';
+import '../proofs/activity_proof_entry.dart';
 import 'group_activity.dart';
 import 'group_api.dart';
 import 'group_labels.dart';
@@ -83,6 +84,38 @@ class _BoardTabState extends State<BoardTab> with AutomaticKeepAliveClientMixin 
     }
   }
 
+  // I did my task: opens its proof (the same steps as the today page), then the board refreshes
+  Widget _proveButton(_BoardData data) {
+    final mine = data.board.where((r) => r['memberId'] == widget.me).toList();
+    if (mine.isEmpty) return const SizedBox.shrink(); // not in this goal (joined after it ended, or kicked)
+    final left = (mine.first['remaining'] as int?) ?? 0;
+    return Padding(
+      padding: const EdgeInsets.only(top: Space.s3),
+      child: AtButton(
+        left == 0 ? 'خلّصت مهام هالأسبوع' : 'سوّيت المهمة؟ وثّق إنجازك',
+        icon: Icon(left == 0 ? Icons.check_circle : Icons.task_alt),
+        onPressed: left == 0 || _proving ? null : _prove,
+        loading: _proving,
+      ),
+    );
+  }
+
+  bool _proving = false;
+
+  Future<void> _prove() async {
+    setState(() => _proving = true);
+    try {
+      final task = await widget.api.myTask(_groupId);
+      if (!mounted) return;
+      await openActivityProof(context, task);
+      await _refresh(silent: true);
+    } catch (e) {
+      if (mounted) showError(context, e);
+    } finally {
+      if (mounted) setState(() => _proving = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
@@ -108,6 +141,7 @@ class _BoardTabState extends State<BoardTab> with AutomaticKeepAliveClientMixin 
           if (data.goal != null) ...[
             _GoalSection(goal: data.goal!, board: data.board),
             if (data.goal!['proofMethod'] == 'LOCATION') _MyPlaceCard(api: widget.api, groupId: _groupId),
+            _proveButton(data),
             SectionTitle('هالأسبوع', trailing: TextButton(onPressed: () => _showHistory(context), child: const Text('الأهداف السابقة'))),
             for (final (i, row) in _ranked(data.board).indexed) ...[
               _BoardRow(row: row, place: i + 1, isMe: row['memberId'] == widget.me, onAlert: () => _alert(row)),

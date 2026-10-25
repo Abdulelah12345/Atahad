@@ -64,6 +64,7 @@ public class PlaceSearchService {
                     .retrieve()
                     .body(Map.class);
         } catch (Exception e) {
+            System.out.println("Place search failed: " + e.getMessage()); // the reason from Google (wrong key, API not on ...)
             throw new ApiException("Place search failed, try again");
         }
 
