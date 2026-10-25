@@ -8,4 +8,7 @@ import org.springframework.stereotype.Repository;
 public interface MemberRepository extends JpaRepository<Member, Integer> {
     Member findMemberById(Integer id);
 
+    // the phone is in the user of the member (+966501234567)
+    Member findMemberByUserPhone(String phone);
+
 }

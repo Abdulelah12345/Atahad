@@ -41,7 +41,7 @@ class _DonationsScreenState extends State<DonationsScreen> {
 
   Future<void> _submit(bool email) async {
     if (!email && (_bank == null || _ehsan == null)) {
-      showMessage(context, 'أرفقي صورة رسالة البنك وصورة رسالة إحسان.');
+      showMessage(context, 'أرفق صورة رسالة البنك وصورة رسالة إحسان.');
       return;
     }
     setState(() => _busy = true);
@@ -68,7 +68,7 @@ class _DonationsScreenState extends State<DonationsScreen> {
       });
       await _reload();
       if (mounted) {
-        showMessage(context, 'وصل إثبات التبرع. راجعي النتيجة في السجل.');
+        showMessage(context, 'وصل إثبات التبرع. راجع النتيجة في السجل.');
       }
     } catch (error) {
       if (mounted) proofError(context, error);
@@ -147,11 +147,11 @@ class _DonationsScreenState extends State<DonationsScreen> {
                       RiyalAmount(amount, style: text.displayMedium),
                       const SizedBox(height: 12),
                       const Text(
-                          'تتبرعين بنفسك لمنصة إحسان، ثم ترفعين ما يثبت التحويل. ما فيه دفع أو خصم من بطاقتك داخل التطبيق.',
+                          'تتبرع بنفسك لمنصة إحسان، ثم ترفع ما يثبت التحويل. ما فيه دفع أو خصم من بطاقتك داخل التطبيق.',
                           textAlign: TextAlign.center),
                       if (pending.isNotEmpty) ...[
                         const SizedBox(height: 18),
-                        AtButton('افتحي منصة إحسان', kind: AtButtonKind.gold,
+                        AtButton('افتح منصة إحسان', kind: AtButtonKind.gold,
                             onPressed: () async {
                           if (!await launchUrl(Uri.parse('https://ehsan.sa'),
                                   mode: LaunchMode.externalApplication) &&
@@ -166,7 +166,7 @@ class _DonationsScreenState extends State<DonationsScreen> {
                   Text('إثبات التبرع', style: text.headlineSmall),
                   const SizedBox(height: 10),
                   const Text(
-                      'اختاري الطريقة المناسبة. الصور لازم تخص نفس عملية التحويل.'),
+                      'اختر الطريقة المناسبة. الصور لازم تخص نفس عملية التحويل.'),
                   const SizedBox(height: 18),
                   AttachmentPicker(
                       label: 'رسالة التحويل من البنك',
@@ -178,7 +178,7 @@ class _DonationsScreenState extends State<DonationsScreen> {
                       image: _ehsan,
                       onChanged: (image) => setState(() => _ehsan = image)),
                   const SizedBox(height: 18),
-                  AtButton('أرسلي صور التبرع',
+                  AtButton('أرسل صور التبرع',
                       kind: AtButtonKind.gold,
                       loading: _busy,
                       onPressed: _submitImages),
@@ -194,7 +194,7 @@ class _DonationsScreenState extends State<DonationsScreen> {
                             'بعد ربط بريدك، نبحث عن رسالة التحويل المطابقة للمبلغ المطلوب.'),
                         const SizedBox(height: 16),
                         AtButton(
-                            linked ? 'تحققي من رسالة التحويل' : 'اربطي Gmail',
+                            linked ? 'تحقق من رسالة التحويل' : 'اربط Gmail',
                             kind: AtButtonKind.outline,
                             loading: _busy,
                             onPressed: _busy
@@ -203,13 +203,13 @@ class _DonationsScreenState extends State<DonationsScreen> {
                                     ? () => _submit(true)
                                     : _gmail),
                         if (linked)
-                          AtButton('افصلي ربط Gmail',
+                          AtButton('افصل ربط Gmail',
                               kind: AtButtonKind.text,
                               onPressed: _busy ? null : _gmail),
                       ])),
                 ] else if (linked) ...[
                   const SizedBox(height: 18),
-                  AtButton('افصلي ربط Gmail',
+                  AtButton('افصل ربط Gmail',
                       kind: AtButtonKind.text, onPressed: _gmail)
                 ],
                 const SizedBox(height: 30),
@@ -297,7 +297,7 @@ class _DonationsScreenState extends State<DonationsScreen> {
                                         '${d['ehsanMessageImageUrl']}')
                                   ]),
                             if (d['status'] == 'REJECTED')
-                              AtButton('اعترضي على القرار',
+                              AtButton('اعترض على القرار',
                                   kind: AtButtonKind.text, onPressed: () async {
                                 if (await editObjection(context,
                                     kind: 'DONATION',
@@ -360,7 +360,7 @@ class _GmailConnectDialogState extends State<GmailConnectDialog> {
                   key: _form,
                   child: Column(mainAxisSize: MainAxisSize.min, children: [
                     const Text(
-                        'استخدمي كلمة مرور التطبيقات التي تصدر من إعدادات حساب Google، وليست كلمة مرور بريدك الأساسية.'),
+                        'استخدم كلمة مرور التطبيقات التي تصدر من إعدادات حساب Google، وليست كلمة مرور بريدك الأساسية.'),
                     const SizedBox(height: 20),
                     TextFormField(
                         controller: _email,
@@ -371,7 +371,7 @@ class _GmailConnectDialogState extends State<GmailConnectDialog> {
                                 RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$')
                                     .hasMatch(v.trim())
                             ? null
-                            : 'اكتبي بريدًا صحيحًا.'),
+                            : 'اكتب بريدًا صحيحًا.'),
                     const SizedBox(height: 16),
                     TextFormField(
                         controller: _password,
@@ -381,14 +381,14 @@ class _GmailConnectDialogState extends State<GmailConnectDialog> {
                         decoration: const InputDecoration(
                             labelText: 'كلمة مرور التطبيقات'),
                         validator: (v) => v == null || v.trim().isEmpty
-                            ? 'أدخلي كلمة مرور التطبيقات.'
+                            ? 'أدخل كلمة مرور التطبيقات.'
                             : null),
                   ]))),
           actions: [
             TextButton(
                 onPressed: _busy ? null : () => Navigator.pop(context),
                 child: const Text('تراجع')),
-            AtButton('اربطي البريد',
+            AtButton('اربط البريد',
                 expand: false, loading: _busy, onPressed: _connect)
           ]);
 }
