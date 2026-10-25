@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/auth/auth_state.dart';
 import '../../core/theme/at_colors.dart';
+import '../../core/theme/theme_state.dart';
 
 // OWNER: Abdulelah - the "حسابي" tab (empty for now)
 class AccountTab extends StatelessWidget {
@@ -100,6 +101,21 @@ class AccountTab extends StatelessWidget {
 
               const SizedBox(height: 24),
             ],
+
+            _sectionTitle(context, 'المظهر'),
+
+            SegmentedButton<ThemeMode>(
+              segments: const [
+                ButtonSegment(value: ThemeMode.light, icon: Icon(Icons.light_mode_outlined), label: Text('فاتح')),
+                ButtonSegment(value: ThemeMode.dark, icon: Icon(Icons.dark_mode_outlined), label: Text('داكن')),
+                ButtonSegment(value: ThemeMode.system, icon: Icon(Icons.phone_android_outlined), label: Text('مثل الجوال')),
+              ],
+              selected: {context.watch<ThemeState>().mode},
+              showSelectedIcon: false,
+              onSelectionChanged: (selected) => context.read<ThemeState>().setMode(selected.first),
+            ),
+
+            const SizedBox(height: 24),
 
             _sectionTitle(context, 'إعدادات الحساب'),
 
