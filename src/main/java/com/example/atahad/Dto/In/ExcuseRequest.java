@@ -15,7 +15,7 @@ public class ExcuseRequest {
     private String type;
 
     // المستند إلزامي قبل تقديم العذر للتقييم.
-    @NotBlank(message = "أرفقي مستندًا داعمًا للعذر")
+    @NotBlank(message = "أرفق مستندًا داعمًا للعذر")
     @Size(max = 500, message = "Evidence URL must be 500 characters max")
     private String evidenceUrl;
 

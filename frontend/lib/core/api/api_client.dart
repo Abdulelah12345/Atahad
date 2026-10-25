@@ -1,4 +1,7 @@
+import 'dart:async';
 import 'dart:convert';
+
+import 'package:flutter/foundation.dart';
 
 import 'package:http/http.dart' as http;
 
@@ -20,7 +23,7 @@ class ApiClient {
   void Function()? onUnauthorized; // 401: the login is not valid anymore
   void Function(String message)? onForbidden; // 403: maybe the app got locked
 
-  static const _timeout = Duration(seconds: 90); // the AI calls can take time
+  static const _timeout = Duration(seconds: 120); // the AI calls can take time
 
   void setCredentials(String email, String password) {
     _basic = 'Basic ${base64Encode(utf8.encode('$email:$password'))}';
@@ -59,13 +62,33 @@ class ApiClient {
       request.body = jsonEncode(body);
     }
 
-    final http.Response response;
-    try {
-      response = await http.Response.fromStream(await _http.send(request).timeout(_timeout));
-    } catch (_) {
-      throw ApiException(0, 'ما قدرنا نوصل للسيرفر. تأكد من الاتصال وحاول مرة ثانية.');
-    }
+    return _handle(await _call(() => _http.send(request), method, uri), auth: auth);
+  }
 
+  // sends a file (multipart, field "file") like a photo or a video, the answer is usually {"url": "..."}
+  Future<dynamic> upload(String path, String filePath, {String field = 'file'}) async {
+    final uri = Uri.parse('${AppConfig.baseUrl}$path');
+    final request = http.MultipartRequest('POST', uri);
+    request.headers['Accept'] = 'application/json';
+    if (_basic != null) request.headers['Authorization'] = _basic!;
+    if (_cookie != null) request.headers['Cookie'] = _cookie!;
+    request.files.add(await http.MultipartFile.fromPath(field, filePath));
+    return _handle(await _call(() => _http.send(request), 'POST', uri));
+  }
+
+  Future<http.Response> _call(Future<http.StreamedResponse> Function() send, String method, Uri uri) async {
+    try {
+      return await http.Response.fromStream(await send().timeout(_timeout));
+    } on TimeoutException {
+      debugPrint('API timeout: $method $uri');
+      throw ApiException(0, 'السيرفر طوّل بالرد، حاول مرة ثانية.');
+    } catch (e) {
+      debugPrint('API error: $method $uri -> $e');
+      throw ApiException(0, 'ما قدرنا نوصل للسيرفر. تأكد إن الباك شغّال وحاول مرة ثانية.');
+    }
+  }
+
+  dynamic _handle(http.Response response, {bool auth = true}) {
     _keepCookie(response.headers['set-cookie']);
     final text = utf8.decode(response.bodyBytes);
     final data = _json(text);

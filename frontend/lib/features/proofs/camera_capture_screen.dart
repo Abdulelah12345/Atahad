@@ -53,7 +53,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen> {
     } catch (_) {
       if (mounted) {
         setState(() => _error =
-            'ما قدرنا نفتح الكاميرا. اسمحي باستخدامها من إعدادات المتصفح، وتأكدي أنها مو مستخدمة ببرنامج آخر.');
+            'ما قدرنا نفتح الكاميرا. اسمح باستخدامها من إعدادات المتصفح، وتأكد أنها مو مستخدمة ببرنامج آخر.');
       }
     }
   }
@@ -75,7 +75,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen> {
     } catch (_) {
       if (mounted) {
         setState(() => _busy = false);
-        showMessage(context, 'تعذر التقاط الصورة. جربي مرة ثانية.');
+        showMessage(context, 'تعذر التقاط الصورة. جرّب مرة ثانية.');
       }
     }
   }
@@ -94,8 +94,8 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen> {
         child: Column(children: [
           ProofNotice(
               _preview == null
-                  ? 'خلي الشيء المرتبط بمهمتك واضحًا داخل الإطار.'
-                  : 'راجعي الصورة قبل اعتمادها. لن تُرفع حتى تعتمديها.',
+                  ? 'خلّ الشيء المرتبط بمهمتك واضحًا داخل الإطار.'
+                  : 'راجع الصورة قبل اعتمادها. لن تُرفع حتى تعتمدها.',
               icon: Icons.camera_alt_outlined),
           const SizedBox(height: 20),
           Expanded(

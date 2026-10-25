@@ -68,11 +68,11 @@ void main() {
       harness(ExcuseFormScreen(activities: [api.tasks.first]), api),
     );
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(find.text('أرسلي العذر'), 300);
-    await tester.tap(find.text('أرسلي العذر'));
+    await tester.scrollUntilVisible(find.text('أرسل العذر'), 300);
+    await tester.tap(find.text('أرسل العذر'));
     await tester.pumpAndSettle();
     expect(
-      find.text('أرفقي مستندًا داعمًا للعذر قبل الإرسال.'),
+      find.text('أرفق مستندًا داعمًا للعذر قبل الإرسال.'),
       findsOneWidget,
     );
     expect(api.posts, isEmpty);
@@ -91,16 +91,16 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('جهّزي الأسئلة'));
+      await tester.tap(find.text('جهّز الأسئلة'));
       await tester.pumpAndSettle();
       expect(
         find.text(
-          'تعذر تجهيز الأسئلة الآن. حاولي لاحقًا، لم تُحتسب عليك محاولة.',
+          'تعذر تجهيز الأسئلة الآن. حاول لاحقًا، لم تُحتسب عليك محاولة.',
         ),
         findsOneWidget,
       );
-      expect(find.text('أرسلي الإجابات'), findsNothing);
-      expect(find.text('صوّري صفحة — اختياري'), findsOneWidget);
+      expect(find.text('أرسل الإجابات'), findsNothing);
+      expect(find.text('صوّر صفحة — اختياري'), findsOneWidget);
     },
   );
 
@@ -138,8 +138,8 @@ void main() {
         }, kind: 'OBJECTION', onChanged: () async {}),
         ProofsFakeApi()));
     await tester.pumpAndSettle();
-    expect(find.text('عدّلي الطلب'), findsNothing);
-    expect(find.text('احذفي الطلب'), findsNothing);
+    expect(find.text('عدّل الطلب'), findsNothing);
+    expect(find.text('احذف الطلب'), findsNothing);
     expect(find.textContaining('بدأ الأدمن'), findsOneWidget);
   });
 
@@ -149,9 +149,9 @@ void main() {
     await tester.pumpWidget(
         harness(const ObjectionEditor(kind: 'PROOF', targetId: 1), api));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('أرسلي الطلب'));
+    await tester.tap(find.text('أرسل الطلب'));
     await tester.pumpAndSettle();
-    expect(find.text('اكتبي سبب الاعتراض.'), findsOneWidget);
+    expect(find.text('اكتب سبب الاعتراض.'), findsOneWidget);
     expect(api.posts, isEmpty);
   });
 
@@ -164,14 +164,14 @@ void main() {
                 QuizPanel(proofId: 102, weekId: 2, onSubmitted: () async {})),
         api));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('جهّزي الأسئلة'));
+    await tester.tap(find.text('جهّز الأسئلة'));
     await tester.pumpAndSettle();
     expect(find.byType(RadioGroup<String>), findsNWidgets(4));
     expect(find.byType(RadioListTile<String>), findsNWidgets(12));
-    await tester.ensureVisible(find.text('أرسلي الإجابات'));
-    await tester.tap(find.text('أرسلي الإجابات'));
+    await tester.ensureVisible(find.text('أرسل الإجابات'));
+    await tester.tap(find.text('أرسل الإجابات'));
     await tester.pumpAndSettle();
-    expect(find.text('جاوبي الأسئلة الأربعة أولًا.'), findsOneWidget);
+    expect(find.text('جاوب الأسئلة الأربعة أولًا.'), findsOneWidget);
     expect(api.posts.where((p) => p.endsWith('/submit')), isEmpty);
     expect(tester.takeException(), isNull);
   });
@@ -185,11 +185,11 @@ void main() {
     await tester.enterText(find.byType(TextFormField), '0');
     await tester.testTextInput.receiveAction(TextInputAction.done);
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.widgetWithText(AtButton, 'ابدئي الجلسة'));
+    await tester.ensureVisible(find.widgetWithText(AtButton, 'ابدأ الجلسة'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('ابدئي الجلسة'));
+    await tester.tap(find.text('ابدأ الجلسة'));
     await tester.pumpAndSettle();
-    expect(find.text('اختاري مدة من دقيقة إلى ٦٠٠ دقيقة.'), findsOneWidget);
+    expect(find.text('اختر مدة من دقيقة إلى ٦٠٠ دقيقة.'), findsOneWidget);
     expect(api.posts, isEmpty);
   });
 }
@@ -221,7 +221,7 @@ class GoalPlanApi extends ProofsFakeApi {
       return {
         'title': 'جلسة تركيز',
         'proofMethod': 'TIMER',
-        'note': 'راجعي الخطة',
+        'note': 'راجع الخطة',
         'weeks': [
           {'title': 'جلسة تركيز', 'timesPerWeek': 3}
         ]

@@ -11,10 +11,10 @@ public class ProofAttachmentService {
 
     public void requireExcuseDocument(Integer memberId, String reference) {
         if (reference == null || reference.isBlank()) {
-            throw new ApiException("أرفقي مستندًا داعمًا للعذر");
+            throw new ApiException("أرفق مستندًا داعمًا للعذر");
         }
         if (!reference.matches("capture:[0-9]+")) {
-            throw new ApiException("ارفعي صورة المستند أولًا ثم أرسلي مرجع المرفق");
+            throw new ApiException("ارفعي صورة المستند أولًا ثم أرسل مرجع المرفق");
         }
         resolve(memberId, reference);
     }

@@ -39,7 +39,7 @@ class _CreateCommitmentScreenState extends State<CreateCommitmentScreen> {
   Future<void> _suggest() async {
     if (_busy) return;
     if (_title.text.trim().isEmpty) {
-      showMessage(context, 'اكتبي هدفك أولًا.');
+      showMessage(context, 'اكتب هدفك أولًا.');
       return;
     }
     setState(() {
@@ -79,13 +79,13 @@ class _CreateCommitmentScreenState extends State<CreateCommitmentScreen> {
         amount < 5) {
       showMessage(
         context,
-        'اكتبي عنوانًا حتى ١٠٠ حرف ومبلغًا لا يقل عن ٥ ريالات.',
+        'اكتب عنوانًا حتى ١٠٠ حرف ومبلغًا لا يقل عن ٥ ريالات.',
       );
       return;
     }
     if (_method == 'TIMER' &&
         (minutes == null || minutes < 1 || minutes > 600)) {
-      showMessage(context, 'اختاري مدة من دقيقة إلى ٦٠٠ دقيقة.');
+      showMessage(context, 'اختر مدة من دقيقة إلى ٦٠٠ دقيقة.');
       return;
     }
     if (_method == 'LOCATION' &&
@@ -95,7 +95,7 @@ class _CreateCommitmentScreenState extends State<CreateCommitmentScreen> {
             !lon.isFinite ||
             lat.abs() > 90 ||
             lon.abs() > 180)) {
-      showMessage(context, 'حددي إحداثيات المكان بشكل صحيح.');
+      showMessage(context, 'حدّد إحداثيات المكان بشكل صحيح.');
       return;
     }
     if (!_habit && _plan == null) return;
@@ -204,7 +204,7 @@ class _CreateCommitmentScreenState extends State<CreateCommitmentScreen> {
             ],
             if (_plan != null) ...[
               const SizedBox(height: 20),
-              ProofNotice('${_plan!['note'] ?? 'راجعي الخطة قبل اعتمادها.'}'),
+              ProofNotice('${_plan!['note'] ?? 'راجع الخطة قبل اعتمادها.'}'),
               const SizedBox(height: 12),
               for (final (i, week) in ProofsApi.maps(_plan!['weeks']).indexed)
                 Padding(

@@ -120,7 +120,7 @@ class _ProofsHomeScreenState extends State<ProofsHomeScreen> {
                                             if (!widget.requestsOnly) ...[
                                               const SizedBox(height: 8),
                                               Text(
-                                                  'وثّقي إنجازك بالطريقة اللي تناسب نشاطك، وخذي الأمور خطوة خطوة.',
+                                                  'وثّق إنجازك بالطريقة اللي تناسب نشاطك، وخذ الأمور خطوة خطوة.',
                                                   style: text.bodyMedium),
                                             ],
                                             const SizedBox(height: 16),
@@ -192,7 +192,7 @@ class _ProofsHomeScreenState extends State<ProofsHomeScreen> {
                         if (_tab == 0) ...[
                           Row(children: [
                             Expanded(
-                                child: Text('وش أنجزتِ اليوم؟',
+                                child: Text('وش أنجزت اليوم؟',
                                     style: text.headlineSmall)),
                             Text('${arabicDigits(activities.length)} نشاط',
                                 style: text.bodySmall)
@@ -202,7 +202,7 @@ class _ProofsHomeScreenState extends State<ProofsHomeScreen> {
                             const ProofEmpty(
                                 title: 'مساحة لإنجازك القادم',
                                 message:
-                                    'ما عندك أنشطة حاليًا. بعد إضافة هدف أو عادة، تظهر مهامك هنا وتقدرين توثّقينها.'),
+                                    'ما عندك أنشطة حاليًا. بعد إضافة هدف أو عادة، تظهر مهامك هنا وتقدر توثّقها.'),
                           LayoutBuilder(builder: (context, constraints) {
                             final width = constraints.maxWidth > 700
                                 ? (constraints.maxWidth - 16) / 2
@@ -233,7 +233,7 @@ class _ProofsHomeScreenState extends State<ProofsHomeScreen> {
                             const ProofEmpty(
                                 title: 'السجل هادئ للحين',
                                 message:
-                                    'طلباتك تظهر هنا بعد إرسالها، وتقدرين تتابعين حالتها من المكان نفسه.',
+                                    'طلباتك تظهر هنا بعد إرسالها، وتقدر تتابع حالتها من المكان نفسه.',
                                 icon: Icons.history),
                           for (final item in shown)
                             Padding(
@@ -286,7 +286,7 @@ class _ProofsHomeScreenState extends State<ProofsHomeScreen> {
                         ],
                         const SizedBox(height: 24),
                         const ProofNotice(
-                            'لو احتجتِ تعترضين على قرار مرفوض، تقدرين خلال ٤٨ ساعة من صدور القرار. كل طلب يخص نشاطك أنتِ فقط.'),
+                            'لو احتجت تعترض على قرار مرفوض، تقدر خلال ٤٨ ساعة من صدور القرار. كل طلب يخص نشاطك أنت فقط.'),
                       ]));
             }));
   }
@@ -345,8 +345,8 @@ class _ProofsHomeScreenState extends State<ProofsHomeScreen> {
               done
                   ? 'إنجازك موثّق'
                   : existing != null
-                      ? 'تابعي إثباتك'
-                      : 'وثّقي إنجازك',
+                      ? 'تابع إثباتك'
+                      : 'وثّق إنجازك',
               onPressed: done
                   ? null
                   : () async {
@@ -424,13 +424,13 @@ class RecordDetails extends StatelessWidget {
                       ],
                       const SizedBox(height: 24),
                       if (kind == 'PROOF' && item['managed'] == true)
-                        AtButton('افتحي تفاصيل الإثبات', onPressed: () {
+                        AtButton('افتح تفاصيل الإثبات', onPressed: () {
                           Navigator.pop(context);
                           context.push(
                               '/proofs/session/${item['id']}?title=${Uri.encodeComponent('${item['title']}')}');
                         }),
                       if (item['canObject'] == true)
-                        AtButton('قدّمي اعتراض', kind: AtButtonKind.outline,
+                        AtButton('قدّم اعتراض', kind: AtButtonKind.outline,
                             onPressed: () async {
                           final saved = await editObjection(context,
                               kind: kind, targetId: item['id'] as int);
@@ -442,7 +442,7 @@ class RecordDetails extends StatelessWidget {
                       if (item['canEdit'] == true)
                         Padding(
                             padding: const EdgeInsets.only(top: 10),
-                            child: AtButton('عدّلي الطلب',
+                            child: AtButton('عدّل الطلب',
                                 kind: AtButtonKind.outline,
                                 onPressed: () async {
                               if (kind == 'OBJECTION') {
@@ -476,7 +476,7 @@ class RecordDetails extends StatelessWidget {
                       if (item['canDelete'] == true)
                         Padding(
                             padding: const EdgeInsets.only(top: 10),
-                            child: AtButton('احذفي الطلب',
+                            child: AtButton('احذف الطلب',
                                 kind: AtButtonKind.text, onPressed: () async {
                               if (!await confirmDelete(context,
                                   'نحذف هذا الطلب فقط. إعادة التقديم تخضع للمهلة والشروط الأصلية.')) {
