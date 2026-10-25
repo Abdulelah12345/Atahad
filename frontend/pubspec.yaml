@@ -23,6 +23,7 @@ dependencies:
   google_fonts: ^6.2.1
   # the riyal symbol and the logo
   flutter_svg: ^2.0.10+1
+
   camera: ^0.12.1
   image_picker: ^1.2.4
   geolocator: ^14.0.2

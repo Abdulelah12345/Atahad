@@ -253,10 +253,12 @@ public class SecurityConfig {
                         // Google Calendar requires authentication
                         .requestMatchers(
                                 "/api/v1/google-calendar/connect",
-                                "/api/v1/google-calendar/suggest-schedule",
+                                "/api/v1/google-calendar/status",
+                                "/api/v1/google-calendar/generate",
                                 "/api/v1/google-calendar/approve-schedule",
-                                "/api/v1/google-calendar/reject-schedule"
-                        ).authenticated()
+                                "/api/v1/google-calendar/reject-schedule",
+                                "/api/v1/google-calendar/disconnect"
+                        ).hasAuthority("MEMBER")
 
                         // n8n endpoints
                         .requestMatchers(
