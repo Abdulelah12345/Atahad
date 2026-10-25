@@ -293,7 +293,7 @@ class _AlertBanner extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(alert['isCollective'] == true ? 'المجموعة تنبهك' : '${alert['senderName'] ?? ''} ينبهك', style: text.labelLarge),
+                Text(alert['isCollective'] == true ? 'تنبيه من المجموعة' : 'تنبيه من ${alert['senderName'] ?? ''}', style: text.labelLarge),
                 const SizedBox(height: Space.s1),
                 Text('${alert['message'] ?? ''}', style: text.bodySmall!.copyWith(color: c.ink)),
                 Text(timeAr(alert['sentAt']), style: text.labelSmall),

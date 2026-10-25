@@ -158,7 +158,7 @@ public class DevDataSeeder implements ApplicationRunner {
         chat(gym, reem, "اليوم مشغولة بس بكرة أعوّض");
 
         // Sara alerted Noura today
-        alert(gym, sara, noura, "يا نوره باقي لك تمرينين هالأسبوع، لا تخلين المجموعة تنتظرك");
+        alert(gym, sara, noura, "باقي لك مرتين هالأسبوع، المجموعة تنتظرك");
 
         // ---------- group 2: Dana is the owner, no goal yet, proposals and votes ----------
         Group books = group(dana, "٣ كتب في ٤ شهور", "نقرأ ٣ كتب خلال ٤ شهور ونتناقش في كل كتاب");

@@ -73,12 +73,13 @@ public class GroupAlertService {
         String receiverName = groupAccessService.nameOf(receiver.getMember());
         String senderName = groupAccessService.nameOf(sender.getMember());
         String fallback = collective
-                ? (today.size() + 1) + " من المجموعة ينبهونك يا " + receiverName + "! باقي لك " + remaining + " مرات في " + goal.getTitle()
-                : senderName + " ينبهك يا " + receiverName + ": باقي لك " + remaining + " مرات في " + goal.getTitle() + " وباقي " + daysLeft + " أيام";
+                ? "تنبيه من " + (today.size() + 1) + " أعضاء: باقي لك " + remaining + " مرات في " + goal.getTitle()
+                : "باقي لك " + remaining + " مرات في " + goal.getTitle() + " وباقي " + daysLeft + " أيام";
 
         String text = aiService.ask(
                 "You write one short push notification (max 20 words) that wakes up a friend to do his task. "
                         + "Talk to the friend directly. Do not introduce the sender and do not start with (معك) or a signature, "
+                        + "do not use the vocative (يا) and do not call the friend by name, "
                         + "the app already shows who sent it. Do not use the word (الشلة). "
                         + aiService.tone(),
                 "Friend: " + receiverName + "\nSent by: " + senderName + (collective ? " and " + today.size() + " other friends" : "")
