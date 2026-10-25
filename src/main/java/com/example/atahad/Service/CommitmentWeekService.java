@@ -96,9 +96,9 @@ public class CommitmentWeekService {
                     int remaining = Math.max(0, required - task.getCompletedCount() - task.getExcusedCount() - lostPenalties(week, task).size());
                     boolean planned = task.getPlannedDays() != null && task.getPlannedDays().contains(todayName);
                     list.add(new TodayTaskResponse(goal.getId(), week.getId(), task.getId(), "GOAL",
-                            goal.getTitle() + " - " + task.getTitle(), task.getProofMethod(), required,
+                            (goal.getTitle().trim().equals(task.getTitle().trim()) ? task.getTitle() : goal.getTitle() + " - " + task.getTitle()), task.getProofMethod(), required,
                             task.getCompletedCount(), task.getExcusedCount(), remaining, daysLeft,
-                            task.getTrackStatus(), task.getAmountPerTime(), planned));
+                            task.getTrackStatus(), task.getAmountPerTime(), goal.getTitle(), task.getTitle(), planned));
                 }
             }else{
                 int remaining = Math.max(0, week.getRequired() - week.getCompleted() - week.getExcusedDays() - lostPenalties(week, null).size());
@@ -106,7 +106,7 @@ public class CommitmentWeekService {
                 list.add(new TodayTaskResponse(commitment.getId(), week.getId(), null, "HABIT",
                         commitment.getTitle(), commitment.getProofMethod(), week.getRequired(),
                         week.getCompleted(), week.getExcusedDays(), remaining, daysLeft,
-                        week.getTrackStatus(), week.getAmountPerDay(), planned));
+                        week.getTrackStatus(), week.getAmountPerDay(), null, null, planned));
             }
         }
         return list;

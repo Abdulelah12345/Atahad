@@ -114,15 +114,15 @@ class _ProofsHomeScreenState extends State<ProofsHomeScreen> {
                                               children: [
                                             Text(
                                                 widget.requestsOnly
-                                                    ? 'ظروفك مسموعة، وطلباتك محفوظة'
+                                                    ? 'إرفاق الأعذار والاعتراضات'
                                                     : 'كل خطوة منك، لها أثر',
                                                 style: text.headlineMedium),
-                                            const SizedBox(height: 8),
-                                            Text(
-                                                widget.requestsOnly
-                                                    ? 'تابع أعذارك واعتراضاتك، واعرف وين وصل كل طلب.'
-                                                    : 'وثّق إنجازك بالطريقة اللي تناسب نشاطك، وخذ الأمور خطوة خطوة.',
-                                                style: text.bodyMedium),
+                                            if (!widget.requestsOnly) ...[
+                                              const SizedBox(height: 8),
+                                              Text(
+                                                  'وثّق إنجازك بالطريقة اللي تناسب نشاطك، وخذ الأمور خطوة خطوة.',
+                                                  style: text.bodyMedium),
+                                            ],
                                             const SizedBox(height: 16),
                                             Wrap(
                                                 spacing: 14,

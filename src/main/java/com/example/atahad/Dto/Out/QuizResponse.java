@@ -15,4 +15,9 @@ public class QuizResponse {
     private String topic;
     private List<QuizQuestionResponse> questions;
     private String howToAnswer;
+    private java.time.LocalDateTime expiresAt;
+
+    public QuizResponse(Integer quizId, String topic, List<QuizQuestionResponse> questions, String howToAnswer) {
+        this(quizId, topic, questions, howToAnswer, null);
+    }
 }

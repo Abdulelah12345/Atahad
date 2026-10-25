@@ -33,5 +33,6 @@ final proofsRoutes = <GoRoute>[
       path: '/proofs/session/:id',
       builder: (_, state) => ProofSessionScreen(
           proofId: int.parse(state.pathParameters['id']!),
+          justStarted: state.uri.queryParameters['started'] == '1',
           title: state.uri.queryParameters['title'] ?? 'نشاطك')),
 ];

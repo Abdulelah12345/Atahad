@@ -103,7 +103,7 @@ public class QuizService {
         quiz.setCreatedAt(time.now()); quiz.setMember(week.getCommitment().getMember()); quiz.setCommitmentWeek(week); quiz.setGoalTask(task);
         quiz.setProofId(proof==null?null:proof.getId()); quiz.setActivityDate(day); quiz.setAttemptNumber(attempts.size()+1);
         quizRepository.save(quiz);
-        return new QuizResponse(quiz.getId(),subject,questions,"4 أسئلة سهلة؛ النجاح من 3. صالح لساعة. أرسل quizId:ABCA كدليل.");
+        return new QuizResponse(quiz.getId(),subject,questions,"أربعة أسئلة، والنجاح من ثلاث إجابات صحيحة.",quiz.getCreatedAt().plusHours(VALID_HOURS));
     }
 
     @Transactional
@@ -135,6 +135,6 @@ public class QuizService {
     private QuizResponse response(Quiz quiz) {
         List<QuizQuestionResponse> list=new ArrayList<>(); Matcher m=FORMAT.matcher(quiz.getQuestions());
         while (m.find()) { list.add(new QuizQuestionResponse(list.size()+1,m.group(1),List.of("A) "+m.group(2),"B) "+m.group(3),"C) "+m.group(4)))); }
-        return new QuizResponse(quiz.getId(),quiz.getTopic(),list,"الاختبار الحالي ما زال صالحا؛ النجاح من 3 من 4");
+        return new QuizResponse(quiz.getId(),quiz.getTopic(),list,"الاختبار الحالي ما زال صالحا؛ النجاح من 3 من 4",quiz.getCreatedAt().plusHours(VALID_HOURS));
     }
 }
