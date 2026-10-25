@@ -15,6 +15,14 @@ class CommitmentsApi {
 
   Future<JsonMap> stats() async => _map(await client.get('$_base/commitment/stats'));
 
+  // the running week of a habit (its plannedDays is this week plan)
+  Future<JsonMap> currentWeek(int commitmentId) async =>
+      _map(await client.get('$_base/commitment-week/getCurrent/$commitmentId'));
+
+  // postpone inside this week, it only moves the reminders
+  Future<void> changeWeekPlan(int weekId, Set<String> plannedDays) =>
+      client.put('$_base/commitment-week/changePlan/$weekId', body: plannedDays.toList());
+
   // withdraw from a habit or a goal, the answer says how many times became penalties
   Future<String> withdraw(int id) async => _message(await client.put('$_base/commitment/withdraw/$id'));
 
@@ -51,6 +59,9 @@ class CommitmentsApi {
 
   // 150 points -> one grace day
   Future<JsonMap> earnGraceDay() async => _map(await client.post('$_base/grace-day/earn'));
+
+  // use a grace day by hand on a habit week, it counts as an excused time
+  Future<void> useGraceDay(int graceDayId, int weekId) => client.put('$_base/grace-day/use/$graceDayId/$weekId');
 
   Future<List<JsonMap>> pointLogs() async => _list(await client.get('$_base/point-log/my'));
 

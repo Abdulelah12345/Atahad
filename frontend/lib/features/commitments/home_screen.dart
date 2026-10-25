@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/api/api_client.dart';
+import '../../core/api/api_exception.dart';
 import '../proofs/activity_proof_entry.dart';
 import '../../core/auth/auth_state.dart';
 import '../../core/theme/at_colors.dart';
@@ -66,6 +67,93 @@ class _HomeScreenState extends State<HomeScreen> {
     if (location != null && mounted) await _open(location);
   }
 
+  // postpone inside this week: pick other days, only the reminders move
+  Future<void> _postpone(JsonMap task, Future<void> Function() reload) async {
+    final JsonMap week;
+    try {
+      week = await _api.currentWeek(task['commitmentId'] as int);
+    } catch (error) {
+      if (mounted) showError(context, error);
+      return;
+    }
+    if (!mounted) return;
+    final days = await showModalBottomSheet<Set<String>>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (context) => _PostponeSheet(
+        title: '${task['title']}',
+        required: (task['required'] ?? 0) as int,
+        planned: ((week['plannedDays'] as List?) ?? const []).map((d) => '$d').toSet(),
+      ),
+    );
+    if (days == null || !mounted) return;
+    try {
+      await _api.changeWeekPlan(task['weekId'] as int, days);
+      if (!mounted) return;
+      showMessage(context, 'تم، غيّرنا أيام التذكير لهالأسبوع بس.');
+      await reload();
+    } catch (error) {
+      if (mounted) _showGraceOrPlanError(error);
+    }
+  }
+
+  // use a grace day by hand: it counts as an excused time this week
+  Future<void> _useGraceDay(JsonMap task, Future<void> Function() reload) async {
+    final List<JsonMap> days;
+    try {
+      days = await _api.graceDays();
+    } catch (error) {
+      if (mounted) showError(context, error);
+      return;
+    }
+    final today = DateTime.now();
+    final midnight = DateTime(today.year, today.month, today.day);
+    final usable = days.where((d) {
+      final expiresAt = DateTime.tryParse('${d['expiresAt']}');
+      return d['usedAt'] == null && expiresAt != null && !expiresAt.isBefore(midnight);
+    }).toList()
+      // the one that ends first goes first
+      ..sort((a, b) => '${a['expiresAt']}'.compareTo('${b['expiresAt']}'));
+    if (!mounted) return;
+    if (usable.isEmpty) {
+      showMessage(context, 'ما عندك يوم سماح متاح. كل ١٥٠ نقطة تعطيك يوم.');
+      return;
+    }
+    final day = usable.first;
+    final ok = await confirmDialog(
+      context,
+      title: 'تستخدم يوم سماح؟',
+      message: 'ينحسب لـ "${task['title']}" مرة معذورة هالأسبوع، وإذا عليها عقوبة ما انقضت تنلغي. '
+          'يوم واحد بس بالأسبوع.\n\nبنستخدم اللي ينتهي ${arabicDigits(day['expiresAt'])} '
+          '(باقي عندك ${arabicDigits(usable.length)}).',
+      confirm: 'استخدمه',
+    );
+    if (!ok || !mounted) return;
+    try {
+      await _api.useGraceDay(day['id'] as int, task['weekId'] as int);
+      if (!mounted) return;
+      showMessage(context, 'استخدمت يوم سماح.');
+      await reload();
+    } catch (error) {
+      if (mounted) _showGraceOrPlanError(error);
+    }
+  }
+
+  // the backend answers these two in English, the known ones are shown in Arabic
+  void _showGraceOrPlanError(Object error) {
+    const known = {
+      'Only one grace day can be used in a week': 'استخدمت يوم سماح هالأسبوع، يوم واحد بس بالأسبوع.',
+      'This week does not need a grace day': 'هالأسبوع ما يحتاج يوم سماح.',
+      'Grace day has expired': 'يوم السماح هذا انتهى.',
+      'Grace day already used': 'يوم السماح هذا مستخدم.',
+      'This week is not running': 'هالأسبوع خلص.',
+      'You planned more days than the times of this week': 'اخترت أيام أكثر من مرات هالأسبوع.',
+    };
+    final message = error is ApiException ? known[error.message] : null;
+    message != null ? showMessage(context, message) : showError(context, error);
+  }
+
   @override
   Widget build(BuildContext context) {
     final name = context.watch<AuthState>().profile?['name'] ?? '';
@@ -109,6 +197,8 @@ class _HomeScreenState extends State<HomeScreen> {
                             await openActivityProof(context, Map<String, dynamic>.from(t));
                             if (context.mounted) await reload();
                           },
+                          onPostpone: () => _postpone(t, reload),
+                          onGraceDay: () => _useGraceDay(t, reload),
                         ),
                       )),
               ],
@@ -163,8 +253,10 @@ class _StatsStrip extends StatelessWidget {
 class _TaskCard extends StatelessWidget {
   final JsonMap task;
   final VoidCallback onTap;
+  final VoidCallback onPostpone;
+  final VoidCallback onGraceDay;
 
-  const _TaskCard({required this.task, required this.onTap});
+  const _TaskCard({required this.task, required this.onTap, required this.onPostpone, required this.onGraceDay});
 
   @override
   Widget build(BuildContext context) {
@@ -173,6 +265,8 @@ class _TaskCard extends StatelessWidget {
     final needed = (t['required'] ?? 0) as int;
     final completed = (t['completed'] ?? 0) as int;
     final excused = (t['excused'] ?? 0) as int;
+    // postponing and the manual grace day are for habits only (goals plan every task, and use grace days by themselves)
+    final habitRunning = t['type'] == 'HABIT' && t['trackStatus'] != 'SETTLED';
     return AppCard(
       onTap: onTap,
       child: Column(
@@ -228,7 +322,80 @@ class _TaskCard extends StatelessWidget {
               ],
             ),
           ),
+          if (habitRunning) ...[
+            const SizedBox(height: Space.s2),
+            Row(
+              children: [
+                TextButton.icon(
+                  icon: const Icon(Icons.event_repeat_rounded, size: 18),
+                  label: const Text('أجّل'),
+                  onPressed: onPostpone,
+                ),
+                if ((t['remaining'] ?? 0) as int > 0)
+                  TextButton.icon(
+                    icon: const Icon(Icons.beach_access_rounded, size: 18),
+                    label: const Text('يوم سماح'),
+                    onPressed: onGraceDay,
+                  ),
+              ],
+            ),
+          ],
         ],
+      ),
+    );
+  }
+}
+
+// the days of this week only, the habit default stays as it is
+class _PostponeSheet extends StatefulWidget {
+  final String title;
+  final int required;
+  final Set<String> planned;
+
+  const _PostponeSheet({required this.title, required this.required, required this.planned});
+
+  @override
+  State<_PostponeSheet> createState() => _PostponeSheetState();
+}
+
+class _PostponeSheetState extends State<_PostponeSheet> {
+  late Set<String> _days = {...widget.planned};
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(Space.s4, 0, Space.s4, Space.s4),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('أجّل "${widget.title}"', style: text.titleMedium),
+            const SizedBox(height: Space.s1),
+            Text(
+              'اختار الأيام اللي تبي نذكّرك فيها هالأسبوع (${arabicDigits(widget.required)} أيام بالكثير). '
+              'التأجيل يغيّر التذكير بس، والمرات المطلوبة ما تتغير.',
+              style: text.bodySmall,
+            ),
+            const SizedBox(height: Space.s3),
+            PlannedDaysPicker(
+              selected: _days,
+              onChanged: (next) {
+                if (next.length > widget.required) {
+                  showMessage(context, 'هالأسبوع عليك ${arabicDigits(widget.required)} مرات بس.');
+                  return;
+                }
+                setState(() => _days = next);
+              },
+            ),
+            const SizedBox(height: Space.s4),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, _days),
+              child: const Text('احفظ أيام هالأسبوع'),
+            ),
+          ],
+        ),
       ),
     );
   }
