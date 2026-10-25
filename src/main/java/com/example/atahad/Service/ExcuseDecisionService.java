@@ -163,7 +163,7 @@ public class ExcuseDecisionService {
         Excuse excuse = new Excuse();
         excuse.setType(request.getType());
         // لا نقبل مرجعا لصورة تخص عضوا آخر.
-        proofAttachmentService.resolve(memberId, request.getEvidenceUrl());
+        proofAttachmentService.requireExcuseDocument(memberId, request.getEvidenceUrl());
         excuse.setEvidenceUrl(request.getEvidenceUrl());
         excuse.setExcuseDate(day);
         excuse.setStatus("PENDING");

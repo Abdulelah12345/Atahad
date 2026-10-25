@@ -83,7 +83,7 @@ String friendlyError(Object error) {
   final raw = error is ApiException ? error.message : '$error';
   if (RegExp(r'[\u0600-\u06FF]').hasMatch(raw)) return raw;
   if (raw.contains('no quiz attempt') || raw.contains('Quiz generation')) {
-    return 'تعذر تجهيز الأسئلة الآن. محاولتك محفوظة؛ جرّب بعد شوي.';
+    return 'تعذر تجهيز الأسئلة الآن. حاول لاحقًا، لم تُحتسب عليك محاولة.';
   }
   if (raw.contains('Only one retry')) {
     return 'استخدمت المحاولة والإعادة لهذا النشاط.';

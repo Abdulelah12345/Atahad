@@ -27,6 +27,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen> {
   CameraController? _camera;
   String? _error;
   bool _busy = false;
+  CapturedImage? _preview;
   @override
   void initState() {
     super.initState();
@@ -64,8 +65,13 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen> {
       final file = await _camera!.takePicture();
       final bytes = await file.readAsBytes();
       if (!mounted) return;
-      Navigator.pop(
-          context, CapturedImage(bytes, file.mimeType ?? 'image/jpeg'));
+      if (bytes.isEmpty || bytes.length > 2 * 1024 * 1024) {
+        throw StateError('Image too large');
+      }
+      setState(() {
+        _preview = CapturedImage(bytes, file.mimeType ?? 'image/jpeg');
+        _busy = false;
+      });
     } catch (_) {
       if (mounted) {
         setState(() => _busy = false);
@@ -86,24 +92,37 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen> {
       child: Padding(
         padding: const EdgeInsets.all(Space.s5),
         child: Column(children: [
-          const ProofNotice(
-              'صورة مباشرة من الكاميرا. خلّ الشيء المرتبط بمهمتك واضحًا داخل الإطار.',
+          ProofNotice(
+              _preview == null
+                  ? 'خلّ الشيء المرتبط بمهمتك واضحًا داخل الإطار.'
+                  : 'راجع الصورة قبل اعتمادها. لن تُرفع حتى تعتمدها.',
               icon: Icons.camera_alt_outlined),
           const SizedBox(height: 20),
           Expanded(
               child: Center(
-                  child: _error != null
-                      ? Text(_error!, textAlign: TextAlign.center)
-                      : _camera?.value.isInitialized == true
-                          ? ClipRRect(
-                              borderRadius: BorderRadius.circular(20),
-                              child: CameraPreview(_camera!))
-                          : const CircularProgressIndicator())),
+                  child: _preview != null
+                      ? InteractiveViewer(child: Image.memory(_preview!.bytes))
+                      : _error != null
+                          ? Text(_error!, textAlign: TextAlign.center)
+                          : _camera?.value.isInitialized == true
+                              ? ClipRRect(
+                                  borderRadius: BorderRadius.circular(20),
+                                  child: CameraPreview(_camera!))
+                              : const CircularProgressIndicator())),
           const SizedBox(height: 20),
-          AtButton('التقط الصورة',
-              onPressed: _camera?.value.isInitialized == true ? _capture : null,
-              loading: _busy,
-              icon: const Icon(Icons.camera_alt_outlined)),
+          if (_preview != null) ...[
+            AtButton('اعتماد وإرسال',
+                onPressed: () => Navigator.pop(context, _preview)),
+            const SizedBox(height: 10),
+            AtButton('إعادة الالتقاط',
+                kind: AtButtonKind.outline,
+                onPressed: () => setState(() => _preview = null)),
+          ] else
+            AtButton('التقط الصورة',
+                onPressed:
+                    _camera?.value.isInitialized == true ? _capture : null,
+                loading: _busy,
+                icon: const Icon(Icons.camera_alt_outlined)),
         ]),
       ));
 }

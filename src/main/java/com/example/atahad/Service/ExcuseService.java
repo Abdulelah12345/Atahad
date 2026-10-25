@@ -208,7 +208,7 @@ public class ExcuseService {
         }
 
         String evidenceUrl = request.getEvidenceUrl();
-        // عدم وجود دليل لا يمنع تسجيل الطلب.
+        // المستند إلزامي، ونتحقق من رفعه وملكيته قبل الحفظ.
         if (evidenceUrl != null) {
             if (evidenceUrl.length() > 500) {
                 throw new ApiException("Evidence URL must be 500 characters max");
@@ -335,7 +335,7 @@ public class ExcuseService {
         // بيانات المستخدم.
         excuse.setType(type);
         // نتحقق أن المرفق المرفوع يخص صاحب العذر قبل حفظ مرجعه.
-        proofAttachmentService.resolve(userId, evidenceUrl);
+        proofAttachmentService.requireExcuseDocument(userId, evidenceUrl);
         excuse.setEvidenceUrl(evidenceUrl);
         excuse.setExcuseDate(excuseDate);
         // قيم يحددها النظام؛ التقييم لم يبدأ بعد.
@@ -519,7 +519,7 @@ public class ExcuseService {
         }
 
         String evidenceUrl = request.getEvidenceUrl();
-        // عدم وجود دليل لا يمنع تسجيل الطلب.
+        // المستند إلزامي، ونتحقق من رفعه وملكيته قبل الحفظ.
         if (evidenceUrl != null) {
             if (evidenceUrl.length() > 500) {
                 throw new ApiException("Evidence URL must be 500 characters max");
@@ -659,10 +659,10 @@ public class ExcuseService {
         }
 
         // بعد جميع التشييكات نعدل بيانات المستخدم فقط.
-        // إرسال دليل فارغ يزيل الرابط السابق؛ الطلب يعدل الحقول الثلاثة كاملة.
+        // التعديل يتطلب مستندًا مرفوعًا؛ إرسال دليل فارغ غير مسموح.
         excuse.setType(type);
         // نتحقق أن المرفق المرفوع يخص صاحب العذر قبل حفظ مرجعه.
-        proofAttachmentService.resolve(userId, evidenceUrl);
+        proofAttachmentService.requireExcuseDocument(userId, evidenceUrl);
         excuse.setEvidenceUrl(evidenceUrl);
         excuse.setExcuseDate(excuseDate);
 

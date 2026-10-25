@@ -57,4 +57,8 @@ public class N8nController {
         whatsAppService.markFailed(id, error);
         return ResponseEntity.status(200).body(new ApiResponse("Marked as failed"));
     }
+    @GetMapping("/weekly-reports")
+    public ResponseEntity<?> getWeeklyReports(@RequestHeader("X-N8N-KEY") String key){
+        return ResponseEntity.status(200).body(n8nService.generateWeeklyReports(key));
+    }
 }
