@@ -12,6 +12,17 @@ import org.springframework.web.bind.annotation.*;
 public class AdminReviewController {
     private final AdminReviewService adminReviewService;
 
+    @GetMapping("/penalties/{adminId}")
+    public ResponseEntity<?> getPenaltyWorkspace(@PathVariable Integer adminId) {
+        return ResponseEntity.status(200).body(adminReviewService.getPenaltyWorkspace(adminId));
+    }
+
+    @PostMapping("/start/{adminId}/{objectionId}")
+    public ResponseEntity<?> startReview(@PathVariable Integer adminId, @PathVariable Integer objectionId) {
+        adminReviewService.startObjectionReview(adminId, objectionId);
+        return ResponseEntity.status(200).body(new ApiResponse("Review started"));
+    }
+
     // everything the AI was not sure about
     @GetMapping("/queue/{adminId}")
     public ResponseEntity<?> getQueue(@PathVariable Integer adminId){

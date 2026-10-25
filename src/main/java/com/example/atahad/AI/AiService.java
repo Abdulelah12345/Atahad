@@ -1,4 +1,4 @@
-package com.example.atahad.Service;
+package com.example.atahad.AI;
 
 import com.example.atahad.Api.ApiException;
 import org.springframework.beans.factory.annotation.Value;
@@ -8,7 +8,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import com.example.atahad.Dto.In.AiScheduleRequest;
 import com.example.atahad.Dto.Out.AiScheduleResponse;
-import tools.jackson.databind.ObjectMapper;import java.time.LocalDate;
+import tools.jackson.databind.ObjectMapper;
+import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Base64;
@@ -36,6 +37,9 @@ public class AiService {
 
     public static final int MAX_VIDEO_BYTES = 15 * 1024 * 1024; // the request must stay under 20 MB
 
+    @org.springframework.beans.factory.annotation.Autowired
+    private OpenRouterClient openRouterClient;
+
     private final RestClient restClient = RestClient.create();
 
     public String ask(String instructions, String prompt, String fallback){
@@ -44,6 +48,9 @@ public class AiService {
 
     // images: links (http...) or data urls, the AI looks at them with the text
     public String askWithImages(String instructions, String prompt, List<String> images, String fallback){
+        if (openRouterClient != null && openRouterClient.isConfigured()) {
+            return openRouterClient.complete(images == null || images.isEmpty() ? "text" : "vision", instructions, prompt, images, fallback);
+        }
         if(apiKey == null || apiKey.isBlank()){
             return fallback;
         }

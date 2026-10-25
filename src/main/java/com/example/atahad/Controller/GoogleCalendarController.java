@@ -6,7 +6,7 @@ import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import com.example.atahad.Service.AiService;
+import com.example.atahad.AI.AiService;
 import com.example.atahad.Dto.In.AiScheduleRequest;
 import com.example.atahad.Dto.Out.AiScheduleResponse;
 import jakarta.validation.Valid;

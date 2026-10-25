@@ -27,6 +27,7 @@ import java.util.List;
 public class ExcuseService {
 
     private final ExcuseRepository excuseRepository;
+    private final ProofAttachmentService proofAttachmentService;
     private final GoalTaskRepository goalTaskRepository;
     private final CommitmentWeekRepository commitmentWeekRepository;
     private final ProofRepository proofRepository;
@@ -333,6 +334,8 @@ public class ExcuseService {
         Excuse excuse = new Excuse();
         // بيانات المستخدم.
         excuse.setType(type);
+        // نتحقق أن المرفق المرفوع يخص صاحب العذر قبل حفظ مرجعه.
+        proofAttachmentService.resolve(userId, evidenceUrl);
         excuse.setEvidenceUrl(evidenceUrl);
         excuse.setExcuseDate(excuseDate);
         // قيم يحددها النظام؛ التقييم لم يبدأ بعد.
@@ -658,6 +661,8 @@ public class ExcuseService {
         // بعد جميع التشييكات نعدل بيانات المستخدم فقط.
         // إرسال دليل فارغ يزيل الرابط السابق؛ الطلب يعدل الحقول الثلاثة كاملة.
         excuse.setType(type);
+        // نتحقق أن المرفق المرفوع يخص صاحب العذر قبل حفظ مرجعه.
+        proofAttachmentService.resolve(userId, evidenceUrl);
         excuse.setEvidenceUrl(evidenceUrl);
         excuse.setExcuseDate(excuseDate);
 

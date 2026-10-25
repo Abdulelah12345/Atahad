@@ -1,137 +1,140 @@
 package com.example.atahad.Service;
 
 import com.example.atahad.Api.ApiException;
-import com.example.atahad.Dto.Out.QuizQuestionResponse;
-import com.example.atahad.Dto.Out.QuizResponse;
+import com.example.atahad.AI.QuizAIService;
+import com.example.atahad.Dto.In.QuizSourceRequest;
+import com.example.atahad.Dto.Out.*;
 import com.example.atahad.Entity.*;
-import com.example.atahad.Repository.CommitmentWeekRepository;
-import com.example.atahad.Repository.GoalTaskRepository;
-import com.example.atahad.Repository.QuizRepository;
+import com.example.atahad.Repository.*;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import java.time.*;
+import java.util.*;
+import java.util.regex.*;
 
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
-// QUIZ proof: the AI writes 3 questions about what the member studied, he answers them,
-// and the proof is accepted with 2 right answers or more
-@Service
-@RequiredArgsConstructor
+@Service @RequiredArgsConstructor
 public class QuizService {
+    private final AuthenticatedUserService authenticatedUserService;
     private final QuizRepository quizRepository;
     private final CommitmentWeekRepository commitmentWeekRepository;
     private final GoalTaskRepository goalTaskRepository;
-    private final AiService aiService;
+    private final ProofCaptureService captures;
+    private final ProofRepository proofs;
+    private final QuizAIService quizAI;
+    private final ProofTime time;
+    private final EntityManager entityManager;
+    public static final int QUESTIONS=4;
+    public static final int TO_PASS=3;
+    public static final int VALID_HOURS=1;
+    private static final Pattern FORMAT=Pattern.compile("Q:\\s*(.+?)\\s*\\n\\s*A\\)\\s*(.+?)\\s*\\n\\s*B\\)\\s*(.+?)\\s*\\n\\s*C\\)\\s*(.+?)\\s*\\n\\s*ANSWER:\\s*([ABCabc])");
 
-    public static final int QUESTIONS = 3;
-    public static final int TO_PASS = 2;
-    public static final int VALID_HOURS = 2; // the quiz must be answered within 2 hours
-
-    // topic = what he studied today (optional), else the title of the task
-    public QuizResponse create(Integer memberId, Integer weekId, Integer goalTaskId, String topic){
-        CommitmentWeek week = commitmentWeekRepository.findCommitmentWeekById(weekId);
-        if(week == null || !week.getCommitment().getMember().getId().equals(memberId)){
-            throw new ApiException("Week not found");
-        }
-        LocalDate today = LocalDate.now();
-        if(today.isAfter(week.getWeekEnd().toLocalDate()) || today.isBefore(week.getWeekStart().toLocalDate())){
-            throw new ApiException("This week is not running");
-        }
-        GoalTask task = null;
-        String method = week.getCommitment().getProofMethod();
-        String title = week.getCommitment().getTitle();
-        if(goalTaskId != null){
-            task = goalTaskRepository.findGoalTaskById(goalTaskId);
-            if(task == null || !task.getGoal().getId().equals(week.getCommitment().getId()) || !task.getWeekNumber().equals(week.getWeekNumber())){
-                throw new ApiException("This task is not in this week");
-            }
-            method = task.getProofMethod();
-            title = title + " - " + task.getTitle();
-        }
-        if(!"QUIZ".equals(method)){
-            throw new ApiException("This commitment is not proved with a quiz");
-        }
-        String subject = topic == null || topic.isBlank() ? title : topic.trim();
-        if(subject.length() > 200){
-            subject = subject.substring(0, 200);
-        }
-
-        String answer = aiService.ask(
-                "You write short quizzes that check if a person really studied a topic today. "
-                        + "Write exactly " + QUESTIONS + " multiple choice questions in Arabic, each with 3 options and one right answer, "
-                        + "not too easy and not tricky. Use exactly this format for every question:\n"
-                        + "Q: the question\nA) option\nB) option\nC) option\nANSWER: the letter",
-                "Topic: " + subject + "\nCommitment: " + title,
-                "");
-        List<QuizQuestionResponse> questions = new ArrayList<>();
-        StringBuilder correct = new StringBuilder();
-        Matcher matcher = Pattern.compile("Q:\\s*(.+?)\\s*\\n\\s*A\\)\\s*(.+?)\\s*\\n\\s*B\\)\\s*(.+?)\\s*\\n\\s*C\\)\\s*(.+?)\\s*\\n\\s*ANSWER:\\s*([ABCabc])")
-                .matcher(answer.replace("*", ""));
-        while(matcher.find() && questions.size() < QUESTIONS){
-            questions.add(new QuizQuestionResponse(questions.size() + 1, matcher.group(1),
-                    List.of("A) " + matcher.group(2), "B) " + matcher.group(3), "C) " + matcher.group(4))));
-            correct.append(matcher.group(5).toUpperCase());
-        }
-        if(questions.size() < QUESTIONS){
-            throw new ApiException("The quiz is not available now, try again in a minute");
-        }
-
-        StringBuilder text = new StringBuilder();
-        for(QuizQuestionResponse q : questions){
-            text.append(q.getNumber()).append(". ").append(q.getQuestion()).append("\n");
-            for(String option : q.getOptions()){
-                text.append("   ").append(option).append("\n");
-            }
-        }
-        Quiz quiz = new Quiz();
-        quiz.setTopic(subject);
-        quiz.setQuestions(text.length() > 3000 ? text.substring(0, 3000) : text.toString());
-        quiz.setCorrectAnswers(correct.toString());
-        quiz.setCreatedAt(LocalDateTime.now());
-        quiz.setMember(week.getCommitment().getMember());
-        quiz.setCommitmentWeek(week);
-        quiz.setGoalTask(task);
-        quizRepository.save(quiz);
-
-        return new QuizResponse(quiz.getId(), subject, questions,
-                "Send a QUIZ proof with evidenceData = \"" + quiz.getId() + ":\" + your letters in order, like " + quiz.getId() + ":BCA");
+    @Transactional
+    public QuizResponse create(Integer memberId,Integer weekId,Integer goalTaskId,String topic) {
+        return create(memberId,weekId,goalTaskId,topic,new QuizSourceRequest());
     }
 
-    // evidence "12:BCA" -> null when it passed, else the reason it failed
-    public String grade(Proof proof){
-        Matcher matcher = Pattern.compile("(\\d+)\\s*[:|]\\s*([A-Ca-c]+)").matcher(proof.getEvidenceData() == null ? "" : proof.getEvidenceData());
-        if(!matcher.find()){
-            return "صيغة الإجابة غلط، المفروض مثل 12:BCA";
+    @Transactional
+    public QuizResponse create(Integer memberId,Integer weekId,Integer goalTaskId,String topic,QuizSourceRequest request) {
+        authenticatedUserService.checkMember(memberId);
+        CommitmentWeek week=commitmentWeekRepository.findCommitmentWeekById(weekId);
+        if (week==null || !week.getCommitment().getMember().getId().equals(memberId)) { throw new ApiException("Week not found"); }
+        LocalDateTime now=time.now();
+        if (now.isBefore(week.getWeekStart()) || now.isAfter(week.getWeekEnd())) { throw new ApiException("This week is not running"); }
+        String method=week.getCommitment().getProofMethod();
+        String title=week.getCommitment().getTitle();
+        GoalTask task=null;
+        if (goalTaskId!=null) {
+            task=goalTaskRepository.findGoalTaskById(goalTaskId);
+            if (task==null || !task.getGoal().getId().equals(week.getCommitment().getId()) || !task.getWeekNumber().equals(week.getWeekNumber())) { throw new ApiException("Task is not in this week"); }
+            method=task.getProofMethod(); title+=" - "+task.getTitle();
         }
-        Quiz quiz = quizRepository.findQuizById(Integer.valueOf(matcher.group(1)));
-        if(quiz == null || !quiz.getCommitmentWeek().getId().equals(proof.getCommitmentWeek().getId())){
-            return "الاختبار مو لهالأسبوع";
+        if (!method.equals("QUIZ")) { throw new ApiException("This activity does not use a quiz"); }
+        Proof proof=null;
+        LocalDate day=now.toLocalDate();
+        if (request.getProofId()!=null) {
+            proof=captures.ownProof(memberId,request.getProofId());
+            if (!proof.getCommitmentWeek().getId().equals(weekId) || !sameTask(proof.getGoalTask(),task)) { throw new ApiException("Quiz must match the proof activity"); }
+            if (proof.getAttemptDeadline()==null || !now.isBefore(proof.getAttemptDeadline()) || proof.getResult().equals("ACCEPTED")) { throw new ApiException("This proof attempt is closed"); }
+            day=proof.getActivityTime().toLocalDate();
         }
-        boolean sameTask = quiz.getGoalTask() == null ? proof.getGoalTask() == null
-                : proof.getGoalTask() != null && quiz.getGoalTask().getId().equals(proof.getGoalTask().getId());
-        if(!sameTask){
-            return "الاختبار مو لهالمهمة";
-        }
-        if(quiz.getUsedAt() != null){
-            return "الاختبار مستخدم قبل، اطلب اختبار جديد";
-        }
-        if(quiz.getCreatedAt().plusHours(VALID_HOURS).isBefore(LocalDateTime.now())){
-            return "انتهى وقت الاختبار (" + VALID_HOURS + " ساعات)، اطلب اختبار جديد";
-        }
-        quiz.setUsedAt(LocalDateTime.now());
-        quizRepository.save(quiz);
-
-        String answers = matcher.group(2).toUpperCase();
-        int right = 0;
-        for(int i = 0; i < quiz.getCorrectAnswers().length() && i < answers.length(); i++){
-            if(answers.charAt(i) == quiz.getCorrectAnswers().charAt(i)){
-                right++;
+        String subject=topic==null || topic.isBlank()?title:topic.trim();
+        subject=subject.substring(0,Math.min(200,subject.length()));
+        List<Quiz> attempts=attempts(weekId,task,day);
+        for (Quiz old:attempts) {
+            if (old.getUsedAt()==null && now.isBefore(old.getCreatedAt().plusHours(1))) {
+                if (!Objects.equals(old.getProofId(),request.getProofId())) {
+                    throw new ApiException("Continue the original quiz attempt before starting another one");
+                }
+                return response(old);
             }
         }
-        return right >= TO_PASS ? null : "جاوبت " + right + " من " + QUESTIONS + "، لازم " + TO_PASS + " على الأقل";
+        if (attempts.size()>=2) { throw new ApiException("Only one retry is allowed for this activity day"); }
+        List<String> images=new ArrayList<>();
+        if (request.getCaptureIds()!=null && !request.getCaptureIds().isEmpty()) {
+            if (proof==null) { throw new ApiException("Start the proof attempt before attaching pages"); }
+            for (Integer id:request.getCaptureIds()) { images.add(captures.use(memberId,id,"PAGE",proof.getId()).getImageData()); }
+        }
+        String answer=quizAI.questions(subject,images);
+        if (answer.contains("READABLE: NO")) {
+            if (proof==null) { throw new ApiException("Page images are unreadable"); }
+            boolean reuploadRequested = proof.getPageReuploadRequested() != null && proof.getPageReuploadRequested();
+            if (!reuploadRequested) {
+                proof.setPageReuploadRequested(true); proofs.save(proof);
+                return new QuizResponse(null,subject,List.of(),"REUPLOAD_PAGES: صوّر الصفحات بوضوح مرة ثانية، ولا تحتسب هذه محاولة اختبار");
+            }
+            answer=quizAI.questions(subject,List.of());
+        }
+        List<QuizQuestionResponse> questions=new ArrayList<>();
+        StringBuilder correct=new StringBuilder();
+        Matcher matcher=FORMAT.matcher(answer.replace("*",""));
+        StringBuilder stored=new StringBuilder();
+        while (matcher.find()) {
+            questions.add(new QuizQuestionResponse(questions.size()+1,matcher.group(1),List.of("A) "+matcher.group(2),"B) "+matcher.group(3),"C) "+matcher.group(4))));
+            correct.append(matcher.group(5).toUpperCase()); stored.append(matcher.group()).append("\n");
+        }
+        if (questions.size()!=4) { throw new ApiException("Quiz generation is unavailable; no quiz attempt was consumed"); }
+        // بعد رجوع الذكاء نحجز الأسبوع ونعيد عد المحاولات؛ لا نحجزه أثناء انتظار النموذج.
+        entityManager.lock(week,LockModeType.PESSIMISTIC_WRITE);
+        if (attempts(weekId,task,day).size()>=2) { throw new ApiException("Only one retry is allowed"); }
+        Quiz quiz=new Quiz(); quiz.setTopic(subject); quiz.setQuestions(stored.toString()); quiz.setCorrectAnswers(correct.toString());
+        quiz.setCreatedAt(time.now()); quiz.setMember(week.getCommitment().getMember()); quiz.setCommitmentWeek(week); quiz.setGoalTask(task);
+        quiz.setProofId(proof==null?null:proof.getId()); quiz.setActivityDate(day); quiz.setAttemptNumber(attempts.size()+1);
+        quizRepository.save(quiz);
+        return new QuizResponse(quiz.getId(),subject,questions,"4 أسئلة سهلة؛ النجاح من 3. صالح لساعة. أرسل quizId:ABCA كدليل.");
+    }
+
+    @Transactional
+    public String grade(Proof proof) {
+        Matcher match=Pattern.compile("^\\s*(\\d+)\\s*[:|]\\s*([ABCabc]{4})\\s*$").matcher(proof.getEvidenceData()==null?"":proof.getEvidenceData());
+        if (!match.matches()) { return "أرسل أربع إجابات فقط، مثل 12:ABCA"; }
+        Quiz quiz=quizRepository.findQuizById(Integer.valueOf(match.group(1)));
+        if (quiz==null || !quiz.getCommitmentWeek().getId().equals(proof.getCommitmentWeek().getId()) || !sameTask(quiz.getGoalTask(),proof.getGoalTask())) { return "الاختبار لا يخص هذه المهمة والأسبوع"; }
+        if (quiz.getProofId()!=null && !quiz.getProofId().equals(proof.getId())) { return "الاختبار يخص محاولة أخرى"; }
+        if (quiz.getActivityDate()!=null && !quiz.getActivityDate().equals(proof.getActivityTime().toLocalDate())) { return "الاختبار لا يخص يوم النشاط"; }
+        if (quiz.getUsedAt()!=null) { return "الاختبار مستخدم، اطلب إعادة المحاولة إن كانت متاحة"; }
+        if (!time.now().isBefore(quiz.getCreatedAt().plusHours(1))) { return "انتهت صلاحية الساعة"; }
+        quiz.setUsedAt(time.now());
+        String letters=match.group(2).toUpperCase(); int right=0;
+        for (int i=0;i<4;i++) { if (letters.charAt(i)==quiz.getCorrectAnswers().charAt(i)) { right++; } }
+        quiz.setScore(right); quizRepository.save(quiz);
+        return right>=3?null:"أجبت "+right+" من 4؛ المطلوب 3";
+    }
+    public boolean canRetry(Proof proof) { return attempts(proof.getCommitmentWeek().getId(),proof.getGoalTask(),proof.getActivityTime().toLocalDate()).size()<2; }
+    private List<Quiz> attempts(Integer weekId,GoalTask task,LocalDate day) {
+        List<Quiz> list=new ArrayList<>();
+        for (Quiz quiz:quizRepository.findByCommitmentWeekIdOrderById(weekId)) {
+            LocalDate date=quiz.getActivityDate()==null?quiz.getCreatedAt().toLocalDate():quiz.getActivityDate();
+            if (date.equals(day) && sameTask(quiz.getGoalTask(),task)) { list.add(quiz); }
+        }
+        return list;
+    }
+    private boolean sameTask(GoalTask a,GoalTask b) { return a==null?b==null:b!=null && a.getId().equals(b.getId()); }
+    private QuizResponse response(Quiz quiz) {
+        List<QuizQuestionResponse> list=new ArrayList<>(); Matcher m=FORMAT.matcher(quiz.getQuestions());
+        while (m.find()) { list.add(new QuizQuestionResponse(list.size()+1,m.group(1),List.of("A) "+m.group(2),"B) "+m.group(3),"C) "+m.group(4)))); }
+        return new QuizResponse(quiz.getId(),quiz.getTopic(),list,"الاختبار الحالي ما زال صالحا؛ النجاح من 3 من 4");
     }
 }

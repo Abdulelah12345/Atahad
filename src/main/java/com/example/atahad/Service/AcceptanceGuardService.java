@@ -55,7 +55,9 @@ public class AcceptanceGuardService {
             if (proof == null) {
                 throw new ApiException("Proof not found");
             }
-            entityManager.refresh(proof, LockModeType.PESSIMISTIC_WRITE);
+            // البروف تصل من خدمة تجميع الأدلة بعد تحديثها تحت قفل الأسبوع.
+            // نثبت حجزها دون إعادة تحميل شبكة العلاقات والاعتراضات مرة ثانية.
+            entityManager.lock(proof, LockModeType.PESSIMISTIC_WRITE);
         }
         if (excuseId != null) {
             Excuse excuse = entityManager.find(Excuse.class, excuseId);

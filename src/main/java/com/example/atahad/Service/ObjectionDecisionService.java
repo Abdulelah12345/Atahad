@@ -1,5 +1,7 @@
 package com.example.atahad.Service;
 
+import com.example.atahad.AI.AiService;
+
 import com.example.atahad.Api.ApiException;
 import com.example.atahad.Dto.In.ObjectionRequest;
 import com.example.atahad.Entity.*;
@@ -20,6 +22,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class ObjectionDecisionService {
     private final AuthenticatedUserService authenticatedUserService;
+    private final ProofAttachmentService proofAttachmentService;
     private final ObjectionRepository objectionRepository;
     private final MemberRepository memberRepository;
     private final ProofDecisionService proofDecisionService;
@@ -76,15 +79,15 @@ public class ObjectionDecisionService {
             context = "Rejected excuse of type " + excuse.getType() + " on " + excuse.getExcuseDate()
                     + ", reason of the rejection: " + excuse.getAiAssessment();
             if(excuse.getEvidenceUrl() != null && !excuse.getEvidenceUrl().isBlank()){
-                images.add(excuse.getEvidenceUrl());
+                images.add(proofAttachmentService.resolve(objection.getMember().getId(), excuse.getEvidenceUrl()));
             }
         }else{
             DonationProof proof = objection.getDonationProof();
             context = "Rejected donation proof: amount " + proof.getAmount() + ", recipient " + proof.getRecipient()
                     + ", time " + proof.getTransactionTime() + ", reason of the rejection: " + proof.getAiResult();
             if(proof.getBankMessageImageUrl() != null){
-                images.add(proof.getBankMessageImageUrl());
-                images.add(proof.getEhsanMessageImageUrl());
+                images.add(proofAttachmentService.resolve(objection.getMember().getId(), proof.getBankMessageImageUrl()));
+                images.add(proofAttachmentService.resolve(objection.getMember().getId(), proof.getEhsanMessageImageUrl()));
             }
         }
 

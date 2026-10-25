@@ -28,7 +28,7 @@ public class Proof {
     private String type;
 //ممكن يحتوي رابط او موقع ، عشان بعدين نشيك عليه
     @NotBlank(message = "Evidence data cannot be empty")
-    @Column(columnDefinition = "TEXT NOT NULL")
+    @Column(columnDefinition = "MEDIUMTEXT NOT NULL")
     private String evidenceData;
 
     @Column(columnDefinition = "DATETIME")
@@ -56,13 +56,21 @@ public class Proof {
     @Column(columnDefinition = "DATETIME")
     private LocalDateTime decidedAt;
 
+    // للمحاولات الجديدة: الأساسية والصور الإضافية لهما نتائج مستقلة وقرار نهائي واحد.
+    private LocalDateTime attemptDeadline;
+    private Boolean beforeAfterEnabled = false;
+    private Boolean pageReuploadRequested = false;
+    private Integer primaryCaptureId;
+    @OneToMany(mappedBy="proof", cascade={CascadeType.PERSIST,CascadeType.MERGE,CascadeType.REMOVE}, orphanRemoval=true)
+    private java.util.List<ProofEvidence> evidences = new java.util.ArrayList<>();
+
     //Relations
     @ManyToOne
     @JoinColumn
     @JsonIgnore
     private CommitmentWeek commitmentWeek;
 
-    @OneToOne(cascade = CascadeType.ALL, mappedBy = "proof")
+    @OneToOne(fetch = FetchType.LAZY, cascade = {CascadeType.PERSIST, CascadeType.MERGE, CascadeType.REMOVE}, mappedBy = "proof")
     @JsonIgnore
     private Objection objection;
 

@@ -1,5 +1,7 @@
 package com.example.atahad.Service;
 
+import com.example.atahad.AI.AiService;
+
 import com.example.atahad.Api.ApiException;
 import com.example.atahad.Dto.In.DonationScreenshotRequest;
 import com.example.atahad.Entity.Admin;
@@ -28,6 +30,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class DonationProofService {
     private final AuthenticatedUserService authenticatedUserService;
+    private final ProofAttachmentService proofAttachmentService;
     private final DonationProofRepository donationProofRepository;
     private final PenaltyRepository penaltyRepository;
     private final MemberRepository memberRepository;
@@ -63,7 +66,8 @@ public class DonationProofService {
                         + "(the Saudi national platform for charity). Read the transfer details. Both images must be about the same transfer. "
                         + EXTRACT_FORMAT,
                 "Read the two images.",
-                List.of(dto.getBankMessageImageUrl(), dto.getEhsanMessageImageUrl()),
+                List.of(proofAttachmentService.resolve(memberId, dto.getBankMessageImageUrl()),
+                        proofAttachmentService.resolve(memberId, dto.getEhsanMessageImageUrl())),
                 "SUSPICIOUS: YES\nNOTE: الذكاء الاصطناعي غير متاح الحين، بيراجعه الأدمن");
         return evaluate(proof, answer, pending);
     }

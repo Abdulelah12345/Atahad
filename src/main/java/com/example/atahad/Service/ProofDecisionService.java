@@ -1,5 +1,7 @@
 package com.example.atahad.Service;
 
+import com.example.atahad.AI.AiService;
+
 import com.example.atahad.Api.ApiException;
 import com.example.atahad.Dto.In.ProofRequest;
 import com.example.atahad.Entity.*;
@@ -19,6 +21,7 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class ProofDecisionService {
+    private final ProofOutcomeService proofOutcomeService;
     private final ProofRepository proofRepository;
     private final ExcuseRepository excuseRepository;
     private final ObjectionRepository objectionRepository;
@@ -29,6 +32,8 @@ public class ProofDecisionService {
     private final AiService aiService;
     private final AcceptanceGuardService acceptanceGuardService;
     private final QuizService quizService;
+    private final ProofCaptureService proofCaptureService;
+    private final com.example.atahad.AI.ProofImageAIService proofImageAIService;
     private final PlaceVisitRepository placeVisitRepository;
 
     public static final int DEFAULT_RADIUS = 150;
@@ -37,6 +42,15 @@ public class ProofDecisionService {
     // a proof of a habit (personal or group): same rules as the goal tasks
     @Transactional
     public Proof addHabitProof(Integer memberId, Integer weekId, ProofRequest request){
+        if (request.getType().equals("TIMER")) { throw new ApiException("Start a server timer session through /proof-attempt/start"); }
+        return createHabitProof(memberId, weekId, request, true);
+    }
+
+    public Proof prepareHabitProof(Integer memberId, Integer weekId, ProofRequest request){
+        return createHabitProof(memberId, weekId, request, false);
+    }
+
+    private Proof createHabitProof(Integer memberId, Integer weekId, ProofRequest request, boolean analyze){
         Member member = memberRepository.findMemberById(memberId);
         if(member == null){
             throw new ApiException("Member not found");
@@ -144,15 +158,17 @@ public class ProofDecisionService {
         proof.setCommitmentWeek(week);
         proofRepository.save(proof);
 
-        decide(proof);
+        if (analyze) { decide(proof); }
         return proof;
     }
 
     // called right after a proof is saved (habits here, goal tasks from ProofService)
     @Transactional
     public void decide(Proof proof){
-        proof.setProcessingStatus("PROCESSING");
-        proofRepository.save(proof);
+        if (proof.getAttemptDeadline() == null) {
+            proof.setProcessingStatus("PROCESSING");
+            proofRepository.save(proof);
+        }
 
         Commitment commitment = proof.getCommitmentWeek().getCommitment();
         switch(proof.getType()){
@@ -160,7 +176,9 @@ public class ProofDecisionService {
             case "TIMER" -> decideTimer(proof, commitment);
             case "QUIZ" -> {
                 String failed = quizService.grade(proof);
-                applyDecision(proof, failed == null ? "ACCEPTED" : "REJECTED", failed == null ? "جاوب الاختبار صح" : failed);
+                String result = failed == null ? "ACCEPTED" : "REJECTED";
+                if (failed != null && proof.getAttemptDeadline() != null && quizService.canRetry(proof)) { result="PENDING"; }
+                applyDecision(proof, result, failed == null ? "جاوب الاختبار صح" : failed);
             }
             default -> decideImage(proof, commitment); // PHOTO
         }
@@ -245,37 +263,28 @@ public class ProofDecisionService {
 
     // evidence = the minutes from the app timer, like "45"
     private void decideTimer(Proof proof, Commitment commitment){
-        if(commitment.getTargetMinutes() == null){
-            applyDecision(proof, "ESCALATED", "ما فيه مدة محددة لهالالتزام، بيراجعه الأدمن");
-            return;
-        }
-        java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("(\\d+)").matcher(proof.getEvidenceData() == null ? "" : proof.getEvidenceData());
-        if(!matcher.find()){
-            applyDecision(proof, "REJECTED", "المدة لازم تكون بالدقايق، مثل 45");
-            return;
-        }
-        int minutes = Integer.parseInt(matcher.group(1));
-        if(minutes >= commitment.getTargetMinutes()){
-            applyDecision(proof, "ACCEPTED", minutes + " دقيقة من " + commitment.getTargetMinutes());
-        }else{
-            applyDecision(proof, "REJECTED", minutes + " دقيقة بس، المطلوب " + commitment.getTargetMinutes());
-        }
+        applyDecision(proof, "REJECTED", "المؤقت يعتمد جلسة محسوبة بالسيرفر، وليس رقما يرسله المستخدم");
     }
 
     // PHOTO: a camera photo or a live clip of the activity
     private void decideImage(Proof proof, Commitment commitment){
+        if (proof.getPrimaryCaptureId() == null) {
+            try {
+                String data=proof.getEvidenceData().replace("capture:","").trim();
+                Integer captureId=Integer.valueOf(data);
+                ProofCapture capture=proofCaptureService.use(commitment.getMember().getId(),captureId,"PHOTO",proof.getId());
+                proof.setPrimaryCaptureId(captureId); proof.setEvidenceData(capture.getImageData());
+            } catch (RuntimeException exception) {
+                applyDecision(proof,"REJECTED","التقط الصورة مباشرة من مسار الكاميرا وأرسل معرف الالتقاط"); return;
+            }
+        }
         String task = proof.getGoalTask() == null ? commitment.getTitle() : commitment.getTitle() + " - " + proof.getGoalTask().getTitle();
 
-        String answer = aiService.askWithImages(
-                "You check proofs in a commitment app. Decide if the evidence shows that the person really did the task. "
-                        + "REJECTED when it clearly does not match the task, or the photo is a screenshot, from the internet, or of another day. "
-                        + "ESCALATED when you are not sure. Answer only with two lines:\n"
-                        + "DECISION: ACCEPTED or REJECTED or ESCALATED\nREASON: one short sentence in Arabic",
-                "Task: " + task + "\nProof type: " + proof.getType() + "\nActivity time: " + proof.getActivityTime()
-                        + "\nThe image is attached.",
-                List.of(proof.getEvidenceData()),
-                "DECISION: ESCALATED\nREASON: الذكاء الاصطناعي غير متاح الحين، بيراجعه الأدمن");
-        applyDecision(proof, aiService.decision(answer), aiService.field(answer, "REASON"));
+        // مسار صور البروف يستخدم OpenRouter المجاني فقط، مع التصعيد عند تعذر التحليل.
+        String answer = proofImageAIService.check(task, proof.getEvidenceData());
+        String decision = proofImageAIService.field(answer, "DECISION");
+        if (!List.of("ACCEPTED", "REJECTED", "ESCALATED").contains(decision)) { decision = "ESCALATED"; }
+        applyDecision(proof, decision, proofImageAIService.field(answer, "REASON"));
     }
 
     // a live clip (or photo) from the app camera with a challenge: the AI checks the activity and the challenge
@@ -327,38 +336,12 @@ public class ProofDecisionService {
     // shared with the admin review and the objection
     @Transactional
     public void applyDecision(Proof proof, String decision, String reason){
-        if (decision == null) {
-            throw new ApiException("Decision is required");
-        }
+        proofOutcomeService.primary(proof, decision, reason);
+    }
 
-        boolean isAccepted = decision.equals("ACCEPTED");
-        if (isAccepted) {
-            Integer goalTaskId = null;
-            if (proof.getGoalTask() != null) {
-                goalTaskId = proof.getGoalTask().getId();
-            }
-
-            // نحجز الأسبوع ونمنع احتساب اليوم مرتين قبل حفظ القبول وتحديث العداد.
-            acceptanceGuardService.lockAndCheck(
-                    proof.getCommitmentWeek().getId(),
-                    goalTaskId,
-                    proof.getActivityTime().toLocalDate(),
-                    proof.getId(),
-                    null
-            );
-        }
-
-        boolean wasAccepted = "ACCEPTED".equals(proof.getResult());
-        proof.setProcessingStatus("FINISHED");
-        proof.setDecidedAt(LocalDateTime.now());
-        proof.setResult(decision);
-        proof.setRejectionReason("ACCEPTED".equals(decision) ? null : cut(reason));
-        proofRepository.save(proof);
-
-        if("ACCEPTED".equals(decision) && !wasAccepted){
-            Integer taskId = proof.getGoalTask() == null ? null : proof.getGoalTask().getId();
-            commitmentWeekService.recordCompletion(proof.getCommitmentWeek().getId(), taskId);
-        }
+    @Transactional
+    public void reviewDecision(Proof proof, boolean accepted, String reason) {
+        proofOutcomeService.review(proof, accepted, reason);
     }
 
     public List<Proof> getEscalated(){
