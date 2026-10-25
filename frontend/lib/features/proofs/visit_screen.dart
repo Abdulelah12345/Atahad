@@ -51,6 +51,14 @@ class _VisitScreenState extends State<VisitScreen> {
     setState(() => _busy = true);
     final member = context.read<AuthState>().userId;
     try {
+      // ask for the location permission first (the first time the iOS / Android window shows)
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
+        throw const PermissionDeniedException('Location permission denied');
+      }
       final position = await Geolocator.getCurrentPosition(
           locationSettings: const LocationSettings(
               accuracy: LocationAccuracy.high,

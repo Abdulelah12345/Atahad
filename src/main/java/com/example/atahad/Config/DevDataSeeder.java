@@ -57,6 +57,8 @@ public class DevDataSeeder implements ApplicationRunner {
     private final GraceDayRepository graceDayRepository;
     private final GroupSettlementRepository groupSettlementRepository;
     private final MomentRepository momentRepository;
+    private final GroupMatchRepository groupMatchRepository;
+    private final GroupMatchService groupMatchService;
 
     @Value("${seed.main-email}")
     private String mainEmail;
@@ -218,6 +220,23 @@ public class DevDataSeeder implements ApplicationRunner {
                 new PlanWeekRequest("مراجعة شاملة للنهائي", 5)));
         groupGoalService.createGoal(study.getId(), faisal.getId(), studyGoal);
         chat(study, faisal, "الأسبوع هذا النهايات، أول جلسة اليوم ٩ بالليل");
+
+        // ---------- competition: Healthier Month won last week against the course group, now the course group challenges again ----------
+        GroupGoal studyActive = groupGoalRepository.findGroupGoalByGroupIdAndStatus(study.getId(), "ACTIVE");
+        GroupMatch past = new GroupMatch();
+        past.setStatus("FINISHED");
+        past.setStartDate(lastSunday);
+        past.setEndDate(lastSunday.plusDays(6));
+        past.setChallenger(gym);
+        past.setOpponent(study);
+        past.setChallengerGoal(gymActive);
+        past.setOpponentGoal(studyActive);
+        past.setChallengerScore(87);
+        past.setOpponentScore(67);
+        past.setWinner(gym);
+        past.setLeastProcrastinating(study);
+        groupMatchRepository.save(past);
+        groupMatchService.challenge(study.getId(), faisal.getId(), gym.getId(), null);
 
         // ---------- group 4: archived, the goal ended with a summary ----------
         Group summer = group(noura, "نتعلم السباحة بالصيف", "حصص سباحة طول الصيف");

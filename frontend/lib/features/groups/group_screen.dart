@@ -15,6 +15,7 @@ import 'chat_tab.dart';
 import 'group_activity.dart';
 import 'group_api.dart';
 import 'group_widgets.dart';
+import 'match_tab.dart';
 import 'moments_tab.dart';
 import 'week_tab.dart';
 
@@ -40,10 +41,10 @@ class _GroupScreenState extends State<GroupScreen> with SingleTickerProviderStat
   late final GroupApi _api = GroupApi(context.read<ApiClient>());
   late final int? _me = context.read<AuthState>().userId;
   Key _key = UniqueKey();
-  late final TabController _tabs = TabController(length: 4, vsync: this);
+  late final TabController _tabs = TabController(length: 5, vsync: this);
 
   // the place of every tab where something can be new (the week has none)
-  static const _tabKinds = [GroupActivity.alert, GroupActivity.chat, GroupActivity.moments, null];
+  static const _tabKinds = [GroupActivity.alert, GroupActivity.chat, GroupActivity.moments, null, null];
 
   // the open tab is seen: its red dot goes away, also when something new comes while I am on it
   void _seeOpenTab() {
@@ -154,7 +155,9 @@ class _GroupScreenState extends State<GroupScreen> with SingleTickerProviderStat
               ],
               bottom: TabBar(
                 controller: _tabs,
-                tabs: [_tab('اللوحة', _tabKinds[0]), _tab('الشات', _tabKinds[1]), _tab('اللحظات', _tabKinds[2]), _tab('الأسبوع', null)],
+                isScrollable: true,
+                tabAlignment: TabAlignment.start,
+                tabs: [_tab('اللوحة', _tabKinds[0]), _tab('الشات', _tabKinds[1]), _tab('اللحظات', _tabKinds[2]), _tab('الأسبوع', null), _tab('المنافسة', null)],
               ),
             ),
             body: TabBarView(
@@ -164,6 +167,7 @@ class _GroupScreenState extends State<GroupScreen> with SingleTickerProviderStat
                 ChatTab(api: _api, groupId: widget.groupId, me: _me),
                 MomentsTab(api: _api, groupId: widget.groupId, me: _me),
                 WeekTab(api: _api, groupId: widget.groupId, groupName: name, members: data.members),
+                MatchTab(api: _api, groupId: widget.groupId, isOwner: data.isOwner),
               ],
             ),
         );

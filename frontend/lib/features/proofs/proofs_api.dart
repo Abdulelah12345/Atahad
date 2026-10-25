@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 import '../../core/api/api_client.dart';
 import '../../core/api/api_exception.dart';
+import '../../core/utils/format.dart';
 
 typedef Json = Map<String, dynamic>;
 
@@ -82,6 +83,26 @@ DateTime? serverInstant(Object? value) {
 String friendlyError(Object error) {
   final raw = error is ApiException ? error.message : '$error';
   if (RegExp(r'[\u0600-\u06FF]').hasMatch(raw)) return raw;
+  // the location proof (PlaceVisitService)
+  final far = RegExp(r'You are (\d+) meters from the place, the allowed is (\d+)').firstMatch(raw);
+  if (far != null) {
+    return 'أنت بعيد عن المكان اللي اخترته بـ ${arabicDigits(far.group(1))} متر، لازم تكون داخل ${arabicDigits(far.group(2))} متر عشان تسجّل وصولك.';
+  }
+  if (raw.contains('Set the place of this commitment first')) {
+    return 'حدّد مكان هذا التعهّد أول، بعدها تقدر تسجّل وصولك.';
+  }
+  if (raw.contains('No open visit')) {
+    return 'ما سجّلت وصولك لهذا المكان، سجّل وصولك أول.';
+  }
+  if (raw.contains('already') && raw.contains('visit')) {
+    return 'عندك زيارة مفتوحة، سجّل مغادرتك أول.';
+  }
+  if (raw.contains('No location task left this week')) {
+    return 'خلّصت مرات هذا الأسبوع لهذي المهمة.';
+  }
+  if (raw.contains('no running week')) {
+    return 'هذا التعهّد ما عنده أسبوع شغّال الحين.';
+  }
   if (raw.contains('no quiz attempt') || raw.contains('Quiz generation')) {
     return 'تعذر تجهيز الأسئلة الآن. حاول لاحقًا، لم تُحتسب عليك محاولة.';
   }
