@@ -36,21 +36,50 @@ class _GroupData {
   _GroupData(this.group, this.members, this.isOwner);
 }
 
-class _GroupScreenState extends State<GroupScreen> {
+class _GroupScreenState extends State<GroupScreen> with SingleTickerProviderStateMixin {
   late final GroupApi _api = GroupApi(context.read<ApiClient>());
   late final int? _me = context.read<AuthState>().userId;
   Key _key = UniqueKey();
+  late final TabController _tabs = TabController(length: 4, vsync: this);
+
+  // the place of every tab where something can be new (the week has none)
+  static const _tabKinds = [GroupActivity.alert, GroupActivity.chat, GroupActivity.moments, null];
+
+  // the open tab is seen: its red dot goes away, also when something new comes while I am on it
+  void _seeOpenTab() {
+    final kind = _tabKinds[_tabs.index];
+    if (kind != null) GroupActivity.instance.markSeen(widget.groupId, kind);
+  }
 
   @override
   void initState() {
     super.initState();
-    GroupActivity.instance.markSeen(widget.groupId); // the red dot goes away
+    _tabs.addListener(_seeOpenTab);
+    GroupActivity.instance.addListener(_seeOpenTab);
+    _seeOpenTab();
   }
 
   @override
   void dispose() {
-    GroupActivity.instance.markSeen(widget.groupId); // what I saw inside is not new
+    GroupActivity.instance.removeListener(_seeOpenTab);
+    _seeOpenTab();
+    _tabs.dispose();
     super.dispose();
+  }
+
+  Widget _tab(String label, String? kind) {
+    if (kind == null) return Tab(text: label);
+    return Tab(
+      child: ListenableBuilder(
+        listenable: GroupActivity.instance,
+        builder: (context, _) => Badge(
+          isLabelVisible: GroupActivity.instance.hasNewIn(widget.groupId, kind),
+          smallSize: 8,
+          offset: const Offset(10, -4),
+          child: Text(label),
+        ),
+      ),
+    );
   }
 
   Future<_GroupData> _load() async {
@@ -107,9 +136,7 @@ class _GroupScreenState extends State<GroupScreen> {
       load: _load,
       builder: (context, data, reload) {
         final name = '${data.group['name'] ?? ''}';
-        return DefaultTabController(
-          length: 4,
-          child: Scaffold(
+        return Scaffold(
             appBar: AppBar(
               title: Text(name),
               actions: [
@@ -125,11 +152,13 @@ class _GroupScreenState extends State<GroupScreen> {
                   ],
                 ),
               ],
-              bottom: const TabBar(
-                tabs: [Tab(text: 'اللوحة'), Tab(text: 'الشات'), Tab(text: 'اللحظات'), Tab(text: 'الأسبوع')],
+              bottom: TabBar(
+                controller: _tabs,
+                tabs: [_tab('اللوحة', _tabKinds[0]), _tab('الشات', _tabKinds[1]), _tab('اللحظات', _tabKinds[2]), _tab('الأسبوع', null)],
               ),
             ),
             body: TabBarView(
+              controller: _tabs,
               children: [
                 BoardTab(api: _api, group: data.group, isOwner: data.isOwner, me: _me, onChanged: _refresh, onInvite: () => _onMenu('invite', data)),
                 ChatTab(api: _api, groupId: widget.groupId, me: _me),
@@ -137,7 +166,6 @@ class _GroupScreenState extends State<GroupScreen> {
                 WeekTab(api: _api, groupId: widget.groupId, groupName: name, members: data.members),
               ],
             ),
-          ),
         );
       },
     );

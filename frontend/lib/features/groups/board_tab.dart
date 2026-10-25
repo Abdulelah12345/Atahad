@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 
 import '../../core/theme/at_colors.dart';
 import '../../core/theme/at_tokens.dart';
@@ -106,6 +107,7 @@ class _BoardTabState extends State<BoardTab> with AutomaticKeepAliveClientMixin 
           ],
           if (data.goal != null) ...[
             _GoalSection(goal: data.goal!, board: data.board),
+            if (data.goal!['proofMethod'] == 'LOCATION') _MyPlaceCard(api: widget.api, groupId: _groupId),
             SectionTitle('هالأسبوع', trailing: TextButton(onPressed: () => _showHistory(context), child: const Text('الأهداف السابقة'))),
             for (final (i, row) in _ranked(data.board).indexed) ...[
               _BoardRow(row: row, place: i + 1, isMe: row['memberId'] == widget.me, onAlert: () => _alert(row)),
@@ -1033,6 +1035,210 @@ class _Stepper extends StatelessWidget {
         SizedBox(width: 36, child: Text(arabicDigits(value), style: text.headlineSmall, textAlign: TextAlign.center)),
         IconButton(onPressed: value < max ? () => onChanged(value + 1) : null, icon: const Icon(Icons.add_circle_outline)),
       ],
+    );
+  }
+}
+
+// ---------- my place (LOCATION goal) ----------
+// every member proves the goal in his own place (his gym, his mosque ...), he searches for it by name
+class _MyPlaceCard extends StatefulWidget {
+  final GroupApi api;
+  final int groupId;
+
+  const _MyPlaceCard({required this.api, required this.groupId});
+
+  @override
+  State<_MyPlaceCard> createState() => _MyPlaceCardState();
+}
+
+class _MyPlaceCardState extends State<_MyPlaceCard> {
+  Map<String, dynamic>? _place;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final place = await widget.api.myPlace(widget.groupId);
+      if (mounted) setState(() => _place = place);
+    } catch (_) {
+      // the card stays with "choose your place"
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _choose() async {
+    final saved = await showModalBottomSheet<bool>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (_) => _PlaceSearchSheet(api: widget.api, groupId: widget.groupId),
+    );
+    if (saved == true) {
+      await _load();
+      if (mounted) showMessage(context, 'حفظنا مكانك');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) return const SizedBox.shrink();
+    final text = Theme.of(context).textTheme;
+    final c = context.colors;
+    final name = '${_place?['name'] ?? ''}';
+    return Padding(
+      padding: const EdgeInsets.only(top: Space.s3),
+      child: AppCard(
+        onTap: _choose,
+        child: Row(
+          children: [
+            Icon(_place == null ? Icons.add_location_alt_outlined : Icons.location_on, color: c.primary),
+            const SizedBox(width: Space.s3),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(_place == null ? 'اختر مكانك' : 'مكانك', style: text.labelSmall),
+                  Text(_place == null ? 'الإثبات يكون بموقعك في المكان اللي تختاره' : (name.isEmpty ? 'مكان محفوظ' : name),
+                      style: _place == null ? text.bodySmall : text.titleMedium),
+                ],
+              ),
+            ),
+            Text(_place == null ? 'اختيار' : 'تغيير', style: text.labelLarge!.copyWith(color: c.primary)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PlaceSearchSheet extends StatefulWidget {
+  final GroupApi api;
+  final int groupId;
+
+  const _PlaceSearchSheet({required this.api, required this.groupId});
+
+  @override
+  State<_PlaceSearchSheet> createState() => _PlaceSearchSheetState();
+}
+
+class _PlaceSearchSheetState extends State<_PlaceSearchSheet> {
+  final _query = TextEditingController();
+  Timer? _wait;
+  List<Map<String, dynamic>> _results = [];
+  bool _searching = false;
+  bool _saving = false;
+  String? _error;
+  Position? _here; // to put the near places first (only when the location is already allowed)
+
+  @override
+  void initState() {
+    super.initState();
+    _locate();
+  }
+
+  Future<void> _locate() async {
+    try {
+      final permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.always || permission == LocationPermission.whileInUse) {
+        _here = await Geolocator.getLastKnownPosition();
+      }
+    } catch (_) {}
+  }
+
+  @override
+  void dispose() {
+    _wait?.cancel();
+    _query.dispose();
+    super.dispose();
+  }
+
+  // searches after he stops typing
+  void _onType(String value) {
+    _wait?.cancel();
+    _wait = Timer(const Duration(milliseconds: 600), () => _search(value));
+  }
+
+  Future<void> _search(String value) async {
+    if (value.trim().length < 2) {
+      setState(() => _results = []);
+      return;
+    }
+    setState(() {
+      _searching = true;
+      _error = null;
+    });
+    try {
+      final results = await widget.api.searchPlaces(value.trim(), lat: _here?.latitude, lng: _here?.longitude);
+      if (!mounted || _query.text != value) return;
+      setState(() => _results = results);
+    } catch (e) {
+      if (mounted) setState(() => _error = errorText(e));
+    } finally {
+      if (mounted) setState(() => _searching = false);
+    }
+  }
+
+  Future<void> _pick(Map<String, dynamic> place) async {
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+    try {
+      await widget.api.setMyPlace(widget.groupId, place);
+      if (mounted) Navigator.pop(context, true);
+    } catch (e) {
+      if (mounted) setState(() => _error = errorText(e));
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    return SheetBody(
+      title: 'وين مكانك؟',
+      error: _error,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          TextField(
+            controller: _query,
+            autofocus: true,
+            onChanged: _onType,
+            textInputAction: TextInputAction.search,
+            onSubmitted: _search,
+            decoration: InputDecoration(
+              hintText: 'اكتب اسم المكان، مثل: نادي، مسجد، مكتبة',
+              prefixIcon: const Icon(Icons.search),
+              suffixIcon: _searching ? const Padding(padding: EdgeInsets.all(12), child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))) : null,
+            ),
+          ),
+          const SizedBox(height: Space.s3),
+          if (_saving) const LinearProgressIndicator(),
+          if (!_searching && _results.isEmpty && _query.text.trim().length >= 2)
+            Padding(
+              padding: const EdgeInsets.all(Space.s4),
+              child: Text('ما لقينا مكان بهالاسم، جرّب اسم ثاني', style: text.bodySmall, textAlign: TextAlign.center),
+            ),
+          for (final p in _results)
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.place_outlined),
+              title: Text('${p['name'] ?? ''}'),
+              subtitle: Text('${p['address'] ?? ''}', maxLines: 2, overflow: TextOverflow.ellipsis),
+              onTap: _saving ? null : () => _pick(p),
+            ),
+          const SizedBox(height: Space.s2),
+          Text('تقدر تغيّر المكان لين أول إثبات مقبول', style: text.labelSmall, textAlign: TextAlign.center),
+        ],
+      ),
     );
   }
 }

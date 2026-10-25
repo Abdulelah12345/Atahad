@@ -189,9 +189,9 @@ class _PrintedPhoto extends StatelessWidget {
                   child: AspectRatio(
                     aspectRatio: 1,
                     child: isVideo
-                        ? _VideoThumb(url: '${moment['mediaUrl'] ?? ''}')
+                        ? _VideoThumb(url: GroupApi.media(moment['mediaUrl']))
                         : Image.network(
-                            '${moment['mediaUrl'] ?? ''}',
+                            GroupApi.media(moment['mediaUrl']),
                             fit: BoxFit.cover,
                             errorBuilder: (context, error, stack) => Container(color: c.surfaceSunken, child: Icon(Icons.broken_image_outlined, color: c.inkSubtle)),
                           ),

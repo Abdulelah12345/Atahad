@@ -123,7 +123,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
                     ),
                   ),
                 for (final g in groups) ...[
-                  _GroupTile(group: g, hasNew: _activity.hasNew(g['groupId'] as int), onTap: () => _open(g['groupId'] as int)),
+                  _GroupTile(group: g, whereNew: _activity.whereNew(g['groupId'] as int), onTap: () => _open(g['groupId'] as int)),
                   const SizedBox(height: Space.s3),
                 ],
                 if (groups.isNotEmpty)
@@ -139,10 +139,12 @@ class _GroupsScreenState extends State<GroupsScreen> {
 
 class _GroupTile extends StatelessWidget {
   final Map<String, dynamic> group;
-  final bool hasNew; // something new in the group since I opened it
+  final String? whereNew; // where the new things are (null = nothing new)
   final VoidCallback onTap;
 
-  const _GroupTile({required this.group, required this.hasNew, required this.onTap});
+  const _GroupTile({required this.group, required this.whereNew, required this.onTap});
+
+  bool get hasNew => whereNew != null;
 
   @override
   Widget build(BuildContext context) {
@@ -181,7 +183,7 @@ class _GroupTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(name, style: text.headlineSmall!.copyWith(color: Colors.white)),
-                Text(hasNew ? 'فيه جديد' : (isOwner ? 'منشئ المجموعة' : 'عضو'),
+                Text(whereNew ?? (isOwner ? 'منشئ المجموعة' : 'عضو'),
                     style: text.labelSmall!.copyWith(color: Colors.white, fontWeight: hasNew ? FontWeight.w700 : null)),
               ],
             ),

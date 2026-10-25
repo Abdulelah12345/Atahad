@@ -1,5 +1,7 @@
 package com.example.atahad.Service;
 
+import com.example.atahad.Dto.Out.PlaceResponse;
+import com.example.atahad.Dto.In.CommitmentTargetRequest;
 import com.example.atahad.Api.ApiException;
 import com.example.atahad.Dto.In.GoalSuggestRequest;
 import com.example.atahad.Dto.In.GroupGoalRequest;
@@ -34,6 +36,7 @@ public class GroupGoalService {
     private final GoalRepository goalRepository;
     private final GoalTaskRepository goalTaskRepository;
     private final GoalService goalService;
+    private final CommitmentService commitmentService;
 
     // a week of the plan
     public record WeekTask(String title, Integer timesPerWeek) {}
@@ -257,6 +260,38 @@ public class GroupGoalService {
             }
         }
         groupAccessService.systemMessage(goal.getGroup(), "The goal " + goal.getTitle() + " ended, vote for the next goal");
+    }
+
+    // the place of the member in a LOCATION goal (every member has his own place, like his own gym)
+    public PlaceResponse getMyPlace(Integer groupId, Integer memberId){
+        Commitment commitment = myLocationCommitment(groupId, memberId);
+        if(commitment.getTargetLatitude() == null){
+            return null;
+        }
+        return new PlaceResponse(commitment.getTargetPlaceName(), null,
+                commitment.getTargetLatitude(), commitment.getTargetLongitude());
+    }
+
+    // he chose it from the search, it can change until his first accepted proof (checked in setTarget)
+    public void setMyPlace(Integer groupId, Integer memberId, CommitmentTargetRequest dto){
+        if(dto.getLatitude() == null || dto.getLongitude() == null){
+            throw new ApiException("Choose the place first");
+        }
+        dto.setMinutes(null); // the minutes of a group goal are the same for every member
+        Commitment commitment = myLocationCommitment(groupId, memberId);
+        commitmentService.setTarget(memberId, commitment.getId(), dto);
+    }
+
+    private Commitment myLocationCommitment(Integer groupId, Integer memberId){
+        GroupGoal goal = getActiveGoal(groupId, memberId);
+        if(!"LOCATION".equals(goal.getProofMethod())){
+            throw new ApiException("This goal is not proved with the location");
+        }
+        Commitment commitment = getMemberCommitment(goal, groupAccessService.getMember(memberId));
+        if(commitment == null){
+            throw new ApiException("You are not in this goal");
+        }
+        return commitment;
     }
 
     public Commitment getMemberCommitment(GroupGoal goal, Member member){

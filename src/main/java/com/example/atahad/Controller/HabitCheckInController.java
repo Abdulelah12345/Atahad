@@ -15,11 +15,14 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/v1")
 @RequiredArgsConstructor
 public class HabitCheckInController {
+    private final com.example.atahad.Service.AuthenticatedUserService authenticatedUserService;
     private final ProofDecisionService proofDecisionService;
     private final ExcuseDecisionService excuseDecisionService;
 
     @PostMapping("/proof/habit/{memberId}/{weekId}")
     public ResponseEntity<?> addHabitProof(@PathVariable Integer memberId, @PathVariable Integer weekId, @RequestBody @Valid ProofRequest request){
+        // فحص هوية طلب HTTP هنا، حتى لا نكسر إنشاء الإثبات من الإغلاق المجدول للزيارة.
+        authenticatedUserService.checkMember(memberId);
         return ResponseEntity.status(200).body(proofDecisionService.addHabitProof(memberId, weekId, request));
     }
 

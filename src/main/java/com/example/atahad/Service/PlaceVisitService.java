@@ -21,6 +21,7 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class PlaceVisitService {
+    private final AuthenticatedUserService authenticatedUserService;
     private final PlaceVisitRepository placeVisitRepository;
     private final MemberRepository memberRepository;
     private final CommitmentRepository commitmentRepository;
@@ -33,6 +34,7 @@ public class PlaceVisitService {
     public static final int AUTO_CLOSE_HOURS = 4;
 
     public PlaceVisit enter(Integer memberId, Integer commitmentId, Integer goalTaskId, PlaceVisitRequest request){
+        authenticatedUserService.checkMember(memberId);
         Member member = getMember(memberId);
         lockService.checkCanAct(member);
         Commitment commitment = commitmentRepository.findCommitmentById(commitmentId);
@@ -83,6 +85,7 @@ public class PlaceVisitService {
     }
 
     public PlaceVisit exit(Integer memberId, Integer commitmentId){
+        authenticatedUserService.checkMember(memberId);
         getMember(memberId);
         PlaceVisit visit = placeVisitRepository.findFirstByMemberIdAndCommitmentIdAndStatus(memberId, commitmentId, "OPEN");
         if(visit == null){
@@ -107,6 +110,7 @@ public class PlaceVisitService {
     }
 
     public List<PlaceVisit> getMyVisits(Integer memberId){
+        authenticatedUserService.checkMember(memberId);
         getMember(memberId);
         return placeVisitRepository.findPlaceVisitsByMemberIdOrderByEnteredAtDesc(memberId);
     }

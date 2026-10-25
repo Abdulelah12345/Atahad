@@ -7,9 +7,9 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../core/widgets/states.dart';
 import 'group_api.dart';
 
-// what is new in every group (a red dot on the group card until the group is opened),
+// what is new in every group and where: an alert on the board, a message in the chat or a new moment
+// (a red dot on the group card and on the tab, until that tab is opened),
 // and a notification with sound when a friend sends me an alert (while the app is open)
-// the real push when the app is closed needs Firebase on the phone (later)
 class GroupActivity extends ChangeNotifier {
   GroupActivity._();
 
@@ -19,18 +19,38 @@ class GroupActivity extends ChangeNotifier {
   final _notifications = FlutterLocalNotificationsPlugin();
   bool _ready = false;
 
-  final Map<int, DateTime> _seen = {}; // when I opened the group last time
-  final Map<int, DateTime> _latest = {}; // the newest thing a friend did in the group
+  // the places of a group where something can be new
+  static const alert = 'alert'; // the board
+  static const chat = 'chat';
+  static const moments = 'moments';
+  static const _kinds = [alert, chat, moments];
+
+  final Map<String, DateTime> _seen = {}; // 'groupId:kind' -> when I opened it last time
+  final Map<String, DateTime> _latest = {}; // 'groupId:kind' -> the newest thing a friend did there
   final Set<int> _notified = {}; // alerts already shown as a notification
   final Set<int> dismissed = {}; // alerts I removed from the board
 
   // a dot on the groups tab in the bottom bar
-  bool get hasAnyNew => _latest.keys.any(hasNew);
+  bool get hasAnyNew => _latest.keys.any((k) => _isNew(k));
 
-  bool hasNew(int groupId) {
-    final latest = _latest[groupId];
-    final seen = _seen[groupId];
+  bool _isNew(String key) {
+    final latest = _latest[key];
+    final seen = _seen[key];
     return latest != null && seen != null && latest.isAfter(seen);
+  }
+
+  bool hasNew(int groupId) => _kinds.any((k) => hasNewIn(groupId, k));
+
+  bool hasNewIn(int groupId, String kind) => _isNew('$groupId:$kind');
+
+  // where the new things are, for the group card
+  String? whereNew(int groupId) {
+    final parts = [
+      if (hasNewIn(groupId, alert)) 'تنبيه لك باللوحة',
+      if (hasNewIn(groupId, chat)) 'رسالة جديدة بالشات',
+      if (hasNewIn(groupId, moments)) 'لحظة جديدة',
+    ];
+    return parts.isEmpty ? null : parts.join(' · ');
   }
 
   Future<void> _init() async {
@@ -40,7 +60,7 @@ class GroupActivity extends ChangeNotifier {
       final raw = await _storage.read(key: 'group_activity');
       if (raw != null) {
         final data = jsonDecode(raw) as Map<String, dynamic>;
-        (data['seen'] as Map<String, dynamic>? ?? {}).forEach((k, v) => _seen[int.parse(k)] = DateTime.parse('$v'));
+        (data['seenIn'] as Map<String, dynamic>? ?? {}).forEach((k, v) => _seen[k] = DateTime.parse('$v'));
         _notified.addAll(((data['notified'] as List?) ?? []).map((e) => e as int));
         dismissed.addAll(((data['dismissed'] as List?) ?? []).map((e) => e as int));
       }
@@ -63,7 +83,7 @@ class GroupActivity extends ChangeNotifier {
       await _storage.write(
         key: 'group_activity',
         value: jsonEncode({
-          'seen': _seen.map((k, v) => MapEntry('$k', v.toIso8601String())),
+          'seenIn': _seen.map((k, v) => MapEntry(k, v.toIso8601String())),
           'notified': _notified.toList(),
           'dismissed': dismissed.toList(),
         }),
@@ -71,10 +91,11 @@ class GroupActivity extends ChangeNotifier {
     } catch (_) {}
   }
 
-  // opening the group removes its red dot
-  Future<void> markSeen(int groupId) async {
+  // opening a tab of the group removes its red dot
+  Future<void> markSeen(int groupId, String kind) async {
     await _init();
-    _seen[groupId] = DateTime.now();
+    if (!hasNewIn(groupId, kind) && _seen.containsKey('$groupId:$kind')) return;
+    _seen['$groupId:$kind'] = DateTime.now();
     notifyListeners();
     await _save();
   }
@@ -92,40 +113,47 @@ class GroupActivity extends ChangeNotifier {
     for (final g in groups) {
       final id = g['groupId'] as int?;
       if (id == null) continue;
-      _seen.putIfAbsent(id, () {
-        changed = true;
-        return DateTime.now(); // a new group starts without a red dot
-      });
-      DateTime? latest;
-      void take(Object? value) {
-        final t = DateTime.tryParse('${value ?? ''}');
-        if (t != null && (latest == null || t.isAfter(latest!))) latest = t;
+      for (final k in _kinds) {
+        _seen.putIfAbsent('$id:$k', () {
+          changed = true;
+          return DateTime.now(); // a new group starts without a red dot
+        });
       }
+      final latest = <String, DateTime>{};
+      void take(String kind, Object? value) {
+        final t = DateTime.tryParse('${value ?? ''}');
+        if (t != null && (latest[kind] == null || t.isAfter(latest[kind]!))) latest[kind] = t;
+      }
+      final groupName = '${g['groupName'] ?? ''}';
 
       try {
         final results = await Future.wait([api.messages(id), api.groupMoments(id), api.myAlertsToday(id)]);
         for (final m in results[0]) {
-          if (m['senderId'] != me) take(m['sentAt']);
+          if (m['senderId'] != me) take(chat, m['sentAt']);
         }
         for (final m in results[1]) {
-          if (m['memberId'] != me) take(m['createdAt']);
+          if (m['memberId'] != me) take(moments, m['createdAt']);
         }
         for (final a in results[2]) {
-          take(a['sentAt']);
+          take(alert, a['sentAt']);
           final alertId = a['id'] as int?;
           if (alertId != null && !_notified.contains(alertId)) {
             _notified.add(alertId);
             changed = true;
-            await _show(alertId, a['isCollective'] == true ? 'تنبيه من المجموعة' : '${a['senderName'] ?? ''} ينبهك', '${a['message'] ?? ''}');
+            final from = a['isCollective'] == true ? 'تنبيه من المجموعة' : '${a['senderName'] ?? ''} ينبهك';
+            final place = '${a['groupName'] ?? groupName}';
+            await _show(alertId, '$from · $place', '${a['message'] ?? ''}\nتلقاه في لوحة المجموعة');
           }
         }
       } catch (_) {
         continue;
       }
-      if (latest != null && _latest[id] != latest) {
-        _latest[id] = latest!;
-        changed = true;
-      }
+      latest.forEach((kind, t) {
+        if (_latest['$id:$kind'] != t) {
+          _latest['$id:$kind'] = t;
+          changed = true;
+        }
+      });
     }
     if (changed) {
       notifyListeners();

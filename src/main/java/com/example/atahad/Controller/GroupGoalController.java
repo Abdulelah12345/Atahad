@@ -1,5 +1,7 @@
 package com.example.atahad.Controller;
 
+import com.example.atahad.Api.ApiResponse;
+import com.example.atahad.Dto.In.CommitmentTargetRequest;
 import com.example.atahad.Dto.In.GoalSuggestRequest;
 import com.example.atahad.Dto.In.GroupGoalRequest;
 import com.example.atahad.Service.GroupGoalService;
@@ -43,5 +45,17 @@ public class GroupGoalController {
     @GetMapping("/board/{groupId}")
     public ResponseEntity<?> getBoard(@AuthenticationPrincipal User user, @PathVariable Integer groupId){
         return ResponseEntity.status(200).body(groupGoalService.getBoard(groupId, user.getId()));
+    }
+
+    // LOCATION goal: the place of the member (null until he chooses it)
+    @GetMapping("/my-place/{groupId}")
+    public ResponseEntity<?> getMyPlace(@AuthenticationPrincipal User user, @PathVariable Integer groupId){
+        return ResponseEntity.status(200).body(groupGoalService.getMyPlace(groupId, user.getId()));
+    }
+
+    @PutMapping("/my-place/{groupId}")
+    public ResponseEntity<?> setMyPlace(@AuthenticationPrincipal User user, @PathVariable Integer groupId, @RequestBody @Valid CommitmentTargetRequest dto){
+        groupGoalService.setMyPlace(groupId, user.getId(), dto);
+        return ResponseEntity.status(200).body(new ApiResponse("Your place is saved"));
     }
 }

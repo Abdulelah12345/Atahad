@@ -13,6 +13,8 @@ import java.time.LocalDateTime;
 @Repository
 public interface ExcuseRepository extends JpaRepository<Excuse, Integer> {
     Excuse findExcuseById(Integer id);
+    // سجل أعذار العضو المسجل فقط، للأهداف والعادات.
+    List<Excuse> findByCommitmentWeekCommitmentMemberIdOrderByIdDesc(Integer memberId);
 
 
     /*

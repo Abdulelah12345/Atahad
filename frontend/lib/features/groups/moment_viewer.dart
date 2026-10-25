@@ -66,7 +66,7 @@ class _MomentViewerState extends State<MomentViewer> {
         onPageChanged: (i) => setState(() => _index = i),
         itemBuilder: (context, i) {
           final m = widget.moments[i];
-          final url = '${m['mediaUrl'] ?? ''}';
+          final url = GroupApi.media(m['mediaUrl']);
           return Center(
             child: Padding(
               padding: const EdgeInsets.all(Space.s4),

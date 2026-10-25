@@ -52,11 +52,6 @@ public class Member {
     @JsonIgnore
     private String gmailAppPassword;
 
-    // Firebase token of the member phone, used for the push notifications (the group alert)
-    @Column(columnDefinition = "VARCHAR(512)")
-    @JsonIgnore
-    private String deviceToken;
-
     @Column(columnDefinition = "BOOLEAN DEFAULT false")
     private Boolean screenshotBanned = false; // a fake screenshot was found, email only from now
 

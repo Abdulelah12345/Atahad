@@ -1,11 +1,20 @@
 import '../../core/api/api_client.dart';
 import '../../core/api/api_exception.dart';
+import '../../core/config.dart';
 
 // all the group endpoints in one place (Fai)
 class GroupApi {
   final ApiClient api;
 
   GroupApi(this.api);
+
+  // the photo and video links always go to the server the app uses now
+  // (the seed saves /uploads/..., and an old link keeps the address of the network it was taken on)
+  static String media(Object? url) {
+    final link = '${url ?? ''}';
+    final i = link.indexOf('/uploads/');
+    return i < 0 ? link : '${AppConfig.baseUrl}${link.substring(i)}';
+  }
 
   static const _g = '/api/v1/group';
   static const _gm = '/api/v1/group-member';
@@ -52,6 +61,21 @@ class GroupApi {
         '$_goal/suggest/$groupId',
         body: {'goal': goal, 'endDate': endDate.toIso8601String().substring(0, 10)},
       ));
+
+  // LOCATION goal: my own place (null until I choose it), chosen from the Google search
+  Future<Map<String, dynamic>?> myPlace(int groupId) async {
+    final data = await api.get('$_goal/my-place/$groupId');
+    return data is Map ? Map<String, dynamic>.from(data) : null;
+  }
+
+  Future<void> setMyPlace(int groupId, Map<String, dynamic> place) => api.put('$_goal/my-place/$groupId', body: {
+        'latitude': place['latitude'],
+        'longitude': place['longitude'],
+        'placeName': '${place['name'] ?? ''}'.length > 100 ? '${place['name']}'.substring(0, 100) : place['name'],
+      });
+
+  Future<List<Map<String, dynamic>>> searchPlaces(String query, {double? lat, double? lng}) async =>
+      _list(await api.get('/api/v1/place/search', query: {'query': query, 'lat': lat, 'lng': lng}));
 
   // ---------- proposals ----------
   Future<List<Map<String, dynamic>>> proposals(int groupId) async => _list(await api.get('$_prop/open/$groupId'));

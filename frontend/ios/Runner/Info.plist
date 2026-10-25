@@ -66,6 +66,8 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>نستخدم موقعك وقت إثبات الزيارة فقط، عشان نتأكد إنك في المكان</string>
 	<key>NSCameraUsageDescription</key>
 	<string>الكاميرا لمسح باركود المجموعة وتصوير الإثبات</string>
 	<key>NSMicrophoneUsageDescription</key>

@@ -22,6 +22,7 @@ import java.util.regex.Pattern;
 @Service
 @RequiredArgsConstructor
 public class ProofChallengeService {
+    private final AuthenticatedUserService authenticatedUserService;
     private final ProofChallengeRepository proofChallengeRepository;
     private final CommitmentWeekRepository commitmentWeekRepository;
     private final GoalTaskRepository goalTaskRepository;
@@ -33,6 +34,8 @@ public class ProofChallengeService {
             "لوّح للكاميرا بيدك", "حط يدك على راسك");
 
     public ProofChallengeResponse create(Integer memberId, Integer weekId, Integer goalTaskId){
+        // العضو في الرابط يجب أن يكون صاحب جلسة الدخول.
+        authenticatedUserService.checkMember(memberId);
         CommitmentWeek week = commitmentWeekRepository.findCommitmentWeekById(weekId);
         if(week == null || !week.getCommitment().getMember().getId().equals(memberId)){
             throw new ApiException("Week not found");

@@ -34,7 +34,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.setup.MockMvcBuilders.webAppContextSetup;
 
 // Tests the real filter chain without loading the database, application services or external APIs.
-@SpringJUnitConfig(classes = {SecurityConfig.class, SecurityConfigTest.TestWebConfig.class})
+@SpringJUnitConfig(classes = {SecurityConfig.class, FrontendCorsConfig.class, SecurityConfigTest.TestWebConfig.class})
 @WebAppConfiguration
 class SecurityConfigTest {
     @Autowired
@@ -45,6 +45,21 @@ class SecurityConfigTest {
 
     static Stream<Route> restrictedRoutes() {
         return Stream.of(
+                new Route("GET", "/api/v1/proof-workspace/my", "MEMBER"),
+                new Route("GET", "/api/v1/proof-workspace/attachment/1", "MEMBER"),
+                new Route("POST", "/api/v1/excuse/attachment", "MEMBER"),
+                new Route("POST", "/api/v1/excuse/attachment/1", "MEMBER"),
+                new Route("POST", "/api/v1/donation-proof/attachment", "MEMBER"),
+                new Route("POST", "/api/v1/donation-proof/attachment/1", "MEMBER"),
+                new Route("GET", "/api/v1/admin-review/penalties/1", "ADMIN"),
+                new Route("POST", "/api/v1/admin-review/start/1/2", "ADMIN"),
+                new Route("POST", "/api/v1/quiz/create/1/2", "MEMBER"),
+                new Route("POST", "/api/v1/challenge/create/1/2", "MEMBER"),
+                new Route("POST", "/api/v1/visit/enter/1/2", "MEMBER"),
+                new Route("POST", "/api/v1/visit/exit/1/2", "MEMBER"),
+                new Route("GET", "/api/v1/visit/my/1", "MEMBER"),
+                new Route("POST", "/api/v1/proof-attempt/start/1", "MEMBER"),
+                new Route("POST", "/api/v1/proof-attempt/timer/1/state", "MEMBER"),
                 new Route("GET", "/api/v1/proof/get-all", "ADMIN"),
                 new Route("GET", "/api/v1/proof/get/1", "MEMBER"),
                 new Route("GET", "/api/v1/proof/get-my-proofs", "MEMBER"),
@@ -76,6 +91,31 @@ class SecurityConfigTest {
                 new Route("GET", "/api/v1/admin-review/queue/1", "ADMIN"),
                 new Route("PUT", "/api/v1/admin-review/decide/1/PROOF/2/true", "ADMIN")
         );
+    }
+
+    @Test
+    void localFlutterPreflightIsAllowedBeforeAuthentication() throws Exception {
+        mvc.perform(options("/api/v1/member/profile")
+                        .header("Origin", "http://localhost:5173")
+                        .header("Access-Control-Request-Method", "GET")
+                        .header("Access-Control-Request-Headers", "authorization,content-type"))
+                .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header()
+                        .string("Access-Control-Allow-Origin", "http://localhost:5173"));
+    }
+
+    @Test
+    void unlistedBrowserOriginIsDenied() throws Exception {
+        mvc.perform(options("/api/v1/member/profile")
+                        .header("Origin", "https://untrusted.example")
+                        .header("Access-Control-Request-Method", "GET"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void localFlutterStillNeedsAuthentication() throws Exception {
+        mvc.perform(get("/api/v1/member/profile").header("Origin", "http://localhost:5173"))
+                .andExpect(status().isUnauthorized());
     }
 
     @BeforeEach
@@ -193,10 +233,10 @@ class SecurityConfigTest {
         }
 
         @Bean
-        UserDetailsService testUsers(PasswordEncoder encoder) {
+        MyUserDetailsService testUsers() {
             // Exercise the production loader and entity with an isolated repository.
             UserRepository repository = mock(UserRepository.class);
-            String hash = encoder.encode("test-password");
+            String hash = new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder().encode("test-password");
             for (String email : new String[]{"member@example.test", "locked@example.test", "disabled@example.test", "banned@example.test"}) {
                 com.example.atahad.Entity.User user = new com.example.atahad.Entity.User();
                 user.setId(1);
