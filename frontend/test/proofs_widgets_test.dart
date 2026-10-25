@@ -10,6 +10,7 @@ import 'package:atahad/core/widgets/widgets.dart';
 import 'package:atahad/features/proofs/proofs_home_screen.dart';
 import 'package:atahad/features/proofs/proof_session_screen.dart';
 import 'package:atahad/features/proofs/request_forms.dart';
+import 'package:atahad/features/proofs/proof_widgets.dart';
 import 'package:atahad/features/commitments/create_commitment_screen.dart';
 import 'support/proofs_fake_api.dart';
 
@@ -32,6 +33,64 @@ Widget harness(Widget child, ProofsFakeApi api) => MultiProvider(
     );
 
 void main() {
+  testWidgets(
+      'Identical goal and task titles display only once, including old links',
+      (tester) async {
+    await tester.pumpWidget(harness(
+        const ActivityHeading(title: 'ترتيب المكتب - ترتيب المكتب'),
+        ProofsFakeApi()));
+    expect(find.text('ترتيب المكتب'), findsOneWidget);
+    expect(find.text('ترتيب المكتب - ترتيب المكتب'), findsNothing);
+    await tester.pumpWidget(harness(
+        const ActivityHeading(
+            title: 'ترتيب المكتب',
+            goalTitle: 'ترتيب المكتب',
+            taskTitle: 'ترتيب المكتب'),
+        ProofsFakeApi()));
+    expect(find.text('ترتيب المكتب'), findsOneWidget);
+  });
+
+  testWidgets('Different task title is the heading and goal title is secondary',
+      (tester) async {
+    await tester.pumpWidget(harness(
+        const ActivityHeading(
+            title: 'goal - task',
+            goalTitle: 'هدف القراءة',
+            taskTitle: 'قراءة الفصل الأول'),
+        ProofsFakeApi()));
+    expect(find.text('قراءة الفصل الأول'), findsOneWidget);
+    expect(find.text('هدف القراءة'), findsOneWidget);
+    expect(find.text('goal - task'), findsNothing);
+  });
+
+  testWidgets('Submitted photo awaiting admin review cannot be captured again',
+      (tester) async {
+    final api = ProofsFakeApi();
+    final state = api.session(103);
+    state['proof']['result'] = 'ESCALATED';
+    state['proof']['primaryCaptureId'] = 22;
+    state['evidence'][0]['result'] = 'ESCALATED';
+    await tester.pumpWidget(harness(
+        const ProofSessionScreen(
+            proofId: 103, title: 'ترتيب المكتب - ترتيب المكتب'),
+        api));
+    await tester.pumpAndSettle();
+    expect(find.text('ترتيب المكتب'), findsOneWidget);
+    expect(find.text('التقط صورة الإثبات'), findsNothing);
+    expect(find.textContaining('صوّر النتيجة'), findsNothing);
+    expect(find.text('نتيجة كل دليل'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('Photo attempt without a submitted image keeps capture available',
+      (tester) async {
+    await tester.pumpWidget(harness(
+        const ProofSessionScreen(proofId: 103, title: 'ترتيب المكتب'),
+        ProofsFakeApi()));
+    await tester.pumpAndSettle();
+    expect(find.text('التقط صورة الإثبات'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
   testWidgets('Welcome expires while the timer state remains visible',
       (tester) async {
     await tester.pumpWidget(harness(

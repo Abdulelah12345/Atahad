@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/api/api_client.dart';
 import '../proofs/activity_proof_entry.dart';
+import '../proofs/proof_widgets.dart';
 import '../../core/auth/auth_state.dart';
 import '../../core/theme/at_colors.dart';
 import '../../core/theme/at_tokens.dart';
@@ -62,7 +63,10 @@ class HomeScreen extends StatelessWidget {
                       Row(
                         children: [
                           Expanded(
-                              child: Text('${t['title']}',
+                              child: ActivityHeading(
+                                  title: '${t['title']}',
+                                  goalTitle: t['goalTitle'] as String?,
+                                  taskTitle: t['taskTitle'] as String?,
                                   style: text.headlineSmall)),
                           StatusBadge.track(t['trackStatus'] as String?),
                         ],

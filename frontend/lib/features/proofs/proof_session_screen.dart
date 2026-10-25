@@ -134,7 +134,10 @@ class _ProofStartScreenState extends State<ProofStartScreen> {
               Icon(methodIcon(task['proofMethod'] as String?),
                   size: 54, color: context.colors.primary),
               const SizedBox(height: 20),
-              Text('${task['title']}',
+              ActivityHeading(
+                  title: '${task['title']}',
+                  goalTitle: task['goalTitle'] as String?,
+                  taskTitle: task['taskTitle'] as String?,
                   style: Theme.of(context).textTheme.headlineMedium,
                   textAlign: TextAlign.center),
               const SizedBox(height: 10),
@@ -230,6 +233,7 @@ class _ProofSessionScreenState extends State<ProofSessionScreen> {
   Object? _error;
   bool _busy = false;
   bool _syncing = false;
+  bool _photoSubmitted = false;
   Timer? _poll;
   Timer? _clock;
   Timer? _welcomeTimer;
@@ -314,7 +318,10 @@ class _ProofSessionScreenState extends State<ProofSessionScreen> {
         await _api.client.post('/api/v1/proof-attempt/${widget.proofId}/submit',
             body: {'evidenceData': '$id'});
       }
-      if (mounted) showMessage(context, 'تم إرفاق الإثبات بنجاح');
+      if (mounted) {
+        if (kind == 'PHOTO') setState(() => _photoSubmitted = true);
+        showMessage(context, 'تم إرفاق الإثبات بنجاح');
+      }
     });
   }
 
@@ -353,6 +360,12 @@ class _ProofSessionScreenState extends State<ProofSessionScreen> {
     final proof = Map<String, dynamic>.from(_state!['proof'] as Map);
     final evidence = ProofsApi.maps(_state!['evidence']);
     final accepted = proof['result'] == 'ACCEPTED';
+    final hasPhoto = _photoSubmitted ||
+        proof['primaryCaptureId'] != null ||
+        '${proof['evidenceData'] ?? ''}'.startsWith('data:image/') ||
+        evidence.any((e) =>
+            e['type'] == 'PHOTO' &&
+            (e['decidedAt'] != null || e['result'] != 'PENDING'));
     final deadline = serverInstant(proof['attemptDeadline']);
     final closed = deadline != null && !DateTime.now().isBefore(deadline);
     final photosWaiting = evidence
@@ -366,7 +379,11 @@ class _ProofSessionScreenState extends State<ProofSessionScreen> {
               icon: const Icon(Icons.refresh))
         ],
         child: ListView(padding: const EdgeInsets.all(24), children: [
-          Text(widget.title, style: Theme.of(context).textTheme.headlineMedium),
+          ActivityHeading(
+              title: widget.title,
+              goalTitle: _state!['goalTitle'] as String?,
+              taskTitle: _state!['taskTitle'] as String?,
+              style: Theme.of(context).textTheme.headlineMedium),
           const SizedBox(height: 12),
           StatusBadge.review(proof['result'] as String?),
           if (_welcome) ...[
@@ -383,7 +400,10 @@ class _ProofSessionScreenState extends State<ProofSessionScreen> {
                 'انتهت مهلة هذه المحاولة. التفاصيل والنتائج محفوظة في سجلك.'),
           if (_state!['timer'] != null)
             _timer(Map<String, dynamic>.from(_state!['timer'] as Map), closed),
-          if (proof['type'] == 'PHOTO' && !accepted && !closed) ...[
+          if (proof['type'] == 'PHOTO' &&
+              !hasPhoto &&
+              !accepted &&
+              !closed) ...[
             const SizedBox(height: 24),
             const ProofNotice(
                 'صوّر النتيجة المرتبطة بالنشاط بوضوح. الصورة المباشرة فقط، دون رفع من المعرض.'),

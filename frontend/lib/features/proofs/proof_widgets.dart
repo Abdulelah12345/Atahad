@@ -8,6 +8,54 @@ import '../../core/utils/format.dart';
 import '../../core/widgets/widgets.dart';
 import 'proofs_api.dart';
 
+class ActivityHeading extends StatelessWidget {
+  final String title;
+  final String? goalTitle;
+  final String? taskTitle;
+  final TextStyle? style;
+  final TextAlign textAlign;
+  const ActivityHeading(
+      {super.key,
+      required this.title,
+      this.goalTitle,
+      this.taskTitle,
+      this.style,
+      this.textAlign = TextAlign.start});
+
+  @override
+  Widget build(BuildContext context) {
+    final goal = goalTitle?.trim();
+    final task = taskTitle?.trim();
+    var heading = task != null && task.isNotEmpty ? task : title.trim();
+    // Older links may still contain the duplicated combined title.
+    final parts = heading.split(' - ');
+    if (parts.length == 2 && parts[0].trim() == parts[1].trim()) {
+      heading = parts[0].trim();
+    }
+    final subtitle = task != null &&
+            task.isNotEmpty &&
+            goal != null &&
+            goal.isNotEmpty &&
+            goal != task
+        ? goal
+        : null;
+    return Column(
+      crossAxisAlignment: textAlign == TextAlign.center
+          ? CrossAxisAlignment.center
+          : CrossAxisAlignment.start,
+      children: [
+        Text(heading, style: style, textAlign: textAlign),
+        if (subtitle != null) ...[
+          const SizedBox(height: 6),
+          Text(subtitle,
+              style: Theme.of(context).textTheme.bodySmall,
+              textAlign: textAlign),
+        ],
+      ],
+    );
+  }
+}
+
 class ProofPage extends StatelessWidget {
   final String title;
   final Widget child;

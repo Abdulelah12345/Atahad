@@ -24,5 +24,7 @@ public class TodayTaskResponse {
     private Integer daysLeft;
     private String trackStatus;
     private BigDecimal amountPerTime;
+    private String goalTitle;
+    private String taskTitle;
     private Boolean plannedToday; // only a reminder, never a deduction
 }
