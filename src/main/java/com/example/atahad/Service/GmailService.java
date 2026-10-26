@@ -124,9 +124,10 @@ public class GmailService {
         }
         StringBuilder text = new StringBuilder();
         collectText(message, text);
-        // only emails about Ehsan go to the AI (احسان / إحسان / Ehsan)
+        // only emails about Ehsan or a charity go to the AI (احسان / إحسان / Ehsan / جمعية / خيرية / charity)
         String all = (subject + " " + text).toLowerCase();
-        if(!all.contains("حسان") && !all.contains("ehsan")){
+        if(!all.contains("حسان") && !all.contains("ehsan") && !all.contains("جمعي") && !all.contains("خيري")
+                && !all.contains("charity") && !all.contains("charitable")){
             return null;
         }
         String body = "From: " + from + "\n" + text;

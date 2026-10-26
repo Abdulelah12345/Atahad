@@ -136,5 +136,7 @@ String friendlyError(Object error) {
   if (raw.contains('before') || raw.contains('different captures')) {
     return 'التقط صورة البداية والنهاية بشكل مستقل وفي وقت النشاط.';
   }
+  // an error we have no Arabic text for: show the reason from the server, so it can be fixed
+  if (raw.trim().isNotEmpty) return 'ما اكتمل الطلب: $raw';
   return 'ما اكتمل الطلب. تأكد من البيانات وحاول مرة ثانية.';
 }

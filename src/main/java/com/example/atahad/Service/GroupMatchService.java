@@ -57,8 +57,8 @@ public class GroupMatchService {
                 continue;
             }
 
-            if(hasOpenMatch(groupId, other.getId())){
-                continue;
+            if(hasOpenMatch(groupId, other.getId()) || hasActiveMatch(other.getId(), null)){
+                continue; // one match at a time: a group in a match is not suggested
             }
 
             int size = groupAccessService.activeMembersCount(other.getId());
@@ -149,6 +149,13 @@ public class GroupMatchService {
         if(hasOpenMatch(groupId, opponent.getId())){
             throw new ApiException("There is already a match between the two groups");
         }
+        // one match at a time: not while we are in a match or waiting for an answer, and not against a group in a match
+        if(hasActiveMatch(groupId, null) || hasSentChallenge(groupId)){
+            throw new ApiException("Your group already has a match, one match at a time");
+        }
+        if(hasActiveMatch(opponent.getId(), null)){
+            throw new ApiException("The other group is in a match now, try after it ends");
+        }
         GroupMatch match = new GroupMatch();
         match.setStatus("PENDING");
         match.setChallengerScore(0);
@@ -168,6 +175,9 @@ public class GroupMatchService {
             throw new ApiException("Match not found");
         }
         groupAccessService.checkOwner(match.getOpponent().getId(), ownerId);
+        if(accept && (hasActiveMatch(match.getOpponent().getId(), matchId) || hasActiveMatch(match.getChallenger().getId(), matchId))){
+            throw new ApiException("One of the groups is in a match now, one match at a time");
+        }
         if(accept){
             LocalDate today = LocalDate.now();
             LocalDate start = today.getDayOfWeek() == DayOfWeek.SUNDAY ? today : today.with(TemporalAdjusters.next(DayOfWeek.SUNDAY));
@@ -297,6 +307,26 @@ public class GroupMatchService {
             }
         }
         return count == 0 ? -1 : (double) total / count;
+    }
+
+    // a running match of the group (another one than exceptMatchId)
+    private boolean hasActiveMatch(Integer groupId, Integer exceptMatchId){
+        for(GroupMatch match : groupMatchRepository.findGroupMatchesByChallengerIdOrOpponentIdOrderByIdDesc(groupId, groupId)){
+            if("ACTIVE".equals(match.getStatus()) && !match.getId().equals(exceptMatchId)){
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // the group challenged another group and waits for the answer
+    private boolean hasSentChallenge(Integer groupId){
+        for(GroupMatch match : groupMatchRepository.findGroupMatchesByChallengerIdOrOpponentIdOrderByIdDesc(groupId, groupId)){
+            if("PENDING".equals(match.getStatus()) && match.getChallenger().getId().equals(groupId)){
+                return true;
+            }
+        }
+        return false;
     }
 
     private boolean hasOpenMatch(Integer groupId, Integer otherId){

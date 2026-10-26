@@ -11,10 +11,12 @@ import '../proofs/activity_proof_entry.dart';
 import 'group_activity.dart';
 import 'group_api.dart';
 import 'group_labels.dart';
+import 'group_ui.dart';
 import 'group_widgets.dart';
 
-// the board: the group card, today's alerts, the active goal and every member's week (with the alert button)
-// when there is no goal: the proposals, the votes, and the owner sets the next goal
+// the board (design: GroupBoard): the pardon points, today's alerts, the goal, the ranking of the week (with «نبّه»),
+// and the proof button stuck at the bottom.
+// when there is no goal (design: GroupVote): the proposals, the votes, and the owner sets the next goal
 class BoardTab extends StatefulWidget {
   final GroupApi api;
   final Map<String, dynamic> group;
@@ -34,14 +36,16 @@ class _BoardData {
   final List<Map<String, dynamic>> board;
   final List<Map<String, dynamic>> proposals;
   final List<Map<String, dynamic>> alerts;
+  final Map<int, String> titles; // memberId -> the title of last week
 
-  _BoardData(this.goal, this.board, this.proposals, this.alerts);
+  _BoardData(this.goal, this.board, this.proposals, this.alerts, this.titles);
 }
 
 class _BoardTabState extends State<BoardTab> with AutomaticKeepAliveClientMixin {
   _BoardData? _data;
   String? _error;
   Timer? _timer;
+  bool _proving = false;
   int get _groupId => widget.group['id'] as int;
 
   @override
@@ -65,8 +69,17 @@ class _BoardTabState extends State<BoardTab> with AutomaticKeepAliveClientMixin 
     final api = widget.api;
     final goal = await api.activeGoal(_groupId);
     final alerts = await api.myAlertsToday(_groupId);
-    if (goal == null) return _BoardData(null, const [], await api.proposals(_groupId), alerts);
-    return _BoardData(goal, await api.board(_groupId), const [], alerts);
+    if (goal == null) return _BoardData(null, const [], await api.proposals(_groupId), alerts, const {});
+    final results = await Future.wait([
+      api.board(_groupId),
+      api.latestTitles(_groupId).catchError((_) => <Map<String, dynamic>>[]),
+    ]);
+    final titles = <int, String>{};
+    for (final t in results[1]) {
+      final id = t['memberId'] as int?;
+      if (id != null) titles.putIfAbsent(id, () => '${t['title']}');
+    }
+    return _BoardData(goal, results[0], const [], alerts, titles);
   }
 
   Future<void> _refresh({bool silent = false}) async {
@@ -78,30 +91,13 @@ class _BoardTabState extends State<BoardTab> with AutomaticKeepAliveClientMixin 
         _data = data;
         _error = null;
       });
-      if (goalStarted) widget.onChanged(); // the group card (active goal) changes too
+      if (goalStarted) widget.onChanged(); // the header (active goal) changes too
     } catch (e) {
       if (mounted && !silent) setState(() => _error = errorText(e));
     }
   }
 
   // I did my task: opens its proof (the same steps as the today page), then the board refreshes
-  Widget _proveButton(_BoardData data) {
-    final mine = data.board.where((r) => r['memberId'] == widget.me).toList();
-    if (mine.isEmpty) return const SizedBox.shrink(); // not in this goal (joined after it ended, or kicked)
-    final left = (mine.first['remaining'] as int?) ?? 0;
-    return Padding(
-      padding: const EdgeInsets.only(top: Space.s3),
-      child: AtButton(
-        left == 0 ? 'خلّصت مهام هالأسبوع' : 'سوّيت المهمة؟ وثّق إنجازك',
-        icon: Icon(left == 0 ? Icons.check_circle : Icons.task_alt),
-        onPressed: left == 0 || _proving ? null : _prove,
-        loading: _proving,
-      ),
-    );
-  }
-
-  bool _proving = false;
-
   Future<void> _prove() async {
     setState(() => _proving = true);
     try {
@@ -110,10 +106,37 @@ class _BoardTabState extends State<BoardTab> with AutomaticKeepAliveClientMixin 
       await openActivityProof(context, task);
       await _refresh(silent: true);
     } catch (e) {
-      if (mounted) showError(context, e);
+      if (mounted) showGroupError(context, e);
     } finally {
       if (mounted) setState(() => _proving = false);
     }
+  }
+
+  // the white sheet at the bottom with «سوّيت المهمة؟ وثّق إنجازك»
+  Widget? _proveSheet(_BoardData data) {
+    final mine = data.board.where((r) => r['memberId'] == widget.me).toList();
+    if (data.goal == null || mine.isEmpty) return null; // not in this goal (joined after it started, or left)
+    final left = (mine.first['remaining'] as int?) ?? 0;
+    final c = context.colors;
+    return Container(
+      decoration: BoxDecoration(
+        color: c.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
+        boxShadow: const [BoxShadow(color: Color(0x1410245E), blurRadius: 20, offset: Offset(0, -6))],
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(Space.s4, Space.s3, Space.s4, Space.s3),
+          child: AtButton(
+            left == 0 ? 'خلّصت مهام هالأسبوع' : 'سوّيت المهمة؟ وثّق إنجازك',
+            icon: Icon(left == 0 ? Icons.check_circle : Icons.task_alt),
+            onPressed: left == 0 || _proving ? null : _prove,
+            loading: _proving,
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -122,47 +145,75 @@ class _BoardTabState extends State<BoardTab> with AutomaticKeepAliveClientMixin 
     final data = _data;
     if (data == null) return _error != null ? ErrorView(message: _error!, onRetry: _refresh) : const LoadingView();
     final members = (widget.group['membersCount'] as int?) ?? 0;
-    return RefreshIndicator(
-      onRefresh: _refresh,
-      child: ListView(
-        padding: const EdgeInsets.all(Space.s4),
-        children: [
-          _GroupCard(group: widget.group, goal: data.goal),
-          for (final a in data.alerts.where((a) => !GroupActivity.instance.dismissed.contains(a['id']))) ...[
-            const SizedBox(height: Space.s3),
-            _AlertBanner(
-              alert: a,
-              onDismiss: () async {
-                await GroupActivity.instance.dismissAlert(a['id'] as int);
-                if (mounted) setState(() {});
-              },
+    final sheet = _proveSheet(data);
+    final ranked = _ranked(data.board);
+    return Column(
+      children: [
+        Expanded(
+          child: RefreshIndicator(
+            onRefresh: _refresh,
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(Space.s4, 14, Space.s4, Space.s6),
+              children: [
+                if (widget.group['pointsForGraceDay'] != null)
+                  PardonBanner(points: (widget.group['points'] as int?) ?? 0, target: widget.group['pointsForGraceDay'] as int),
+                for (final a in data.alerts.where((a) => !GroupActivity.instance.dismissed.contains(a['id']))) ...[
+                  const SizedBox(height: 10),
+                  _AlertBanner(
+                    alert: a,
+                    onDismiss: () async {
+                      await GroupActivity.instance.dismissAlert(a['id'] as int);
+                      if (mounted) setState(() {});
+                    },
+                  ),
+                ],
+                if (data.goal != null) ...[
+                  const SizedBox(height: 10),
+                  _GoalCard(goal: data.goal!, board: data.board),
+                  if (data.goal!['proofMethod'] == 'LOCATION') _MyPlaceCard(api: widget.api, groupId: _groupId),
+                  const GroupSection('ترتيب هالأسبوع', note: 'يتحدّث مع كل إثبات'),
+                  if (sheet == null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: Space.s3),
+                      child: _InfoNote(
+                        icon: Icons.info_outline_rounded,
+                        text: 'أنت مو داخل هالهدف، تدخل مع الهدف الجاي. تقدر تشجّع المجموعة وتنبّههم.',
+                      ),
+                    ),
+                  for (final (i, row) in ranked.indexed) ...[
+                    Appear(
+                      index: i,
+                      child: _LeaderRow(
+                        row: row,
+                        place: i + 1,
+                        isMe: row['memberId'] == widget.me,
+                        title: data.titles[row['memberId']],
+                        onAlert: () => _alert(row),
+                      ),
+                    ),
+                    const SizedBox(height: Space.s2),
+                  ],
+                  Center(child: TextButton(onPressed: () => _showHistory(context), child: const Text('أهداف المجموعة السابقة'))),
+                ] else
+                  _ProposalsSection(
+                    api: widget.api,
+                    groupId: _groupId,
+                    isOwner: widget.isOwner,
+                    membersCount: members,
+                    onInvite: widget.onInvite,
+                    proposals: data.proposals,
+                    onChanged: _refresh,
+                    onGoalSet: () {
+                      _refresh();
+                      widget.onChanged();
+                    },
+                  ),
+              ],
             ),
-          ],
-          if (data.goal != null) ...[
-            _GoalSection(goal: data.goal!, board: data.board),
-            if (data.goal!['proofMethod'] == 'LOCATION') _MyPlaceCard(api: widget.api, groupId: _groupId),
-            _proveButton(data),
-            SectionTitle('هالأسبوع', trailing: TextButton(onPressed: () => _showHistory(context), child: const Text('الأهداف السابقة'))),
-            for (final (i, row) in _ranked(data.board).indexed) ...[
-              _BoardRow(row: row, place: i + 1, isMe: row['memberId'] == widget.me, onAlert: () => _alert(row)),
-              const SizedBox(height: Space.s2),
-            ],
-          ] else
-            _ProposalsSection(
-              api: widget.api,
-              groupId: _groupId,
-              isOwner: widget.isOwner,
-              membersCount: members,
-              onInvite: widget.onInvite,
-              proposals: data.proposals,
-              onChanged: _refresh,
-              onGoalSet: () {
-                _refresh();
-                widget.onChanged();
-              },
-            ),
-        ],
-      ),
+          ),
+        ),
+        if (sheet != null) sheet,
+      ],
     );
   }
 
@@ -182,7 +233,7 @@ class _BoardTabState extends State<BoardTab> with AutomaticKeepAliveClientMixin 
       if (!mounted) return;
       showMessage(context, res['isCollective'] == true ? 'انضم تنبيهك لتنبيهات المجموعة' : 'وصل التنبيه لـ ${row['name']}');
     } catch (e) {
-      if (mounted) showError(context, e);
+      if (mounted) showGroupError(context, e);
     }
   }
 
@@ -197,7 +248,7 @@ class _BoardTabState extends State<BoardTab> with AutomaticKeepAliveClientMixin 
           future: widget.api.goalHistory(_groupId),
           builder: (context, snap) {
             if (snap.connectionState != ConnectionState.done) return const SizedBox(height: 160, child: LoadingView());
-            if (snap.hasError) return ErrorView(message: '${snap.error}');
+            if (snap.hasError) return ErrorView(message: errorText(snap.error!));
             final goals = snap.data!;
             if (goals.isEmpty) return const EmptyView(message: 'ما فيه أهداف للحين.');
             return Column(
@@ -218,60 +269,30 @@ class _BoardTabState extends State<BoardTab> with AutomaticKeepAliveClientMixin 
   }
 }
 
-// ---------- the group card (team color) ----------
-class _GroupCard extends StatelessWidget {
-  final Map<String, dynamic> group;
-  final Map<String, dynamic>? goal;
+class _InfoNote extends StatelessWidget {
+  final IconData icon;
+  final String text;
 
-  const _GroupCard({required this.group, required this.goal});
+  const _InfoNote({required this.icon, required this.text});
 
   @override
   Widget build(BuildContext context) {
-    final text = Theme.of(context).textTheme;
-    final name = '${group['name'] ?? ''}';
-    final color = AtColors.team(((group['id'] as int?) ?? 1) - 1);
-    final white70 = text.labelSmall!.copyWith(color: Colors.white70);
-    return AppCard(
-      color: color,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    final c = context.colors;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(color: c.infoSoft, borderRadius: BorderRadius.circular(Radii.lg)),
+      child: Row(
         children: [
-          Row(
-            children: [
-              NameAvatar(name, radius: 22, color: Colors.white.withValues(alpha: 0.2)),
-              const SizedBox(width: Space.s3),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(name, style: text.headlineSmall!.copyWith(color: Colors.white)),
-                    Text('${arabicDigits(group['membersCount'] ?? 0)} أعضاء', style: white70),
-                  ],
-                ),
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(arabicDigits(group['points'] ?? 0), style: text.headlineMedium!.copyWith(color: Colors.white)),
-                  Text('نقطة', style: white70),
-                ],
-              ),
-            ],
-          ),
-          if ('${group['description'] ?? ''}'.isNotEmpty) ...[
-            const SizedBox(height: Space.s3),
-            Text('${group['description']}', style: text.bodySmall!.copyWith(color: Colors.white)),
-          ],
-          if (group['pointsForGraceDay'] != null) ...[
-            const SizedBox(height: Space.s3),
-            Text('${arabicDigits(group['pointsForGraceDay'])} نقطة وتكسب المجموعة يوم عفو', style: white70),
-          ],
+          Icon(icon, size: 20, color: c.info),
+          const SizedBox(width: 10),
+          Expanded(child: Text(text, style: Theme.of(context).textTheme.labelMedium!.copyWith(color: c.ink, fontWeight: FontWeight.w500))),
         ],
       ),
     );
   }
 }
 
+// «تنبيه من سارة»
 class _AlertBanner extends StatelessWidget {
   final Map<String, dynamic> alert;
   final VoidCallback onDismiss;
@@ -282,19 +303,26 @@ class _AlertBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = context.colors;
     final text = Theme.of(context).textTheme;
-    return AppCard(
-      color: c.streakSoft,
+    return Container(
+      padding: const EdgeInsetsDirectional.fromSTEB(12, 12, 4, 12),
+      decoration: BoxDecoration(color: c.urgentSoft, borderRadius: BorderRadius.circular(Radii.lg)),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.notifications_active_rounded, color: c.streak),
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(color: c.urgent, shape: BoxShape.circle),
+            child: Icon(Icons.notifications_active_rounded, size: 20, color: c.onUrgent),
+          ),
           const SizedBox(width: Space.s3),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(alert['isCollective'] == true ? 'تنبيه من المجموعة' : 'تنبيه من ${alert['senderName'] ?? ''}', style: text.labelLarge),
-                const SizedBox(height: Space.s1),
+                Text(alert['isCollective'] == true ? 'تنبيه من المجموعة' : 'تنبيه من ${alert['senderName'] ?? ''}',
+                    style: text.labelLarge!.copyWith(color: c.urgentText, fontWeight: FontWeight.w700)),
+                const SizedBox(height: 2),
                 Text('${alert['message'] ?? ''}', style: text.bodySmall!.copyWith(color: c.ink)),
                 Text(timeAr(alert['sentAt']), style: text.labelSmall),
               ],
@@ -312,150 +340,88 @@ class _AlertBanner extends StatelessWidget {
   }
 }
 
-// ---------- the active goal ----------
-class _GoalSection extends StatelessWidget {
+// ---------- the active goal (a white card) ----------
+class _GoalCard extends StatelessWidget {
   final Map<String, dynamic> goal;
   final List<Map<String, dynamic>> board;
 
-  const _GoalSection({required this.goal, required this.board});
-
-  // "بدأ الهدف ٢٤/١٠ · الأسبوع ١ من ٤"
-  String _started() {
-    final start = DateTime.tryParse('${goal['startDate']}');
-    final total = goal['totalWeeks'] as int?;
-    if (start == null) return 'بدأ الهدف';
-    final today = DateTime.now();
-    final days = DateTime(today.year, today.month, today.day).difference(start).inDays;
-    if (days < 0) return 'يبدأ الهدف ${dayAr(goal['startDate'])}';
-    final week = days ~/ 7 + 1;
-    return 'بدأ الهدف ${dayAr(goal['startDate'])} · الأسبوع ${arabicDigits(week)}${total == null ? '' : ' من ${arabicDigits(total)}'}';
-  }
+  const _GoalCard({required this.goal, required this.board});
 
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
     final c = context.colors;
-    final required = board.fold<int>(0, (sum, r) => sum + ((r['required'] as int?) ?? 0));
-    final completed = board.fold<int>(0, (sum, r) => sum + ((r['completed'] as int?) ?? 0));
     final finished = board.where((r) => (r['remaining'] as int? ?? 1) == 0).length;
-    final progress = required == 0 ? 0.0 : (completed / required).clamp(0.0, 1.0);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const SectionTitle('هدف المجموعة'),
-        Container(
-          padding: const EdgeInsets.all(Space.s5),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(Radii.xl),
-            gradient: LinearGradient(begin: AlignmentDirectional.topStart, end: AlignmentDirectional.bottomEnd, colors: [c.shadda, c.deep]),
-            boxShadow: [BoxShadow(color: c.deep.withValues(alpha: 0.25), blurRadius: 16, offset: const Offset(0, 6))],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    Widget chip(IconData icon, String label) => Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          decoration: BoxDecoration(color: c.surfaceSunken, borderRadius: BorderRadius.circular(Radii.full)),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(icon, size: 14, color: c.inkSubtle),
+            const SizedBox(width: 4),
+            Text(label, style: text.labelSmall!.copyWith(color: c.inkMuted, fontWeight: FontWeight.w600)),
+          ]),
+        );
+    return RaisedCard(
+      radius: Radii.card,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(_started(), style: text.labelMedium!.copyWith(color: c.goldLight)),
-                        const SizedBox(height: Space.s1),
-                        Text('${goal['title'] ?? ''}', style: text.headlineMedium!.copyWith(color: Colors.white)),
-                        if ('${goal['details'] ?? ''}'.isNotEmpty)
-                          Text('${goal['details']}', style: text.bodySmall!.copyWith(color: Colors.white70)),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: Space.s3),
-                  // the group together this week
-                  SizedBox(
-                    width: 76,
-                    height: 76,
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        SizedBox.expand(
-                          child: TweenAnimationBuilder<double>(
-                            tween: Tween(end: progress),
-                            duration: Motion.sign,
-                            curve: Motion.easeOut,
-                            builder: (context, value, _) => CircularProgressIndicator(
-                              value: value,
-                              strokeWidth: 7,
-                              strokeCap: StrokeCap.round,
-                              color: c.gold,
-                              backgroundColor: Colors.white24,
-                            ),
-                          ),
-                        ),
-                        Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text('${arabicDigits((progress * 100).round())}٪', style: text.titleMedium!.copyWith(color: Colors.white)),
-                            Text('المجموعة', style: text.labelSmall!.copyWith(color: Colors.white70)),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: Space.s4),
-              Wrap(
-                spacing: Space.s2,
-                runSpacing: Space.s2,
-                children: [
-                  _Chip(proofMethodsAr[goal['proofMethod']] ?? '${goal['proofMethod']}'),
-                  _Chip('${arabicDigits(goal['timesPerWeek'])} مرات بالأسبوع'),
-                  _Chip('${arabicDigits(goal['totalWeeks'])} أسابيع'),
-                  if (goal['targetMinutes'] != null) _Chip('${arabicDigits(goal['targetMinutes'])} دقيقة'),
-                  if (finished > 0) _Chip('${arabicDigits(finished)} كمّلوا الأسبوع'),
-                ],
-              ),
-              const SizedBox(height: Space.s4),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: Space.s3, vertical: Space.s2),
-                decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(Radii.md)),
-                child: Row(
-                  children: [
-                    Expanded(child: Text('مبلغ التبرّع في حال ما تمت المهمة', style: text.bodySmall!.copyWith(color: Colors.white))),
-                    RiyalAmount(goal['amountPerTime'] as num?, color: c.gold),
-                  ],
-                ),
-              ),
+              Expanded(child: Text('هدف المجموعة', style: text.labelSmall)),
+              if (board.isNotEmpty)
+                Pill('${arabicDigits(finished)} من ${arabicDigits(board.length)} كمّلوا', fg: c.success, bg: c.successSoft),
             ],
           ),
-        ),
-      ],
+          const SizedBox(height: 2),
+          Text('${goal['title'] ?? ''}', style: text.titleMedium!.copyWith(fontWeight: FontWeight.w700)),
+          if ('${goal['details'] ?? ''}'.isNotEmpty) Text('${goal['details']}', style: text.bodySmall),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              chip(Icons.verified_outlined, proofMethodsAr[goal['proofMethod']] ?? '${goal['proofMethod']}'),
+              chip(Icons.repeat_rounded, '${arabicDigits(goal['timesPerWeek'])} مرات بالأسبوع'),
+              chip(Icons.calendar_month_outlined, '${arabicDigits(goal['totalWeeks'])} أسابيع'),
+              chip(difficultyOf(goal) == 'HARD' ? Icons.local_fire_department_rounded : Icons.person_rounded, 'تحدي ${difficultyAr[difficultyOf(goal)]}'),
+              if (goal['targetMinutes'] != null) chip(Icons.timer_outlined, '${arabicDigits(goal['targetMinutes'])} دقيقة'),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(color: c.warningSoft, borderRadius: BorderRadius.circular(Radii.md)),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    difficultyOf(goal) == 'HARD'
+                        ? 'لو أحد سوّف: هو يتبرّع بالمبلغ، والباقين بنصه (٥ أقل شي)'
+                        : 'اللي يسوّف هو اللي يتبرّع',
+                    style: text.labelMedium!.copyWith(color: c.inkMuted, fontWeight: FontWeight.w500),
+                  ),
+                ),
+                const SizedBox(width: Space.s2),
+                RiyalAmount(goal['amountPerTime'] as num?, color: c.goldText, style: text.titleSmall!.copyWith(fontWeight: FontWeight.w800)),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
 
-class _Chip extends StatelessWidget {
-  final String label;
-
-  const _Chip(this.label);
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: Space.s3, vertical: Space.s1),
-      decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(Radii.full)),
-      child: Text(label, style: Theme.of(context).textTheme.labelMedium!.copyWith(color: Colors.white)),
-    );
-  }
-}
-
-// ---------- one member in the board ----------
-class _BoardRow extends StatelessWidget {
+// ---------- one member in the ranking ----------
+class _LeaderRow extends StatelessWidget {
   final Map<String, dynamic> row;
   final int place;
   final bool isMe;
+  final String? title; // his title of last week
   final VoidCallback onAlert;
 
-  const _BoardRow({required this.row, required this.place, required this.isMe, required this.onAlert});
+  const _LeaderRow({required this.row, required this.place, required this.isMe, required this.title, required this.onAlert});
 
   @override
   Widget build(BuildContext context) {
@@ -466,78 +432,91 @@ class _BoardRow extends StatelessWidget {
     final completed = (row['completed'] as int?) ?? 0;
     final hasExcuse = row['hasExcuse'] == true;
     final canAlert = !isMe && remaining > 0 && !hasExcuse;
-    return Container(
-      padding: const EdgeInsets.all(Space.s3),
-      decoration: BoxDecoration(
-        color: c.surface,
-        borderRadius: BorderRadius.circular(Radii.lg),
-        border: Border.all(color: isMe ? c.primary : c.line, width: isMe ? 1.5 : 1),
-      ),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 22,
-            child: Text(arabicDigits(place), style: text.titleMedium!.copyWith(color: place == 1 ? c.shadda : c.inkSubtle)),
-          ),
-          Stack(
-            clipBehavior: Clip.none,
-            children: [
-              NameAvatar('${row['name'] ?? ''}'),
-              if (remaining == 0)
-                PositionedDirectional(
-                  bottom: -2,
-                  end: -2,
-                  child: Container(
-                    padding: const EdgeInsets.all(1),
-                    decoration: BoxDecoration(color: c.shadda, shape: BoxShape.circle, border: Border.all(color: c.surface, width: 2)),
-                    child: const Icon(Icons.check_rounded, size: 12, color: Colors.white),
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(width: Space.s3),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(isMe ? 'أنت' : '${row['name'] ?? ''}', style: text.labelLarge),
-                const SizedBox(height: Space.s1),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(Radii.full),
-                  child: LinearProgressIndicator(
-                    value: required == 0 ? 0 : completed / required,
-                    minHeight: 6,
-                    backgroundColor: c.surfaceSunken,
-                    color: c.shadda,
-                  ),
-                ),
-                const SizedBox(height: Space.s1),
-                Text(
-                  remaining == 0 ? 'كمّل الأسبوع، شجّعوه' : 'باقي ${arabicDigits(remaining)} من ${arabicDigits(required)} · ${arabicDigits(row['daysLeft'] ?? 0)} أيام',
-                  style: text.labelSmall,
-                ),
-              ],
+    final status = '${row['trackStatus']}';
+    final name = '${row['name'] ?? ''}';
+
+    final Widget trailing;
+    if (hasExcuse) {
+      trailing = Pill('عنده عذر', fg: c.info, bg: c.infoSoft);
+    } else if (canAlert) {
+      trailing = NudgeButton(onPressed: onAlert);
+    } else if (remaining == 0) {
+      trailing = Pill('كمّل', fg: c.success, bg: c.successSoft);
+    } else {
+      final (String label, Color fg, Color bg) = switch (status) {
+        'MUST_TODAY' => ('لازم اليوم', c.urgentText, c.urgentSoft),
+        'LOST_DAY' => ('ضاع يوم', c.danger, c.dangerSoft),
+        'SETTLED' => ('خلص الأسبوع', c.info, c.infoSoft),
+        _ => ('آمن', c.success, c.successSoft),
+      };
+      trailing = Pill(label, fg: fg, bg: bg);
+    }
+
+    // the one I can alert: his state in words instead of the pips
+    final Widget progress;
+    if (canAlert) {
+      final (String state, Color color) = switch (status) {
+        'LOST_DAY' => ('ضاع يوم · ', c.danger),
+        'MUST_TODAY' => ('لازم اليوم · ', c.urgentText),
+        _ => ('', c.inkSubtle),
+      };
+      progress = Text('$stateباقي ${arabicDigits(remaining)} من ${arabicDigits(required)}',
+          style: text.labelSmall!.copyWith(color: color, fontWeight: FontWeight.w600));
+    } else {
+      progress = Pips(done: completed, total: required);
+    }
+
+    return Semantics(
+      label: '${isMe ? 'أنت' : name}، المركز $place، $completed من $required',
+      child: RaisedCard(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        highlight: isMe ? c.primary : null,
+        child: Row(
+          children: [
+            SizedBox(
+              width: 22,
+              child: Text(arabicDigits(place), style: text.titleMedium!.copyWith(fontWeight: FontWeight.w800)),
             ),
-          ),
-          const SizedBox(width: Space.s2),
-          if (hasExcuse)
-            const StatusBadge('عنده عذر', kind: BadgeKind.info)
-          else if (canAlert)
-            IconButton.filledTonal(
-              tooltip: 'نبّهه',
-              onPressed: onAlert,
-              style: IconButton.styleFrom(backgroundColor: c.streakSoft, foregroundColor: c.streak),
-              icon: const Icon(Icons.campaign_rounded),
-            )
-          else
-            StatusBadge.track(row['trackStatus'] as String?),
-        ],
+            const SizedBox(width: 10),
+            MemberAvatar(name, ring: title == null ? null : titleColor(title)),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(isMe ? 'أنت' : name, style: text.labelLarge!.copyWith(fontWeight: FontWeight.w700), maxLines: 1, overflow: TextOverflow.ellipsis),
+                      ),
+                      if (title != null) ...[
+                        const SizedBox(width: 6),
+                        Pill(titlesAr[title] ?? title!, fg: title == 'TOP_DONOR' ? c.onGold : Colors.white, bg: titleColor(title)),
+                      ],
+                      if (((row['failureCount'] as int?) ?? 0) > 0) ...[
+                        const SizedBox(width: 6),
+                        Tooltip(
+                          message: 'ما كمّل أسبوعه مرة، المرة الثانية يطلع من المجموعة',
+                          child: Icon(Icons.warning_amber_rounded, size: 16, color: c.warning),
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  progress,
+                ],
+              ),
+            ),
+            const SizedBox(width: Space.s2),
+            trailing,
+          ],
+        ),
       ),
     );
   }
 }
 
-// ---------- no goal: proposals and votes ----------
+// ---------- no goal: proposals and votes (design: GroupVote) ----------
 class _ProposalsSection extends StatefulWidget {
   final GroupApi api;
   final int groupId;
@@ -573,7 +552,7 @@ class _ProposalsSectionState extends State<_ProposalsSection> {
       if (done != null) showMessage(context, done);
       widget.onChanged();
     } catch (e) {
-      if (mounted) showError(context, e);
+      if (mounted) showGroupError(context, e);
     }
   }
 
@@ -607,24 +586,25 @@ class _ProposalsSectionState extends State<_ProposalsSection> {
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
     final c = context.colors;
+    final team = teamColor(widget.groupId);
     final proposals = [...widget.proposals]..sort((a, b) => ((b['votes'] as int?) ?? 0).compareTo((a['votes'] as int?) ?? 0));
     final totalVotes = proposals.fold<int>(0, (sum, p) => sum + ((p['votes'] as int?) ?? 0));
-    final leader = proposals.isNotEmpty && ((proposals.first['votes'] as int?) ?? 0) > 0 ? proposals.first : null;
     // a group goal needs 2 members at least (like a chat needs someone to talk to)
     final alone = widget.membersCount < 2;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (alone) ...[
-          const SizedBox(height: Space.s4),
-          AppCard(
+          const SizedBox(height: Space.s3),
+          RaisedCard(
+            radius: Radii.card,
             color: c.primarySoft,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Icon(Icons.group_add_rounded, color: c.primary, size: 32),
                 const SizedBox(height: Space.s2),
-                Text('أرسل رمز الدعوة لأصحابك', style: text.headlineSmall),
+                Text('أرسل رمز الدعوة لأصحابك', style: text.titleMedium!.copyWith(fontWeight: FontWeight.w700)),
                 Text('الهدف يبدأ لما يكون بالمجموعة شخصين على الأقل. شارك كود الدعوة أو الباركود.', style: text.bodySmall),
                 const SizedBox(height: Space.s3),
                 AtButton('أرسل رمز الدعوة', onPressed: widget.onInvite, icon: const Icon(Icons.qr_code_rounded, size: 18)),
@@ -632,101 +612,211 @@ class _ProposalsSectionState extends State<_ProposalsSection> {
             ),
           ),
         ],
-        const SectionTitle('وش هدفنا الجاي؟'),
-        Text(
-          widget.isOwner
-              ? 'صوّت على اقتراح الأعضاء، وأنت تعتمد الهدف اللي تختارونه.'
-              : 'صوّت على اقتراح الأعضاء أو اقترح هدف، ومنشئ المجموعة يعتمد الهدف.',
-          style: text.bodySmall,
+        GroupSection(
+          'التصويت على الهدف الجاي',
+          note: proposals.isEmpty ? null : 'صوّت ${arabicDigits(totalVotes)} من ${arabicDigits(widget.membersCount)}',
         ),
-        const SizedBox(height: Space.s4),
+        if (proposals.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: Space.s4),
+            child: Text('ما فيه اقتراحات للحين. اقترح هدف أو اسأل الذكاء.', style: text.bodySmall, textAlign: TextAlign.center),
+          ),
+        for (final (i, p) in proposals.indexed) ...[
+          Appear(
+            index: i,
+            child: _ProposalCard(
+            proposal: p,
+            totalVotes: totalVotes,
+            team: team,
+            isOwner: widget.isOwner,
+            canApprove: !alone,
+            onVote: () => _run(() => widget.api.vote(p['id'] as int), 'انحسب صوتك'),
+            onApprove: () => _setGoal(p),
+            onReject: () => _run(() => widget.api.reject(p['id'] as int), 'انشال الاقتراح'),
+            ),
+          ),
+          const SizedBox(height: 10),
+        ],
         Row(
           children: [
-            Expanded(child: AtButton('اقترح هدف', onPressed: _propose, kind: AtButtonKind.outline)),
-            const SizedBox(width: Space.s3),
-            Expanded(child: AtButton('اقتراحات الذكاء', onPressed: _ai, loading: _aiLoading, kind: AtButtonKind.outline)),
+            Expanded(child: DashedButton('+ اقترح هدف', onPressed: _propose)),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Material(
+                color: c.pardonSoft,
+                borderRadius: BorderRadius.circular(Radii.lg),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(Radii.lg),
+                  onTap: _aiLoading ? null : _ai,
+                  child: Container(
+                    constraints: const BoxConstraints(minHeight: 50),
+                    alignment: Alignment.center,
+                    child: _aiLoading
+                        ? SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: c.pardonText))
+                        : Row(mainAxisSize: MainAxisSize.min, children: [
+                            Icon(Icons.auto_awesome_rounded, size: 18, color: c.pardonText),
+                            const SizedBox(width: 6),
+                            Text('اسأل الذكاء', style: text.labelLarge!.copyWith(color: c.pardonText, fontWeight: FontWeight.w700)),
+                          ]),
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
+        if (widget.isOwner && proposals.isEmpty && !alone) ...[
+          const SizedBox(height: Space.s2),
+          AtButton('حط هدف بنفسك', onPressed: () => _setGoal(null), kind: AtButtonKind.text),
+        ],
         const SizedBox(height: Space.s4),
-        if (proposals.isEmpty) const EmptyView(message: 'ما فيه اقتراحات للحين.', icon: Icons.lightbulb_outline),
-        if (proposals.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(bottom: Space.s3),
-            child: Text(
-              'صوّت ${arabicDigits(totalVotes)} من ${arabicDigits(widget.membersCount)} · النتيجة تتحدّث لحالها',
-              style: text.labelSmall,
-            ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: Space.s4, vertical: 14),
+          decoration: BoxDecoration(color: c.deep, borderRadius: BorderRadius.circular(Radii.card)),
+          child: Row(
+            children: [
+              const Icon(Icons.how_to_vote_rounded, color: Color(0xFF8FB4FF)),
+              const SizedBox(width: Space.s3),
+              Expanded(
+                child: Text(
+                  widget.isOwner
+                      ? 'صوّتوا على الاقتراحات، وأنت تعتمد الهدف والمبلغ والأسابيع.'
+                      : 'صوّت أو اقترح هدف، ومنشئ المجموعة يعتمد الهدف والمبلغ والأسابيع.',
+                  style: text.bodySmall!.copyWith(color: const Color(0xFFEDF1FA), height: 1.6),
+                ),
+              ),
+            ],
           ),
-        for (final p in proposals) ...[
-          AppCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+        ),
+      ],
+    );
+  }
+}
+
+// one proposal: tap the card to vote, the bar fills with the team color
+class _ProposalCard extends StatelessWidget {
+  final Map<String, dynamic> proposal;
+  final int totalVotes;
+  final Color team;
+  final bool isOwner;
+  final bool canApprove;
+  final VoidCallback onVote;
+  final VoidCallback onApprove;
+  final VoidCallback onReject;
+
+  const _ProposalCard({
+    required this.proposal,
+    required this.totalVotes,
+    required this.team,
+    required this.isOwner,
+    required this.canApprove,
+    required this.onVote,
+    required this.onApprove,
+    required this.onReject,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final text = Theme.of(context).textTheme;
+    final p = proposal;
+    final mine = p['myVote'] == true;
+    final votes = (p['votes'] as int?) ?? 0;
+    final share = totalVotes == 0 ? 0.0 : votes / totalVotes;
+    final byAi = p['suggestedBy'] == 'AI';
+    final fill = mine ? team : (c.isDark ? c.lineStrong : const Color(0xFFB7C5E8));
+    final onFill = mine && share >= 0.3;
+    return Semantics(
+      button: !mine,
+      label: mine ? 'صوتك على ${p['title']}' : 'صوّت على ${p['title']}',
+      child: RaisedCard(
+        radius: Radii.card,
+        highlight: mine ? team : null,
+        onTap: mine ? null : onVote,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
               children: [
-                Row(
-                  children: [
-                    Expanded(child: Text('${p['title'] ?? ''}', style: text.headlineSmall)),
-                    if (leader != null && identical(p, leader)) const StatusBadge('الأكثر', kind: BadgeKind.success),
-                  ],
-                ),
-                const SizedBox(height: Space.s2),
-                // the live result
-                Row(
-                  children: [
-                    Expanded(
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(Radii.full),
-                        child: TweenAnimationBuilder<double>(
-                          tween: Tween(end: widget.membersCount == 0 ? 0 : ((p['votes'] as int?) ?? 0) / widget.membersCount),
-                          duration: Motion.base,
-                          curve: Motion.easeOut,
-                          builder: (context, value, _) => LinearProgressIndicator(
-                            value: value.clamp(0, 1).toDouble(),
-                            minHeight: 8,
-                            backgroundColor: c.surfaceSunken,
-                            color: p['myVote'] == true ? c.shadda : c.primary.withValues(alpha: 0.55),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: Space.s3),
-                    Text('${arabicDigits(p['votes'] ?? 0)} صوت', style: text.labelLarge),
-                  ],
-                ),
-                if ('${p['details'] ?? ''}'.isNotEmpty) ...[
-                  const SizedBox(height: Space.s1),
-                  Text('${p['details']}', style: text.bodySmall),
-                ],
-                const SizedBox(height: Space.s1),
-                Text('اقترحه: ${p['suggestedBy'] ?? ''}', style: text.labelSmall),
-                const SizedBox(height: Space.s3),
-                Row(
-                  children: [
-                    Expanded(
-                      child: AtButton(
-                        p['myVote'] == true ? 'صوتك هنا' : 'صوّت',
-                        kind: p['myVote'] == true ? AtButtonKind.outline : AtButtonKind.primary,
-                        onPressed: p['myVote'] == true ? null : () => _run(() => widget.api.vote(p['id'] as int), 'انحسب صوتك'),
-                      ),
-                    ),
-                    if (widget.isOwner) ...[
-                      const SizedBox(width: Space.s2),
-                      Expanded(child: AtButton('اعتمده', kind: AtButtonKind.outline, onPressed: alone ? null : () => _setGoal(p))),
-                      IconButton(
-                        tooltip: 'شيله',
-                        icon: Icon(Icons.close_rounded, color: c.danger),
-                        onPressed: () => _run(() => widget.api.reject(p['id'] as int), 'انشال الاقتراح'),
-                      ),
-                    ],
-                  ],
-                ),
+                Expanded(child: Text('${p['title'] ?? ''}', style: text.titleMedium!.copyWith(fontWeight: FontWeight.w700))),
+                const SizedBox(width: Space.s2),
+                if (mine)
+                  TweenAnimationBuilder<double>(
+                    tween: Tween(begin: reduceMotion(context) ? 1 : 0.4, end: 1),
+                    duration: Motion.reward,
+                    curve: Motion.easePop,
+                    builder: (context, v, child) => Transform.scale(scale: v, child: child),
+                    child: Pill('صوتك', fg: Colors.white, bg: team),
+                  )
+                else if (byAi)
+                  Pill('اقتراح الذكاء', fg: c.pardonText, bg: c.pardonSoft)
+                else
+                  Text('اقتراح ${p['suggestedBy'] ?? ''}', style: text.labelSmall),
               ],
             ),
-          ),
-          const SizedBox(height: Space.s3),
-        ],
-        if (widget.isOwner && proposals.isEmpty && !alone)
-          AtButton('حط هدف بنفسك', onPressed: () => _setGoal(null), kind: AtButtonKind.text),
-      ],
+            if ('${p['details'] ?? ''}'.isNotEmpty) ...[
+              const SizedBox(height: 2),
+              Text('${p['details']}', style: text.bodySmall),
+            ],
+            const SizedBox(height: 10),
+            // the live result
+            ClipRRect(
+              borderRadius: BorderRadius.circular(Radii.md),
+              child: Container(
+                height: 34,
+                color: mine ? c.pardonSoft : c.surfaceSunken,
+                child: Stack(
+                  children: [
+                    TweenAnimationBuilder<double>(
+                      tween: Tween(end: share),
+                      duration: Motion.reward,
+                      curve: Motion.easeOut,
+                      builder: (context, value, _) => FractionallySizedBox(
+                        alignment: AlignmentDirectional.centerStart,
+                        widthFactor: value.clamp(0, 1).toDouble(),
+                        child: Container(color: fill),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(votes == 0 ? 'ما فيه أصوات' : votesAr(votes),
+                                style: text.labelMedium!.copyWith(color: onFill ? Colors.white : c.ink, fontWeight: FontWeight.w700)),
+                          ),
+                          Text('${arabicDigits((share * 100).round())}٪', style: text.labelMedium!.copyWith(color: mine ? c.pardonText : c.inkMuted, fontWeight: FontWeight.w700)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            if (!mine) ...[
+              const SizedBox(height: 6),
+              Text('اضغط على الاقتراح عشان تصوّت له', style: text.labelSmall),
+            ],
+            if (mine && !byAi) ...[
+              const SizedBox(height: 6),
+              Text('اقتراح ${p['suggestedBy'] ?? ''}', style: text.labelSmall),
+            ],
+            if (isOwner) ...[
+              const SizedBox(height: Space.s2),
+              Row(
+                children: [
+                  Expanded(child: AtButton('اعتمده', kind: AtButtonKind.outline, onPressed: canApprove ? onApprove : null)),
+                  const SizedBox(width: Space.s2),
+                  IconButton(
+                    tooltip: 'شيل الاقتراح',
+                    icon: Icon(Icons.close_rounded, color: c.danger),
+                    onPressed: onReject,
+                  ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }
@@ -822,6 +912,7 @@ class _SetGoalSheetState extends State<SetGoalSheet> {
   final _amount = TextEditingController(text: '5');
   final _minutes = TextEditingController();
   String _method = 'PHOTO';
+  String _difficulty = 'SOLO';
   int _times = 3;
   int _weeks = 4;
   bool _loading = false;
@@ -906,6 +997,7 @@ class _SetGoalSheetState extends State<SetGoalSheet> {
         'proofMethod': _method,
         'amountPerTime': num.parse(_amount.text.trim()),
         'proposalId': widget.proposal?['id'],
+        'difficulty': _difficulty,
         'targetMinutes': _method == 'TIMER' ? int.parse(_minutes.text.trim()) : null,
         if (plan == null) 'timesPerWeek': _times,
         if (plan == null) 'totalWeeks': _weeks,
@@ -1025,6 +1117,35 @@ class _SetGoalSheetState extends State<SetGoalSheet> {
               _Stepper(label: 'كم أسبوع', value: _weeks, min: 1, max: 52, onChanged: (v) => setState(() => _weeks = v)),
               const SizedBox(height: Space.s2),
             ],
+            Text('مستوى التحدي', style: text.labelLarge),
+            const SizedBox(height: Space.s2),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: _LevelCard(
+                    selected: _difficulty == 'SOLO',
+                    icon: Icons.person_rounded,
+                    title: 'فردي',
+                    body: 'اللي يسوّف هو بس اللي يتبرّع.',
+                    color: c.primary,
+                    onTap: () => setState(() => _difficulty = 'SOLO'),
+                  ),
+                ),
+                const SizedBox(width: Space.s2),
+                Expanded(
+                  child: _LevelCard(
+                    selected: _difficulty == 'HARD',
+                    icon: Icons.local_fire_department_rounded,
+                    title: 'صعب',
+                    body: 'لو أحد سوّف الكل يتبرّع: هو بالمبلغ كامل، والباقين بنصه (٥ ريال أقل شي).',
+                    color: c.urgent,
+                    onTap: () => setState(() => _difficulty = 'HARD'),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: Space.s4),
             TextFormField(
               controller: _amount,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -1054,6 +1175,59 @@ class _SetGoalSheetState extends State<SetGoalSheet> {
             const SizedBox(height: Space.s6),
             AtButton('ابدأ الهدف', onPressed: _submit, loading: _loading),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+// one level of the challenge in the goal sheet
+class _LevelCard extends StatelessWidget {
+  final bool selected;
+  final IconData icon;
+  final String title;
+  final String body;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _LevelCard({required this.selected, required this.icon, required this.title, required this.body, required this.color, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final text = Theme.of(context).textTheme;
+    return Semantics(
+      selected: selected,
+      button: true,
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: Motion.base,
+          curve: Motion.easeOut,
+          padding: const EdgeInsets.all(Space.s3),
+          decoration: BoxDecoration(
+            color: selected ? color.withValues(alpha: 0.10) : c.surface,
+            borderRadius: BorderRadius.circular(Radii.lg),
+            border: Border.all(color: selected ? color : c.line, width: selected ? 2 : 1),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(children: [
+                Icon(icon, color: color, size: 20),
+                const SizedBox(width: 6),
+                Expanded(child: Text(title, style: text.titleSmall!.copyWith(fontWeight: FontWeight.w800))),
+                AnimatedScale(
+                  scale: selected ? 1 : 0,
+                  duration: Motion.reward,
+                  curve: Motion.easePop,
+                  child: Icon(Icons.check_circle_rounded, color: color, size: 20),
+                ),
+              ]),
+              const SizedBox(height: 4),
+              Text(body, style: text.labelSmall),
+            ],
+          ),
         ),
       ),
     );
