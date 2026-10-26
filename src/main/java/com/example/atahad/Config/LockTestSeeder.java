@@ -72,6 +72,15 @@ public class LockTestSeeder implements ApplicationRunner {
             }
         }
         List<Penalty> owed = penaltyRepository.findPenaltiesByMemberAndStatus(member, "PENDING");
+        // the test is done once: a donation paid in the last 7 days (after the lock) and nothing owed -> not locked again
+        if (owed.isEmpty()) {
+            for (Penalty paid : penaltyRepository.findPenaltiesByMemberAndStatus(member, "PAID")) {
+                if (paid.getPaidAt() != null && paid.getPaidAt().isAfter(LocalDateTime.now().minusDays(7))) {
+                    log.info("Lock test: {} paid already, not locked again (seed.lock-test=false turns the test off)", email);
+                    return;
+                }
+            }
+        }
         if (!owed.isEmpty()) {
             if (moveOld) {
                 for (Penalty penalty : owed) {

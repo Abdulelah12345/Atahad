@@ -607,6 +607,13 @@ class _History extends StatelessWidget {
   }
 }
 
+// leaves a result screen: closes it (it was pushed on top of the donation page), then goes to the home page
+void _leave(BuildContext context) {
+  final router = GoRouter.of(context);
+  Navigator.of(context).pop();
+  router.go('/');
+}
+
 // the lock opened (design: Unlocked): the key comes in and turns, then the shackle jumps open
 class _UnlockedScreen extends StatelessWidget {
   final num? amount;
@@ -671,7 +678,7 @@ class _UnlockedScreen extends StatelessWidget {
                 ),
               ),
               const Spacer(),
-              AtButton('رجوع لليوم', onPressed: () => context.go('/')),
+              AtButton('رجوع لليوم', onPressed: () => _leave(context)),
             ],
           ),
         ),
@@ -842,13 +849,15 @@ class _ReviewScreen extends StatelessWidget {
                 child: Column(
                   children: [
                     step(Icons.lock_open_rounded, c.success, 'التطبيق مفتوح لك الحين', 'تقدر تكمّل أهدافك لين يطلع القرار.'),
-                    step(Icons.check_circle_outline_rounded, c.primary, 'إذا انقبل', 'ينسدّ المبلغ ويوصلك إشعار.'),
+                    step(Icons.check_circle_outline_rounded, c.primary, 'إذا انقبل', 'يتسدّد المبلغ ويوصلك إشعار.'),
                     step(Icons.lock_outline_rounded, c.urgent, 'إذا انرفض', 'يرجع القفل، وتقدر تعترض على القرار أو ترفع إثبات ثاني.'),
                   ],
                 ),
               ),
               const Spacer(),
-              AtButton('تمام', onPressed: () => context.go('/')),
+              AtButton('كمّل أهدافك', onPressed: () => _leave(context)),
+              const SizedBox(height: Space.s2),
+              AtButton('ارجع لصفحة التبرع', kind: AtButtonKind.text, onPressed: () => Navigator.of(context).pop()),
             ],
           ),
         ),
