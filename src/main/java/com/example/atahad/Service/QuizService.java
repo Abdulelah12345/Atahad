@@ -87,6 +87,9 @@ public class QuizService {
             }
             answer=quizAI.questions(subject,List.of());
         }
+        if (answer.trim().equals("TOPIC: UNCLEAR")) {
+            throw new ApiException("Quiz topic is unclear; specify the activity topic; no quiz attempt was consumed");
+        }
         List<QuizQuestionResponse> questions=new ArrayList<>();
         StringBuilder correct=new StringBuilder();
         Matcher matcher=FORMAT.matcher(answer.replace("*",""));

@@ -114,6 +114,17 @@ public class CommitmentService {
 
     // LOCATION needs its place and TIMER its minutes, the proof is checked against them
     public static void checkTargets(Commitment commitment){
+        if("STEPS".equals(commitment.getProofMethod())) {
+            if(!(commitment instanceof com.example.atahad.Entity.Habit) || commitment.getGroupGoal()!=null) {
+                throw new ApiException("Steps currently support personal habits only");
+            }
+            if(commitment.getTargetSteps()==null || commitment.getTargetSteps()<100 || commitment.getTargetSteps()>100000) {
+                throw new ApiException("Daily steps target must be between 100 and 100000");
+            }
+            if(!java.util.List.of("HEALTH_DATA","SCREENSHOT").contains(java.util.Objects.toString(commitment.getStepEvidenceMode(),""))) {
+                throw new ApiException("Choose HEALTH_DATA or SCREENSHOT before starting");
+            }
+        }
         if("LOCATION".equals(commitment.getProofMethod()) && commitment.getGroupGoal() == null
                 && (commitment.getTargetLatitude() == null || commitment.getTargetLongitude() == null)){
             throw new ApiException("A LOCATION commitment needs the place (latitude and longitude)");

@@ -85,6 +85,38 @@ class ProofHttpIntegrationTest {
         assertEquals(1,weeks.findCommitmentWeekById(ids[1]).getCompleted());
         assertEquals(10,members.findMemberById(ids[0]).getPoints());
     }
+    @Test void walkingPreflightActivationAndDailyCompletionWorkThroughHttp() throws Exception {
+        String email=UUID.randomUUID()+"@example.test";
+        Integer memberId=new TransactionTemplate(manager).execute(status->{
+            User user=new User();user.setName("Walker");user.setEmail(email);user.setPhone("+966509999997");user.setRole("MEMBER");user.setPassword(encoder.encode("test-password"));users.save(user);
+            Member member=new Member();member.setUser(user);member.setLevel("BEGINNER");members.save(member);return member.getId();
+        });
+        auth="Basic "+Base64.getEncoder().encodeToString((email+":test-password").getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        var zone=ZoneId.of("Asia/Riyadh");LocalDateTime now=LocalDateTime.now(zone);
+        ReflectionTestUtils.setField(time,"clock",Clock.fixed(now.atZone(zone).toInstant(),zone));
+        String habitBody=json.writeValueAsString(Map.of("title","Daily walking","proofMethod","STEPS","targetSteps",5000,"stepEvidenceMode","HEALTH_DATA","timesPerWeek",7,"baseAmount",5));
+        assertEquals(400,call("POST","/api/v1/habit/add",habitBody,true).statusCode());
+        String preflight=json.writeValueAsString(Map.of("source","HEALTH_CONNECT","deviceId","http-test-phone","status","READY","readDay",now.toLocalDate().toString(),"stepsRead",0));
+        var connected=call("PUT","/api/v1/walking/connection",preflight,true);
+        assertEquals(200,connected.statusCode(),connected.body());
+        var added=call("POST","/api/v1/habit/add",habitBody,true);assertEquals(200,added.statusCode(),added.body());
+        Integer weekId=new TransactionTemplate(manager).execute(status->{
+            var habit=habits.findHabitsByMember(members.findMemberById(memberId)).get(0);
+            return weeks.findTopByCommitmentOrderByWeekNumberDesc(habit).getId();
+        });
+        now=now.plusMinutes(1);ReflectionTestUtils.setField(time,"clock",Clock.fixed(now.atZone(zone).toInstant(),zone));
+        Map<String,Object> reading=new HashMap<>(Map.of("day",now.toLocalDate().toString(),"total",5000,"source","HEALTH_CONNECT","deviceId","http-test-phone","zoneId","Asia/Riyadh","observedAt",now.toString()));
+        String path="/api/v1/walking/weeks/"+weekId+"/sync";
+        String body=json.writeValueAsString(reading);
+        assertEquals(401,call("POST",path,body,false).statusCode());
+        var synced=call("POST",path,body,true);assertEquals(200,synced.statusCode(),synced.body());
+        assertEquals("ACCEPTED",json.readTree(synced.body()).get("status").asText());
+        assertEquals(200,call("POST",path,body,true).statusCode());
+        assertEquals(1,weeks.findCommitmentWeekById(weekId).getCompleted());assertEquals(10,members.findMemberById(memberId).getPoints());
+        reading.put("total",-1);assertEquals(400,call("POST",path,json.writeValueAsString(reading),true).statusCode());
+        var progress=call("GET","/api/v1/walking/weeks/"+weekId+"/progress?day="+now.toLocalDate(),null,true);
+        assertEquals(200,progress.statusCode(),progress.body());assertEquals(5000,json.readTree(progress.body()).get("totalSteps").asInt());
+    }
     @Test void workspaceAndAttachmentsUseTheLoggedInOwner() throws Exception {
         String email=UUID.randomUUID()+"@example.test";
         Integer memberId=new TransactionTemplate(manager).execute(status->{

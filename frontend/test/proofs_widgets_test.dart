@@ -150,7 +150,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('جهّز الأسئلة'));
+      await tester.tap(find.text('جهّز الأسئلة بدون صور'));
       await tester.pumpAndSettle();
       expect(
         find.text(
@@ -223,7 +223,7 @@ void main() {
                 QuizPanel(proofId: 102, weekId: 2, onSubmitted: () async {})),
         api));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('جهّز الأسئلة'));
+    await tester.tap(find.text('جهّز الأسئلة بدون صور'));
     await tester.pumpAndSettle();
     expect(find.byType(RadioGroup<String>), findsNWidgets(4));
     expect(find.byType(RadioListTile<String>), findsNWidgets(12));

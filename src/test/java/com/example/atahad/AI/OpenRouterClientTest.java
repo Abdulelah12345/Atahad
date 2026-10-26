@@ -122,6 +122,17 @@ class OpenRouterClientTest {
         }
     }
 
+    @Test void unclearTopicTriesAlternativesAndPreservesTheClarificationSignal() throws Exception {
+        try(var server=new Server(new Reply(200,"TOPIC: UNCLEAR"),new Reply(200,QUIZ))) {
+            assertEquals(QUIZ.trim(),client(server).complete("text",QUIZ_PROMPT,"topic",List.of(),""));
+            assertEquals(2,server.requests.size());
+        }
+        try(var server=new Server(new Reply(200,"TOPIC: UNCLEAR"))) {
+            assertEquals("TOPIC: UNCLEAR",client(server).complete("text",QUIZ_PROMPT,"topic",List.of(),""));
+            assertEquals(3,server.requests.size());
+        }
+    }
+
     @Test void timerUsesItsOwnChain() throws Exception {
         try (var server = new Server(new Reply(429, ""), new Reply(200, "رسالة تشجيعية"))) {
             assertEquals("رسالة تشجيعية", client(server).complete("timer", "encourage", "task", List.of(), "fallback"));

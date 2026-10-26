@@ -30,7 +30,7 @@ public abstract class Commitment {
     private String title;
 
     @NotEmpty(message = "Proof method cannot be empty")
-    @Pattern(regexp = "^(LOCATION|PHOTO|QUIZ|TIMER)$", message = "Proof method must be LOCATION, PHOTO, QUIZ or TIMER")
+    @Pattern(regexp = "^(LOCATION|PHOTO|QUIZ|TIMER|STEPS)$", message = "Invalid proof method")
     @Column(columnDefinition = "VARCHAR(8) NOT NULL")
     private String proofMethod;
 
@@ -74,6 +74,13 @@ public abstract class Commitment {
     @Max(value = 600, message = "Minutes must be at most 600")
     @Column(columnDefinition = "INTEGER")
     private Integer targetMinutes;
+
+    @Min(100) @Max(100000)
+    private Integer targetSteps;
+
+    @Pattern(regexp="HEALTH_DATA|SCREENSHOT")
+    @Column(length=12)
+    private String stepEvidenceMode;
 
     //Relations
     @ManyToOne

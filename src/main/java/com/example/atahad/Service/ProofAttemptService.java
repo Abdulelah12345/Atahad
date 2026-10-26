@@ -57,6 +57,7 @@ public class ProofAttemptService {
             }
         }
         String type = task == null ? week.getCommitment().getProofMethod() : task.getProofMethod();
+        if("STEPS".equals(type)) { throw new ApiException("Use the walking steps sync or screenshot endpoint"); }
         // ربط نتيجة الزيارة بالمحاولة الإضافية من مسؤولية الزميلة؛ نترك مسار الزيارة الحالي يعمل مستقلا.
         if ("LOCATION".equals(type)) {
             throw new ApiException("Location sessions await visit integration; use the existing visit flow");

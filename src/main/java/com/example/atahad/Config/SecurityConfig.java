@@ -272,6 +272,7 @@ public class SecurityConfig {
 
                         // محاولات البروف والجلسات والكاميرا للأعضاء؛ الملكية داخل السيرفس.
                         .requestMatchers("/api/v1/proof-attempt/**").hasAuthority("MEMBER")
+                        .requestMatchers("/api/v1/walking/**").hasAuthority("MEMBER")
 
                         // Deny unconfigured endpoints in these controllers
                         .requestMatchers(

@@ -18,6 +18,7 @@ public class HabitService {
     private final HabitRepository habitRepository;
     private final MemberRepository memberRepository;
     private final CommitmentWeekService commitmentWeekService;
+    private final WalkingStepsService walkingStepsService;
 
     // admin
     public List<Habit> getAllHabits(){
@@ -51,6 +52,7 @@ public class HabitService {
         habit.setPendingTimesPerWeek(null);
         habit.setPendingBaseAmount(null);
         CommitmentService.checkTargets(habit);
+        walkingStepsService.checkActivation(memberId,habit);
         habitRepository.save(habit);
 
         commitmentWeekService.startFirstWeek(habit);
@@ -59,6 +61,13 @@ public class HabitService {
     // the title and the planned days change right away, times and amount change from the next week
     public void updateHabit(Integer memberId, Integer id, Habit habit){
         Habit oldHabit = getMyHabit(memberId, id);
+        if("STEPS".equals(oldHabit.getProofMethod()) || "STEPS".equals(habit.getProofMethod())) {
+            if(!oldHabit.getProofMethod().equals(habit.getProofMethod())
+                    || !java.util.Objects.equals(oldHabit.getTargetSteps(),habit.getTargetSteps())
+                    || !java.util.Objects.equals(oldHabit.getStepEvidenceMode(),habit.getStepEvidenceMode())) {
+                throw new ApiException("Steps target and evidence mode cannot change after activation");
+            }
+        }
         if(oldHabit.getStatus().equals("WITHDRAWN") || oldHabit.getStatus().equals("ENDED")){
             throw new ApiException("Habit is finished and cannot be updated");
         }
