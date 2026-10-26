@@ -11,7 +11,8 @@ import org.springframework.stereotype.Service;
 
 // who can use the app:
 // LOCKED: has a penalty not paid -> only "I donated" (donation proof) and "I have an excuse" (excuse, objection)
-//         an excuse or a donation waiting for the admin opens the app for now, until the admin decides
+//         an excuse waiting for a decision (the AI or the admin) or a donation waiting for the admin opens the app for now,
+//         a rejected excuse locks it again if something is still owed (he can object or send another excuse in the week)
 // BANNED (3rd refusal to pay a group donation): nothing, except paying what he owes
 // DEACTIVATED: nothing
 @Service
@@ -33,6 +34,7 @@ public class LockService {
 
     public boolean hasOpenEscalation(Member member){
         return !excuseRepository.findExcusesByCommitmentWeekCommitmentMemberIdAndStatus(member.getId(), "ESCALATED").isEmpty()
+                || !excuseRepository.findExcusesByCommitmentWeekCommitmentMemberIdAndStatus(member.getId(), "PENDING").isEmpty()
                 || !donationProofRepository.findDonationProofsByMemberIdAndStatus(member.getId(), "ESCALATED").isEmpty();
     }
 

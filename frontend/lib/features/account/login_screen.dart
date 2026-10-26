@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/api/api_exception.dart';
 import '../../core/auth/auth_state.dart';
 import '../../core/theme/at_colors.dart';
 import '../../core/widgets/app_logo.dart';
@@ -47,7 +48,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('تعذر تسجيل الدخول، تأكد من بياناتك وحاول مرة ثانية'),
+          // status 0 = the app did not reach the backend (it is off, restarting, or another network): say that, not "check your data"
+          content: Text(e is ApiException && e.status == 0
+              ? 'ما قدرنا نوصل للسيرفر. تأكد إن الباك شغّال وإن الجوال على نفس الشبكة.'
+              : 'تعذر تسجيل الدخول، تأكد من بياناتك وحاول مرة ثانية'),
           backgroundColor: context.colors.danger,
         ),
       );

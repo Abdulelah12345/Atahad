@@ -61,6 +61,12 @@ public class GroupGoal {
     @Column(columnDefinition = "INTEGER")
     private Integer targetMinutes; // TIMER only, the place of LOCATION is set by every member for himself
 
+    // the level of the challenge: SOLO = only who missed donates, HARD = when one misses everyone donates
+    // (who missed the full price, the others half of it but 5 at least, because Ehsan does not take less than 5)
+    @Pattern(regexp = "^(SOLO|HARD)$", message = "Difficulty must be SOLO or HARD")
+    @Column(columnDefinition = "VARCHAR(4)")
+    private String difficulty = "SOLO";
+
     @Column(columnDefinition = "DATE")
     private LocalDate startDate;
 

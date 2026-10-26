@@ -18,8 +18,9 @@ import java.util.List;
 
 // the weekly settlement of a group (sunday 00:00, after the weeks are closed)
 // nobody failed -> golden week, points for the group
-// somebody failed (without an accepted excuse) -> every member who finished donates half of the task price,
-// and every member who failed donates the task price. first failure he stays, second failure he is removed
+// somebody failed (without an accepted excuse) -> every member who failed donates the task price,
+// and when the goal is HARD every member who finished donates too: half of the task price, 5 at least (Ehsan takes 5 at least).
+// first failure he stays, second failure he is removed
 @Service
 @RequiredArgsConstructor
 public class GroupSettlementService {
@@ -82,7 +83,11 @@ public class GroupSettlementService {
             pointLogService.addGroupPoints(group, PointLogService.GOLDEN_WEEK_POINTS, "GOLDEN_WEEK");
         }else{
             for(MemberWeek w : weeks){
-                createPenalty(w, failed.contains(w) ? price : half(price), "GROUP_COLLECTIVE", settlement, sunday);
+                if(failed.contains(w)){
+                    createPenalty(w, price, "GROUP_COLLECTIVE", settlement, sunday);
+                }else if(isHard(goal)){
+                    createPenalty(w, share(price), "GROUP_COLLECTIVE", settlement, sunday);
+                }
             }
             for(MemberWeek w : failed){
                 GroupMember groupMember = w.groupMember();
@@ -119,8 +124,10 @@ public class GroupSettlementService {
         }
         for(MemberWeek w : weeks){
             BigDecimal mine = BigDecimal.ZERO;
-            if(!failed.isEmpty()){
-                mine = failed.contains(w) ? price : half(price);
+            if(failed.contains(w)){
+                mine = price;
+            }else if(!failed.isEmpty() && isHard(goal)){
+                mine = share(price);
             }
             whatsAppService.settlementMessage(w.groupMember().getMember(), group.getName(), goal.getTitle(), text, board, mine);
         }
@@ -149,8 +156,12 @@ public class GroupSettlementService {
             for(MemberWeek w : failed){
                 names.add(groupAccessService.nameOf(w.groupMember().getMember()));
             }
-            fallback = "تسوية الأسبوع: " + String.join(" و", names) + " ما كمّلوا " + goal.getTitle()
-                    + ". اللي كمّلوا عليهم تبرع " + money(half(price)) + " ريال لإحسان، واللي ما كمّلوا عليهم " + money(price) + " ريال.";
+            fallback = "تسوية الأسبوع: " + String.join(" و", names) + " ما كمّلوا " + goal.getTitle() + ". ";
+            if(isHard(goal)){
+                fallback += "التحدي صعب: اللي كمّلوا عليهم تبرع " + money(share(price)) + " ريال لإحسان، واللي ما كمّلوا عليهم " + money(price) + " ريال.";
+            }else{
+                fallback += "عليهم تبرع " + money(price) + " ريال لإحسان، واللي كمّلوا ما عليهم شي.";
+            }
             if(!toKick.isEmpty()){
                 fallback += " وهذي المرة الثانية، فطلعوا من القروب.";
             }
@@ -167,9 +178,17 @@ public class GroupSettlementService {
                 fallback);
     }
 
-    // the members who finished pay half of the task price, even when it is less than 5
-    private BigDecimal half(BigDecimal price){
-        return price.divide(BigDecimal.valueOf(2), 2, java.math.RoundingMode.HALF_UP);
+    // HARD: the members who finished pay half of the task price, but 5 at least (Ehsan does not take less than 5)
+    private BigDecimal share(BigDecimal price){
+        BigDecimal half = price.divide(BigDecimal.valueOf(2), 2, java.math.RoundingMode.HALF_UP);
+        return half.max(MIN_DONATION).min(price);
+    }
+
+    public static final BigDecimal MIN_DONATION = BigDecimal.valueOf(5);
+
+    // the goals before the levels were added were all HARD (everyone donated)
+    private boolean isHard(GroupGoal goal){
+        return goal.getDifficulty() == null || "HARD".equals(goal.getDifficulty());
     }
 
     private String money(BigDecimal amount){

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/api/api_exception.dart';
 import '../../core/theme/at_colors.dart';
 import '../../core/theme/at_tokens.dart';
+import 'group_labels.dart';
 
 // small widgets used by the group pages
 
@@ -101,5 +102,21 @@ Future<bool> confirm(BuildContext context, String title, String message, {String
   return result == true;
 }
 
-// the message of an error, for the sheets
-String errorText(Object error) => error is ApiException ? error.message : 'صار خطأ، حاول مرة ثانية.';
+// the message of an error, for the sheets (the backend messages in Arabic)
+String errorText(Object error) => error is ApiException ? groupErrorAr(error.message) : 'صار خطأ، تأكد من الاتصال وحاول مرة ثانية.';
+
+// for the pages that show the error themselves (AsyncView): the backend message in Arabic
+Future<T> inArabic<T>(Future<T> future) async {
+  try {
+    return await future;
+  } on ApiException catch (e) {
+    throw ApiException(e.status, groupErrorAr(e.message));
+  }
+}
+
+// a snack bar with the error in Arabic
+void showGroupError(BuildContext context, Object error) {
+  ScaffoldMessenger.maybeOf(context)
+    ?..hideCurrentSnackBar()
+    ..showSnackBar(SnackBar(content: Text(errorText(error))));
+}

@@ -216,9 +216,15 @@ public class AiScheduleService {
             availableDates.add(date.toString());
         }
 
+        // every time needs its own day, so the days left in this week (only the planned days, without the days already done)
+        // must be at least the times left
         if (availableDates.size() < remaining) {
+            String days = availableDates.isEmpty()
+                    ? "ما باقي ولا يوم من أيامك المحددة هالأسبوع"
+                    : "باقي " + availableDates.size() + (availableDates.size() == 1 ? " يوم" : " أيام") + " بس من أيامك المحددة هالأسبوع";
             throw new ApiException(
-                    "Not enough remaining days for " + title
+                    "ما نقدر نجدول «" + title + "»: باقي عليك " + remaining + " مرات و" + days
+                            + "، وكل مرة تحتاج يوم لحالها. سجّل اللي تقدر عليه، أو قدّم عذر عن الأيام اللي فاتت."
             );
         }
 

@@ -70,6 +70,9 @@ public class ControllerAdvice {
 
     @ExceptionHandler(InvalidDataAccessResourceUsageException.class)
     public ResponseEntity<ApiResponse> handleInvalidDataAccessResourceUsageException(InvalidDataAccessResourceUsageException exception) {
+        // the real reason (the table, the column or the SQL) stays in the backend log, the app gets a general message
+        Throwable cause = exception.getMostSpecificCause();
+        System.out.println("DATABASE ERROR: " + (cause == null ? exception.getMessage() : cause.getMessage()));
         return ResponseEntity.status(400).body(new ApiResponse("Database operation failed. Please contact support"));
     }
 }
