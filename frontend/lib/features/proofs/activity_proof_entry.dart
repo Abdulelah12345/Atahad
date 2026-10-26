@@ -9,6 +9,10 @@ import 'proofs_home_screen.dart';
 
 // بطاقة اليوم تصل للمهمة نفسها؛ لا يكتب العضو أي معرفات ولا يختار مهمة من هدف شخص آخر.
 Future<void> openActivityProof(BuildContext context, Json activity) async {
+  if (activity['proofMethod'] == 'STEPS') {
+    await context.push('/walking/${activity['weekId']}', extra: activity);
+    return;
+  }
   try {
     final data = await ProofsApi(context.read<ApiClient>()).workspace();
     final day = dateInput(riyadhNow());
@@ -25,14 +29,16 @@ Future<void> openActivityProof(BuildContext context, Json activity) async {
     if (!context.mounted) return;
     if (saved != null && saved['managed'] == true) {
       await context.push(
-          '/proofs/session/${saved['id']}?title=${Uri.encodeComponent('${activity['title']}')}');
+        '/proofs/session/${saved['id']}?title=${Uri.encodeComponent('${activity['title']}')}',
+      );
     } else if (saved != null) {
       await showModalBottomSheet<void>(
-          context: context,
-          showDragHandle: true,
-          isScrollControlled: true,
-          builder: (_) => RecordDetails(
-              item: saved!, kind: 'PROOF', onChanged: () async {}));
+        context: context,
+        showDragHandle: true,
+        isScrollControlled: true,
+        builder: (_) =>
+            RecordDetails(item: saved!, kind: 'PROOF', onChanged: () async {}),
+      );
     } else if ((activity['remaining'] as num? ?? 1) <= 0) {
       showMessage(context, 'هذا النشاط مكتمل للأسبوع الحالي.');
     } else {

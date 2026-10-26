@@ -23,7 +23,7 @@ public class Proof {
     private Integer id;
 
     @NotEmpty(message = "Type cannot be empty")
-    @Pattern(regexp = "^(LOCATION|PHOTO|QUIZ|TIMER)$", message = "Type must be LOCATION, PHOTO, QUIZ or TIMER")
+    @Pattern(regexp = "^(LOCATION|PHOTO|QUIZ|TIMER|STEPS)$", message = "Invalid proof type")
     @Column(columnDefinition = "VARCHAR(8) NOT NULL")
     private String type;
 //ممكن يحتوي رابط او موقع ، عشان بعدين نشيك عليه

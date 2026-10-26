@@ -3,8 +3,9 @@ import 'package:flutter/material.dart';
 import '../theme/at_colors.dart';
 import '../theme/at_tokens.dart';
 
-// a small pill with a dot: "تم التحقق"، "قيد المراجعة"، "فات اليوم"، "تبرّعنا عنك"، "٧ أيام متتالية"
-enum BadgeKind { success, warning, danger, info, streak, neutral }
+// a small pill with a dot: "آمن"، "لازم اليوم"، "ضاع يوم"، "قيد المراجعة"، "تبرّعنا عنك"، "بطاقة عفو"
+// every state has a fixed color (streak = "must today", orange)
+enum BadgeKind { success, warning, danger, info, streak, pardon, brand, neutral }
 
 class StatusBadge extends StatelessWidget {
   final String label;
@@ -14,16 +15,16 @@ class StatusBadge extends StatelessWidget {
 
   // the week status from the backend (trackStatus) -> a badge
   factory StatusBadge.track(String? status, {Key? key}) => switch (status) {
-        'SAFE' => StatusBadge('على المسار', kind: BadgeKind.success, key: key),
-        'MUST_TODAY' => StatusBadge('لازم اليوم', kind: BadgeKind.warning, key: key),
-        'LOST_DAY' => StatusBadge('فات اليوم', kind: BadgeKind.danger, key: key),
+        'SAFE' => StatusBadge('آمن', kind: BadgeKind.success, key: key),
+        'MUST_TODAY' => StatusBadge('لازم اليوم', kind: BadgeKind.streak, key: key),
+        'LOST_DAY' => StatusBadge('ضاع يوم', kind: BadgeKind.danger, key: key),
         'SETTLED' => StatusBadge('خلص الأسبوع', kind: BadgeKind.info, key: key),
         _ => StatusBadge(status ?? '-', key: key),
       };
 
   // a proof, excuse or donation status from the backend
   factory StatusBadge.review(String? status, {Key? key}) => switch (status) {
-        'ACCEPTED' => StatusBadge('تم التحقق', kind: BadgeKind.success, key: key),
+        'ACCEPTED' => StatusBadge('مقبول', kind: BadgeKind.success, key: key),
         'PENDING' || 'ESCALATED' => StatusBadge('قيد المراجعة', kind: BadgeKind.warning, key: key),
         'REJECTED' => StatusBadge('مرفوض', kind: BadgeKind.danger, key: key),
         _ => StatusBadge(status ?? '-', key: key),
@@ -37,7 +38,9 @@ class StatusBadge extends StatelessWidget {
       BadgeKind.warning => (c.warning, c.warningSoft),
       BadgeKind.danger => (c.danger, c.dangerSoft),
       BadgeKind.info => (c.info, c.infoSoft),
-      BadgeKind.streak => (c.streak, c.streakSoft),
+      BadgeKind.streak => (c.urgentText, c.urgentSoft),
+      BadgeKind.pardon => (c.pardonText, c.pardonSoft),
+      BadgeKind.brand => (c.primary, c.primarySoft),
       BadgeKind.neutral => (c.inkMuted, c.surfaceSunken),
     };
     return Container(
@@ -47,8 +50,8 @@ class StatusBadge extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(width: 6, height: 6, decoration: BoxDecoration(color: fg, shape: BoxShape.circle)),
-          const SizedBox(width: Space.s2),
-          Text(label, style: Theme.of(context).textTheme.labelMedium!.copyWith(color: fg)),
+          const SizedBox(width: Space.s1 + 2),
+          Text(label, style: Theme.of(context).textTheme.labelSmall!.copyWith(color: fg, fontWeight: FontWeight.w600)),
         ],
       ),
     );

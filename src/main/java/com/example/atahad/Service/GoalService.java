@@ -190,6 +190,7 @@ public class GoalService {
 
     // the weeks count and the proof method can change only before the first week starts
     public void updateGoal(Integer memberId, Integer id, Goal goal){
+        if("STEPS".equals(goal.getProofMethod())) { throw new ApiException("Steps currently support personal habits only"); }
         Goal oldGoal = getMyGoal(memberId, id);
         if(oldGoal.getStatus().equals("WITHDRAWN") || oldGoal.getStatus().equals("ENDED")){
             throw new ApiException("Goal is finished and cannot be updated");

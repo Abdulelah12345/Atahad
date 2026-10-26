@@ -55,6 +55,9 @@ public class CommitmentWeek {
     @Column(columnDefinition = "BOOLEAN DEFAULT false")
     private Boolean isFullWeek = false;
 
+    // Step weeks remain open for delayed daily totals until Monday 00:00 Riyadh.
+    private Boolean stepsSettlementPending = false;
+
     @ElementCollection
     private Set<@Pattern(regexp = "^(SUN|MON|TUE|WED|THU|FRI|SAT)$",
             message = "Planned day must be SUN, MON, TUE, WED, THU, FRI or SAT")

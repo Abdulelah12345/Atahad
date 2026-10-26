@@ -8,6 +8,7 @@ import 'core/auth/auth_state.dart';
 import 'core/router.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/theme_state.dart';
+import 'core/widgets/splash_gate.dart';
 import 'core/widgets/states.dart';
 
 Future<void> main() async {
@@ -59,6 +60,8 @@ class _AtahadAppState extends State<AtahadApp> {
             GlobalCupertinoLocalizations.delegate,
           ],
           routerConfig: _router,
+          // the splash video covers the app once when it opens (core/widgets/splash_gate.dart)
+          builder: (context, child) => SplashGate(child: child ?? const SizedBox.shrink()),
         ),
       ),
     );

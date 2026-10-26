@@ -60,6 +60,7 @@ public class LockService {
                 return null; // he can still look at his data
             }
             boolean allowed = path.startsWith("/api/v1/donation-proof")
+                    || path.startsWith("/api/v1/walking/")
                     || path.startsWith("/api/v1/excuse")
                     || path.startsWith("/api/v1/objection");
             return allowed ? null : LOCKED_MESSAGE;
