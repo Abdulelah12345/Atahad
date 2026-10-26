@@ -90,8 +90,8 @@ class GroupApi {
 
   // ---------- proposals ----------
   Future<List<Map<String, dynamic>>> proposals(int groupId) async => _list(await api.get('$_prop/open/$groupId'));
-  Future<void> propose(int groupId, String title, String details) =>
-      api.post('$_prop/add/$groupId', body: {'title': title, 'details': details});
+  Future<void> propose(int groupId, String title, String details, int timesPerWeek) =>
+      api.post('$_prop/add/$groupId', body: {'title': title, 'details': details, 'timesPerWeek': timesPerWeek});
   Future<void> aiProposals(int groupId) => api.post('$_prop/ai/$groupId');
   Future<void> vote(int proposalId) => api.put('$_prop/vote/$proposalId');
   Future<void> reject(int proposalId) => api.put('$_prop/reject/$proposalId');

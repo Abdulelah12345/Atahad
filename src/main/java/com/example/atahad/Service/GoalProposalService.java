@@ -1,3 +1,4 @@
+
 package com.example.atahad.Service;
 
 import com.example.atahad.AI.AiService;
@@ -90,6 +91,7 @@ public class GoalProposalService {
             GroupGoal proposal = new GroupGoal();
             proposal.setTitle(title.length() > 100 ? title.substring(0, 100) : title);
             proposal.setDetails(parts.length > 1 ? cut(parts[1].trim(), 500) : null);
+            proposal.setTimesPerWeek(3); // NEW
             proposal.setSuggestedBy("AI");
             proposal.setStatus("PROPOSED");
             proposal.setGroup(group);
@@ -104,6 +106,7 @@ public class GoalProposalService {
         GroupGoal proposal = new GroupGoal();
         proposal.setTitle(dto.getTitle());
         proposal.setDetails(dto.getDetails());
+        proposal.setTimesPerWeek(dto.getTimesPerWeek()); // NEW
         proposal.setSuggestedBy("MEMBER");
         proposal.setStatus("PROPOSED");
         proposal.setGroup(groupMember.getGroup());
