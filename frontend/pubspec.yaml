@@ -64,3 +64,6 @@ flutter:
   assets:
     - assets/icons/
     - assets/images/
+    # the design system «أتعهّد»: the logos and the splash videos
+    - assets/brand/
+    - assets/splash/
