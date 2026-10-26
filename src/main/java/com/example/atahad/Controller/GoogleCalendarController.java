@@ -1,19 +1,15 @@
-
 package com.example.atahad.Controller;
 
 import com.example.atahad.Api.ApiResponse;
 import com.example.atahad.Entity.User;
 import com.example.atahad.Service.GoogleCalendarService;
-import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
-import com.example.atahad.Dto.In.AiScheduleRequest;
-import com.example.atahad.Dto.Out.AiScheduleResponse;
-import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/v1/google-calendar")
@@ -45,19 +41,19 @@ public class GoogleCalendarController {
     }
 
     @PostMapping("/generate")
-    public ResponseEntity<?> generate(@AuthenticationPrincipal User user,HttpSession session){
-        return ResponseEntity.status(200).body(googleCalendarService.generateSchedule(user.getId(),session));
+    public ResponseEntity<?> generate(@AuthenticationPrincipal User user){
+        return ResponseEntity.status(200).body(googleCalendarService.generateSchedule(user.getId()));
     }
 
     @PostMapping("/approve-schedule")
-    public ResponseEntity<?> approveSchedule(@AuthenticationPrincipal User user,HttpSession session){
-        googleCalendarService.approveSchedule(user.getId(),session);
+    public ResponseEntity<?> approveSchedule(@AuthenticationPrincipal User user,@RequestBody List<Map<String,Object>> schedules){
+        googleCalendarService.approveSchedule(user.getId(),schedules);
         return ResponseEntity.status(200).body(new ApiResponse("Schedule added to Google Calendar successfully"));
     }
 
     @PostMapping("/reject-schedule")
-    public ResponseEntity<?> rejectSchedule(@AuthenticationPrincipal User user,HttpSession session){
-        googleCalendarService.rejectSchedule(user.getId(),session);
+    public ResponseEntity<?> rejectSchedule(@AuthenticationPrincipal User user){
+        googleCalendarService.rejectSchedule(user.getId());
         return ResponseEntity.status(200).body(new ApiResponse("Schedule rejected successfully"));
     }
 }
