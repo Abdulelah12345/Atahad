@@ -1,4 +1,3 @@
-
 package com.example.atahad.Service;
 
 import com.example.atahad.Api.ApiException;
@@ -9,11 +8,11 @@ import com.example.atahad.Entity.Member;
 import com.example.atahad.Repository.GoogleCalendarConnectionRepository;
 import com.example.atahad.Repository.GoogleCalendarOAuthStateRepository;
 import com.example.atahad.Repository.MemberRepository;
-import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestClient;
@@ -25,6 +24,7 @@ import java.security.SecureRandom;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
@@ -233,7 +233,6 @@ public class GoogleCalendarService {
         }
 
         if (connection.getExpiresAt() != null &&
-                connection.getEncryptedAccessToken() != null &&
                 connection.getExpiresAt().isAfter(
                         LocalDateTime.now(zone).plusMinutes(2))) {
 
@@ -294,7 +293,7 @@ public class GoogleCalendarService {
         return newAccessToken;
     }
 
-    public List<AiScheduleResponse> generateSchedule(Integer memberId, HttpSession session) {
+    public List<AiScheduleResponse> generateSchedule(Integer memberId) {
 
         Member member = memberRepository.findMemberById(memberId);
 
@@ -308,33 +307,10 @@ public class GoogleCalendarService {
             throw new ApiException("No active commitments need scheduling");
         }
 
-        // Keep the generated proposal only until the user approves or rejects it.
-        session.setAttribute("pendingScheduleMemberId", memberId);
-        session.setAttribute("pendingSchedules", schedules);
-
         return schedules;
     }
 
-    public void approveSchedule(Integer memberId, HttpSession session) {
-
-        List<AiScheduleResponse> schedules = getPendingSchedules(memberId, session);
-
-        createScheduleEvents(memberId, schedules);
-
-        session.removeAttribute("pendingSchedules");
-        session.removeAttribute("pendingScheduleMemberId");
-    }
-
-    public void rejectSchedule(Integer memberId, HttpSession session) {
-
-        getPendingSchedules(memberId, session);
-
-        session.removeAttribute("pendingSchedules");
-        session.removeAttribute("pendingScheduleMemberId");
-    }
-
-    @SuppressWarnings("unchecked")
-    private List<AiScheduleResponse> getPendingSchedules(Integer memberId, HttpSession session) {
+    public void approveSchedule(Integer memberId, List<Map<String, Object>> schedules) {
 
         Member member = memberRepository.findMemberById(memberId);
 
@@ -342,20 +318,81 @@ public class GoogleCalendarService {
             throw new ApiException("Member not found");
         }
 
-        Integer ownerId = (Integer) session.getAttribute("pendingScheduleMemberId");
-        Object pending = session.getAttribute("pendingSchedules");
-
-        if (!memberId.equals(ownerId) || !(pending instanceof List<?>)) {
+        if (schedules == null || schedules.isEmpty()) {
             throw new ApiException("Schedule not found");
         }
 
-        List<?> items = (List<?>) pending;
+        List<Map<String, String>> events = new ArrayList<>();
 
-        if (items.isEmpty() || !items.stream().allMatch(AiScheduleResponse.class::isInstance)) {
-            throw new ApiException("Schedule not found");
+        for (Map<String, Object> schedule : schedules) {
+
+            if (schedule == null ||
+                    !(schedule.get("title") instanceof String title) ||
+                    title.isBlank() || title.length() > 200 ||
+                    !(schedule.get("suggestions") instanceof List<?> suggestions) ||
+                    suggestions.isEmpty()) {
+                throw new ApiException("Invalid schedule");
+            }
+
+            for (Object item : suggestions) {
+
+                if (!(item instanceof Map<?, ?> suggestion) ||
+                        !(suggestion.get("date") instanceof String date) ||
+                        !(suggestion.get("startTime") instanceof String startTime) ||
+                        !(suggestion.get("endTime") instanceof String endTime)) {
+                    throw new ApiException("Invalid schedule suggestion");
+                }
+
+                try {
+                    LocalDate eventDate = LocalDate.parse(date);
+                    LocalTime start = LocalTime.parse(startTime);
+                    LocalTime end = LocalTime.parse(endTime);
+
+                    if (!eventDate.atTime(start).isAfter(LocalDateTime.now(zone))) {
+                        throw new ApiException("Schedule date must be in the future");
+                    }
+
+                    if (!end.isAfter(start)) {
+                        throw new ApiException("Invalid schedule time");
+                    }
+
+                } catch (DateTimeParseException e) {
+                    throw new ApiException("Invalid schedule date or time");
+                }
+
+                events.add(Map.of(
+                        "title", title,
+                        "date", date,
+                        "startTime", startTime,
+                        "endTime", endTime
+                ));
+
+                if (events.size() > 100) {
+                    throw new ApiException("Too many schedule suggestions");
+                }
+            }
         }
 
-        return (List<AiScheduleResponse>) pending;
+        for (Map<String, String> event : events) {
+            createEvent(
+                    memberId,
+                    event.get("title"),
+                    event.get("date"),
+                    event.get("startTime"),
+                    event.get("endTime")
+            );
+        }
+    }
+
+    public void rejectSchedule(Integer memberId) {
+
+        Member member = memberRepository.findMemberById(memberId);
+
+        if (member == null) {
+            throw new ApiException("Member not found");
+        }
+
+        // The proposed schedule is kept only in Flutter.
     }
 
     public void createEvent(
@@ -455,7 +492,6 @@ public class GoogleCalendarService {
                 throw new ApiException("Too many schedule suggestions");
             }
 
-            // Validate all dates before creating any events
             for (AiScheduleResponse.ScheduleSuggestion suggestion
                     : schedule.getSuggestions()) {
 

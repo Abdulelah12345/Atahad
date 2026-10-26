@@ -741,9 +741,11 @@ class _ProposeSheet extends StatefulWidget {
   State<_ProposeSheet> createState() => _ProposeSheetState();
 }
 
+
 class _ProposeSheetState extends State<_ProposeSheet> {
   final _title = TextEditingController();
   final _details = TextEditingController();
+  int _timesPerWeek = 3;
   bool _loading = false;
   String? _error;
 
@@ -758,7 +760,7 @@ class _ProposeSheetState extends State<_ProposeSheet> {
     if (_title.text.trim().isEmpty) return;
     setState(() => _loading = true);
     try {
-      await widget.api.propose(widget.groupId, _title.text.trim(), _details.text.trim());
+      await widget.api.propose(widget.groupId, _title.text.trim(), _details.text.trim(), _timesPerWeek);
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
       if (mounted) setState(() {
@@ -778,6 +780,14 @@ class _ProposeSheetState extends State<_ProposeSheet> {
           TextField(controller: _title, maxLength: 100, decoration: const InputDecoration(labelText: 'الهدف', hintText: 'مثل: المشي ٣٠ دقيقة')),
           const SizedBox(height: Space.s2),
           TextField(controller: _details, maxLength: 500, maxLines: 3, decoration: const InputDecoration(labelText: 'التفاصيل (اختياري)')),
+          const SizedBox(height: Space.s3),
+          _Stepper(
+            label: 'عدد المرات في الأسبوع',
+            value: _timesPerWeek,
+            min: 1,
+            max: 7,
+            onChanged: (value) => setState(() => _timesPerWeek = value),
+          ),
           const SizedBox(height: Space.s4),
           AtButton('اقترح', onPressed: _submit, loading: _loading),
         ],
