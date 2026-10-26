@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- the first frame of assets/splash/splash_light.mp4 -->
+    <color name="launch_bg">#F0F3F9</color>
+</resources>
