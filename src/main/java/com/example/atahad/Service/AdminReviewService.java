@@ -127,6 +127,7 @@ public class AdminReviewService {
     // نعرض للأدمن نتيجة كل دليل والصور المرتبطة به، ليتمكن من مراجعة المحاولة كاملة.
     private String proofDetails(Proof proof) {
         StringBuilder details = new StringBuilder(proof.getType() + " at " + proof.getActivityTime());
+        if("STEPS".equals(proof.getType())) { details.append("\n").append(proof.getEvidenceData()); }
         for (ProofEvidence item : proofEvidenceRepository.findByProofIdOrderById(proof.getId())) {
             details.append("\n").append(item.getType()).append(": ").append(item.getResult());
             if (item.getReason() != null) { details.append(" - ").append(item.getReason()); }
@@ -135,8 +136,9 @@ public class AdminReviewService {
     }
     private List<String> proofImages(Proof proof) {
         List<String> images = new ArrayList<>();
-        if (proof.getEvidenceData() != null) { images.add(proof.getEvidenceData()); }
+        if (proof.getEvidenceData() != null && !"STEPS".equals(proof.getType())) { images.add(proof.getEvidenceData()); }
         for (ProofEvidence item : proofEvidenceRepository.findByProofIdOrderById(proof.getId())) {
+            if("STEP_SCREENSHOT".equals(item.getType()) && item.getData()!=null) { images.add(item.getData()); }
             for (Integer captureId : new Integer[]{item.getBeforeCaptureId(), item.getAfterCaptureId()}) {
                 if (captureId != null) {
                     ProofCapture capture = proofCaptureRepository.findById(captureId).orElse(null);

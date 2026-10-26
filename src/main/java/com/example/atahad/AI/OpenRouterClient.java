@@ -129,7 +129,7 @@ public class OpenRouterClient {
             return decision.group(1).equals("ESCALATED") ? ReplyKind.UNCERTAIN : ReplyKind.VALID;
         }
         if (instructions.contains("Q:") && instructions.contains("ANSWER:")) {
-            if (clean.equals("READABLE: NO")) { return ReplyKind.UNCERTAIN; }
+            if (clean.equals("READABLE: NO") || clean.equals("TOPIC: UNCLEAR")) { return ReplyKind.UNCERTAIN; }
             return QUESTION.matcher(clean).results().count() == 4 ? ReplyKind.VALID : ReplyKind.INVALID;
         }
         return ReplyKind.VALID;

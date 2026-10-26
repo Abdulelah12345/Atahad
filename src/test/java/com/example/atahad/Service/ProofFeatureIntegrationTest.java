@@ -172,6 +172,14 @@ class ProofFeatureIntegrationTest {
         assertThrows(ApiException.class,()->quizzes.create(memberId,proof.getCommitmentWeek().getId(),null,null,quizRequest()));
         assertTrue(quizzes.canRetry(proof));
     }
+    @Test void unclearTopicDoesNotConsumeAttemptAndCanBeClarified() {
+        quizActivity();when(quizAI.questions(anyString(),anyList())).thenReturn("TOPIC: UNCLEAR");
+        var error=assertThrows(ApiException.class,()->quizzes.create(memberId,proof.getCommitmentWeek().getId(),null,null,quizRequest()));
+        assertTrue(error.getMessage().contains("Quiz topic is unclear"));assertTrue(quizzes.canRetry(proof));
+        when(quizAI.questions(eq("أساسيات التغذية المتوازنة"),anyList())).thenReturn(QUESTIONS);
+        var quiz=quizzes.create(memberId,proof.getCommitmentWeek().getId(),null,"أساسيات التغذية المتوازنة",quizRequest());
+        assertEquals(1,em.find(Quiz.class,quiz.getQuizId()).getAttemptNumber());
+    }
     @Test void duplicateCreateReturnsTheCurrentQuizInsteadOfUsingTheRetry() {
         quizActivity();var first=quizzes.create(memberId,proof.getCommitmentWeek().getId(),null,null,quizRequest());
         var same=quizzes.create(memberId,proof.getCommitmentWeek().getId(),null,null,quizRequest());assertEquals(first.getQuizId(),same.getQuizId());assertEquals(4,same.getQuestions().size());

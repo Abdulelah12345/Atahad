@@ -32,6 +32,7 @@ public class CommitmentWeekService {
     private final MemberRepository memberRepository;
     private final LockService lockService;
     private final WhatsAppService whatsAppService;
+    private final ProofRepository proofRepository;
 
     public static final int TASK_POINTS = 10;
     public static final int FULL_WEEK_POINTS = 30;
@@ -133,6 +134,7 @@ public class CommitmentWeekService {
         week.setCompleted(0);
         week.setExcusedDays(0);
         week.setIsFullWeek(false);
+        week.setStepsSettlementPending("STEPS".equals(commitment.getProofMethod()));
 
         int days = daysBetween(start.toLocalDate(), end.toLocalDate());
         Object real = Hibernate.unproxy(commitment);
@@ -166,6 +168,7 @@ public class CommitmentWeekService {
     // called every day at 00:00 by the AutomationService, on sunday it also closes the old weeks and opens the new ones
     @Transactional
     public void runDaily(LocalDate today){
+        closeDelayedStepWeeks(today);
         if(today.getDayOfWeek() == DayOfWeek.SUNDAY){
             closeWeeksAndStartNew(today);
         }
@@ -201,7 +204,12 @@ public class CommitmentWeekService {
         if(missing <= 0){
             status = "SETTLED";
         }else{
-            int daysLeft = daysLeft(week, today);
+            // One additional day for health-data synchronization, including Saturday's total.
+            LocalDate evaluationDay="STEPS".equals(week.getCommitment().getProofMethod()) ? today.minusDays(1) : today;
+            int daysLeft = daysLeft(week, evaluationDay);
+            if("STEPS".equals(week.getCommitment().getProofMethod())) {
+                daysLeft+=proofRepository.countPendingStepReviews(week.getId(),evaluationDay.atStartOfDay());
+            }
             if(missing > daysLeft){
                 // not enough days left for the times left
                 int newLost = missing - daysLeft;
@@ -239,7 +247,8 @@ public class CommitmentWeekService {
             if(last == null || !last.getWeekEnd().toLocalDate().isBefore(sunday)){
                 continue; // not started, or already opened this week
             }
-            boolean full = closeWeek(last, sunday);
+            boolean waitingForSteps=Boolean.TRUE.equals(last.getStepsSettlementPending());
+            boolean full = waitingForSteps ? false : closeWeek(last, sunday);
             Member member = commitment.getMember();
             members.put(member.getId(), member);
             allFull.put(member.getId(), allFull.getOrDefault(member.getId(), true) && full);
@@ -248,7 +257,35 @@ public class CommitmentWeekService {
         }
 
         for(Integer memberId : allFull.keySet()){
+            // A member with a delayed step week receives one combined level update on Monday.
+            boolean waiting=commitmentWeekRepository.findCommitmentWeeksByCommitmentMember(members.get(memberId)).stream()
+                    .anyMatch(w->Boolean.TRUE.equals(w.getStepsSettlementPending())
+                            && w.getWeekEnd().toLocalDate().equals(sunday.minusDays(1)));
+            if(waiting) { continue; }
             updateLevel(members.get(memberId), allFull.get(memberId));
+        }
+    }
+
+    private void closeDelayedStepWeeks(LocalDate today) {
+        Map<String,List<CommitmentWeek>> groups=new LinkedHashMap<>();
+        var pending=commitmentWeekRepository.findByStepsSettlementPendingTrueAndWeekEndBefore(today.minusDays(1).atStartOfDay());
+        pending.stream().sorted(Comparator.comparing(CommitmentWeek::getWeekEnd)).forEach(w->
+                groups.computeIfAbsent(w.getCommitment().getMember().getId()+":"+w.getWeekEnd().toLocalDate(),k->new ArrayList<>()).add(w));
+        Set<Integer> blocked=new HashSet<>();
+        for(List<CommitmentWeek> group:groups.values()) {
+            CommitmentWeek sample=group.get(0);
+            Member member=sample.getCommitment().getMember();
+            if(blocked.contains(member.getId()) || group.stream().anyMatch(w->
+                    proofRepository.countPendingStepReviews(w.getId(),w.getWeekEnd().plusSeconds(1))>0)) {
+                blocked.add(member.getId());continue;
+            }
+            for(CommitmentWeek week:group) {
+                closeWeek(week,today);week.setStepsSettlementPending(false);commitmentWeekRepository.save(week);
+            }
+            boolean full=commitmentWeekRepository.findCommitmentWeeksByCommitmentMember(member).stream()
+                    .filter(w->w.getWeekEnd().toLocalDate().equals(sample.getWeekEnd().toLocalDate()))
+                    .allMatch(w->Boolean.TRUE.equals(w.getIsFullWeek()));
+            updateLevel(member,full);
         }
     }
 

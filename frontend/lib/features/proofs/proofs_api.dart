@@ -11,34 +11,53 @@ class ProofsApi {
   ProofsApi(this.client);
 
   Future<Json> workspace() async => Map<String, dynamic>.from(
-      await client.get('/api/v1/proof-workspace/my') as Map);
+    await client.get('/api/v1/proof-workspace/my') as Map,
+  );
   Future<List<Json>> activities() async =>
       maps(await client.get('/api/v1/commitment-week/today'));
   Future<Json> state(int id) async => Map<String, dynamic>.from(
-      await client.get('/api/v1/proof-attempt/$id') as Map);
+    await client.get('/api/v1/proof-attempt/$id') as Map,
+  );
 
-  Future<int> cameraUpload(String kind, Uint8List bytes,
-      {int? proofId, String mime = 'image/jpeg'}) async {
+  Future<int> cameraUpload(
+    String kind,
+    Uint8List bytes, {
+    int? proofId,
+    String mime = 'image/jpeg',
+  }) async {
     checkImage(bytes);
-    final ticket = await client.post('/api/v1/proof-attempt/capture',
-        query: {'kind': kind, 'proofId': proofId}) as Map;
-    await client
-        .post('/api/v1/proof-attempt/capture/${ticket['captureId']}', body: {
-      'token': ticket['token'],
-      'imageData': 'data:$mime;base64,${base64Encode(bytes)}',
-    });
+    final ticket =
+        await client.post(
+              '/api/v1/proof-attempt/capture',
+              query: {'kind': kind, 'proofId': proofId},
+            )
+            as Map;
+    await client.post(
+      '/api/v1/proof-attempt/capture/${ticket['captureId']}',
+      body: {
+        'token': ticket['token'],
+        'imageData': 'data:$mime;base64,${base64Encode(bytes)}',
+      },
+    );
     return ticket['captureId'] as int;
   }
 
   Future<String> attachment(
-      String section, Uint8List bytes, String mime) async {
+    String section,
+    Uint8List bytes,
+    String mime,
+  ) async {
     checkImage(bytes);
     final ticket = await client.post('/api/v1/$section/attachment') as Map;
-    final result = await client
-        .post('/api/v1/$section/attachment/${ticket['captureId']}', body: {
-      'token': ticket['token'],
-      'imageData': 'data:$mime;base64,${base64Encode(bytes)}',
-    }) as Map;
+    final result =
+        await client.post(
+              '/api/v1/$section/attachment/${ticket['captureId']}',
+              body: {
+                'token': ticket['token'],
+                'imageData': 'data:$mime;base64,${base64Encode(bytes)}',
+              },
+            )
+            as Map;
     return result['reference'] as String;
   }
 
@@ -57,19 +76,20 @@ const methodNames = {
   'PHOTO': 'صورة مباشرة',
   'QUIZ': 'اختبار قصير',
   'TIMER': 'جلسة تركيز',
-  'LOCATION': 'زيارة مكان'
+  'LOCATION': 'زيارة مكان',
+  'STEPS': 'مجموع خطوات اليوم',
 };
 const excuseNames = {
   'SICK': 'ظرف صحي',
   'TRAVEL': 'سفر',
   'EMERGENCY': 'ظرف طارئ',
-  'OTHER': 'ظرف آخر'
+  'OTHER': 'ظرف آخر',
 };
 const kindNames = {
   'PROOF': 'إثبات نشاط',
   'EXCUSE': 'عذر',
   'OBJECTION': 'اعتراض',
-  'DONATION': 'إثبات تبرع'
+  'DONATION': 'إثبات تبرع',
 };
 
 DateTime riyadhNow() => DateTime.now().toUtc().add(const Duration(hours: 3));
@@ -77,14 +97,17 @@ DateTime? serverInstant(Object? value) {
   if (value == null) return null;
   final text = '$value';
   return DateTime.tryParse(
-      RegExp(r'(Z|[+-]\d\d:\d\d)$').hasMatch(text) ? text : '$text+03:00');
+    RegExp(r'(Z|[+-]\d\d:\d\d)$').hasMatch(text) ? text : '$text+03:00',
+  );
 }
 
 String friendlyError(Object error) {
   final raw = error is ApiException ? error.message : '$error';
   if (RegExp(r'[\u0600-\u06FF]').hasMatch(raw)) return raw;
   // the location proof (PlaceVisitService)
-  final far = RegExp(r'You are (\d+) meters from the place, the allowed is (\d+)').firstMatch(raw);
+  final far = RegExp(
+    r'You are (\d+) meters from the place, the allowed is (\d+)',
+  ).firstMatch(raw);
   if (far != null) {
     return 'أنت بعيد عن المكان اللي اخترته بـ ${arabicDigits(far.group(1))} متر، لازم تكون داخل ${arabicDigits(far.group(2))} متر عشان تسجّل وصولك.';
   }
@@ -102,6 +125,9 @@ String friendlyError(Object error) {
   }
   if (raw.contains('no running week')) {
     return 'هذا التعهّد ما عنده أسبوع شغّال الحين.';
+  }
+  if (raw.contains('Quiz topic is unclear')) {
+    return 'حدّد موضوع النشاط بشكل أوضح ثم أعد التجهيز. لم تُحتسب عليك محاولة.';
   }
   if (raw.contains('no quiz attempt') || raw.contains('Quiz generation')) {
     return 'تعذر تجهيز الأسئلة الآن. حاول لاحقًا، لم تُحتسب عليك محاولة.';
