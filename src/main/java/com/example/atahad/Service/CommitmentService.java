@@ -1,5 +1,4 @@
 package com.example.atahad.Service;
-
 import com.example.atahad.Api.ApiException;
 import com.example.atahad.Dto.In.CommitmentTargetRequest;
 import com.example.atahad.Dto.Out.LockStatusResponse;
@@ -180,5 +179,31 @@ public class CommitmentService {
             throw new ApiException("Member not found");
         }
         return member;
+    }
+    private boolean isLearningGoal(String title) {
+        if (title == null || title.isBlank()) {
+            return false;
+        }
+
+        String text = title.toLowerCase();
+
+        return List.of(
+                "قراء", "رواي", "كتاب", "كتب",
+                "دراس", "مذاكر", "تعلم", "تعلّم",
+                "كورس", "دورة", "برمج", "لغة",
+                "reading", "study", "learn", "book"
+        ).stream().anyMatch(text::contains);
+    }
+    public boolean hasLearningGoal(Integer memberId) {
+        List<Commitment> commitments = getMyCommitments(memberId);
+
+        for (Commitment commitment : commitments) {
+            if ("ACTIVE".equals(commitment.getStatus())
+                    && isLearningGoal(commitment.getTitle())) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
