@@ -982,7 +982,7 @@ class _LightButtonState extends State<_LightButton> {
             decoration: BoxDecoration(
               color: const Color(0xFFF4F6FA),
               borderRadius: BorderRadius.circular(Radii.lg),
-              boxShadow: _down ? null : const [BoxShadow(color: Color(0xFF050D22), offset: Offset(0, 4))],
+              boxShadow: _down ? null : [BoxShadow(color: edgeOf(_navy), offset: const Offset(0, 4))],
             ),
             child: widget.loading
                 ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: blue))

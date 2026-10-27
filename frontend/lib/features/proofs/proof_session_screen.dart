@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../core/api/api_client.dart';
@@ -280,6 +281,7 @@ class _ProofSessionScreenState extends State<ProofSessionScreen> {
   Timer? _clock;
   Timer? _welcomeTimer;
   bool _welcome = false;
+  bool _justAccepted = false;
   final _extension = TextEditingController(text: '5');
   @override
   void initState() {
@@ -322,6 +324,13 @@ class _ProofSessionScreenState extends State<ProofSessionScreen> {
         state['canObject'] = fresh['canObject'];
       }
       if (mounted) {
+        // accepted while the member is watching: the check is drawn and the phone taps once
+        final wasAccepted = _state != null && (_state!['proof'] as Map?)?['result'] == 'ACCEPTED';
+        final nowAccepted = (state['proof'] as Map?)?['result'] == 'ACCEPTED';
+        if (_state != null && !wasAccepted && nowAccepted) {
+          _justAccepted = true;
+          HapticFeedback.mediumImpact();
+        }
         setState(() {
           _state = state;
           _error = null;
@@ -455,6 +464,10 @@ class _ProofSessionScreenState extends State<ProofSessionScreen> {
             const ProofNotice('بداية موفقة'),
           ],
           const SizedBox(height: 20),
+          if (accepted) ...[
+            AcceptedMoment(animate: _justAccepted),
+            const SizedBox(height: 16),
+          ],
           if (accepted)
             const ProofNotice(
               'كفو، توثّق إنجازك! ما تحتاج تضيف دليلًا آخر، والنشاط ينحسب مرة واحدة.',

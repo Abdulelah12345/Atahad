@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
@@ -33,7 +34,8 @@ class _StatsScreenState extends State<StatsScreen> {
     try {
       await _api.earnGraceDay();
       if (!mounted) return;
-      showMessage(context, 'بدّلت ١٥٠ نقطة بيوم سماح.');
+      HapticFeedback.mediumImpact();
+      showMessage(context, 'بدّلت ١٥٠ نقطة ببطاقة عفو.');
       setState(() => _version++);
     } catch (error) {
       if (mounted) showError(context, error);
@@ -70,12 +72,12 @@ class _StatsScreenState extends State<StatsScreen> {
                 _LevelCard(stats: s),
                 const SizedBox(height: Space.s3),
                 _PointsCard(stats: s, earning: _earning, onEarn: _earn),
-                SectionTitle('أيام السماح (${arabicDigits(s['availableGraceDays'] ?? 0)} من ${arabicDigits(s['graceDayCapacity'] ?? 0)})'),
-                Text('تنصرف تلقائياً أول ما تضيع مرة، وكل يوم ينتهي بعد ٤ أسابيع. يوم واحد بالأسبوع.',
+                SectionTitle('بطاقات العفو (${arabicDigits(s['availableGraceDays'] ?? 0)} من ${arabicDigits(s['graceDayCapacity'] ?? 0)})'),
+                Text('تنصرف تلقائياً أول ما تضيع مرة، وكل بطاقة تنتهي بعد ٤ أسابيع. بطاقة وحدة بالأسبوع.',
                     style: Theme.of(context).textTheme.bodySmall),
                 const SizedBox(height: Space.s2),
                 if (grace.isEmpty)
-                  const AppCard(child: Text('ما عندك أيام سماح للحين.'))
+                  const AppCard(child: Text('ما عندك بطاقات عفو للحين.'))
                 else
                   ...grace.map((g) => Padding(padding: const EdgeInsets.only(bottom: Space.s2), child: _GraceDayTile(day: g))),
                 const SectionTitle('سجل النقاط'),
@@ -103,7 +105,6 @@ class _LevelCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
-    final c = context.colors;
     final s = stats;
     final next = s['nextLevel'] as String?;
     final toNext = (s['weeksToNextLevel'] ?? 0) as int;
@@ -114,13 +115,23 @@ class _LevelCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(Icons.workspace_premium_rounded, color: c.gold, size: 28),
-              const SizedBox(width: Space.s2),
               Expanded(child: Text(levelsAr[s['level']] ?? '${s['level']}', style: text.headlineMedium)),
-              StatusBadge('${arabicDigits(streak)} أسابيع متتالية', kind: BadgeKind.streak),
+              StatusBadge('${arabicDigits(streak)} أسابيع متتالية', kind: BadgeKind.brand),
             ],
           ),
-          const SizedBox(height: Space.s2),
+          const SizedBox(height: Space.s4),
+          // the whole ladder, the current level highlighted
+          LevelLadder(current: s['level'] as String?),
+          const SizedBox(height: Space.s4),
+          if (next != null) ...[
+            RewardProgress(
+              label: 'المستوى الجاي: ${levelsAr[next] ?? next}',
+              current: streak,
+              target: streak + toNext,
+              pardon: false,
+            ),
+            const SizedBox(height: Space.s2),
+          ],
           Text(
             next == null
                 ? 'وصلت أعلى مستوى 💪 لك تعهد واحد بدون حجز.'
@@ -165,20 +176,13 @@ class _PointsCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: Space.s2),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(Radii.full),
-            child: LinearProgressIndicator(
-              value: ((150 - toGrace) / 150).clamp(0, 1).toDouble(),
-              minHeight: 8,
-              backgroundColor: c.surfaceSunken,
-              color: c.gold,
-            ),
-          ),
+          // points are not money: the pardon purple, never gold
+          RewardProgress(label: 'بطاقة العفو الجاية', current: (150 - toGrace).clamp(0, 150), target: 150),
           const SizedBox(height: Space.s1),
-          Text('باقي ${arabicDigits(toGrace)} نقطة ليوم سماح (١٥٠ نقطة = يوم)', style: text.labelSmall),
+          Text('كل إثبات مقبول +١٠، وكل ١٥٠ نقطة بطاقة عفو.', style: text.labelSmall),
           if (canSwitch) ...[
             const SizedBox(height: Space.s3),
-            AtButton('بدّل ١٥٠ نقطة بيوم سماح', kind: AtButtonKind.outline, loading: earning, onPressed: onEarn),
+            AtButton('بدّل ١٥٠ نقطة ببطاقة عفو', kind: AtButtonKind.outline, loading: earning, onPressed: onEarn),
           ],
         ],
       ),

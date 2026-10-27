@@ -94,7 +94,7 @@ class _GoalPlanScreenState extends State<GoalPlanScreen> {
   }
 
   Future<void> _save() async {
-    final amount = double.tryParse(_amount.text.trim());
+    final amount = parseAmount(_amount.text);
     if (_title.text.trim().isEmpty) return showMessage(context, 'اكتب عنوان الهدف.');
     if (amount == null || amount < 5) return showMessage(context, 'أقل مبلغ لكل مرة ٥ ريال.');
     if (_weeks.any((w) => w.title.text.trim().isEmpty)) return showMessage(context, 'كل أسبوع يحتاج مهمة.');
@@ -159,7 +159,7 @@ class _GoalPlanScreenState extends State<GoalPlanScreen> {
   Widget _planStep(BuildContext context) {
     final text = Theme.of(context).textTheme;
     final c = context.colors;
-    final amount = double.tryParse(_amount.text.trim()) ?? 0;
+    final amount = parseAmount(_amount.text) ?? 0;
     final note = _plan?['note'];
     return ListView(
       padding: const EdgeInsets.all(Space.s4),
@@ -188,10 +188,10 @@ class _GoalPlanScreenState extends State<GoalPlanScreen> {
         const SizedBox(height: Space.s3),
         TargetFields(proofMethod: _proofMethod, draft: _target),
         const SizedBox(height: Space.s3),
-        TextField(
+        AmountField(
           controller: _amount,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          decoration: const InputDecoration(labelText: 'المبلغ لكل مرة تفوتك (٥ ريال أقل شي)'),
+          label: 'المبلغ لكل مرة تفوتك',
+          hint: 'أقل مبلغ ٥ ريال. تشوف أقصى خصم لكل أسبوع تحت.',
           onChanged: (_) => setState(() {}),
         ),
         SectionTitle('الخطة (${arabicDigits(_weeks.length)} أسابيع)'),

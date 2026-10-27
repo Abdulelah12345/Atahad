@@ -351,7 +351,7 @@ class _FriendMoment extends StatelessWidget {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(4),
-                boxShadow: const [BoxShadow(color: Color(0x263C2D14), blurRadius: 8, offset: Offset(0, 3))],
+                boxShadow: const [BoxShadow(color: Color(0x2610245E), blurRadius: 8, offset: Offset(0, 3))],
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(2),
@@ -549,7 +549,7 @@ class _BigActionState extends State<_BigAction> {
               Icon(widget.icon, color: primary ? fg : c.primary, size: 26),
               const SizedBox(height: Space.s4),
               Text(widget.title, style: text.labelLarge!.copyWith(color: fg, fontSize: 15, fontWeight: FontWeight.w700)),
-              Text(widget.subtitle, style: text.labelSmall!.copyWith(color: primary ? const Color(0xFFD6E0FB) : c.inkSubtle)),
+              Text(widget.subtitle, style: text.labelSmall!.copyWith(color: primary ? c.onPrimary.withValues(alpha: 0.8) : c.inkSubtle)),
             ],
           ),
         ),

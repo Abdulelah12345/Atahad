@@ -113,7 +113,7 @@ class _MomentsTabState extends State<MomentsTab> with AutomaticKeepAliveClientMi
     final text = Theme.of(context).textTheme;
     // paper, like printed photos on a table (the dark theme keeps its own background)
     final paper = paperColor(c);
-    final rule = c.isDark ? c.line : const Color(0xFFD8CFC0);
+    final rule = c.isDark ? c.line : c.lineStrong.withValues(alpha: 0.35);
     return ColoredBox(
       color: paper,
       child: Stack(
@@ -305,7 +305,7 @@ class PrintedPhoto extends StatelessWidget {
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(6),
-              boxShadow: const [BoxShadow(color: Color(0x263C2D14), blurRadius: 14, offset: Offset(0, 6))],
+              boxShadow: const [BoxShadow(color: Color(0x2610245E), blurRadius: 14, offset: Offset(0, 6))],
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
