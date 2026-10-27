@@ -100,7 +100,44 @@ class AppTheme {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.md)),
       ),
       textButtonTheme: TextButtonThemeData(
-        style: TextButton.styleFrom(foregroundColor: c.primary, textStyle: text.labelLarge),
+        style: TextButton.styleFrom(foregroundColor: c.primary, textStyle: text.labelLarge, minimumSize: const Size(44, 44)),
+      ),
+      // the plain Material buttons look like AtButton (48px, radius md, a verb in labelLarge 16)
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          backgroundColor: c.primary,
+          foregroundColor: c.onPrimary,
+          disabledBackgroundColor: c.surfaceSunken,
+          disabledForegroundColor: c.inkSubtle,
+          minimumSize: const Size(64, 48),
+          padding: const EdgeInsets.symmetric(horizontal: Space.s6),
+          textStyle: text.labelLarge!.copyWith(fontSize: 16),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.md)),
+        ),
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: c.primary,
+          foregroundColor: c.onPrimary,
+          disabledBackgroundColor: c.surfaceSunken,
+          disabledForegroundColor: c.inkSubtle,
+          elevation: 0,
+          minimumSize: const Size(64, 48),
+          padding: const EdgeInsets.symmetric(horizontal: Space.s6),
+          textStyle: text.labelLarge!.copyWith(fontSize: 16),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.md)),
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          backgroundColor: c.surface,
+          foregroundColor: c.primary,
+          side: BorderSide(color: c.lineStrong),
+          minimumSize: const Size(64, 48),
+          padding: const EdgeInsets.symmetric(horizontal: Space.s6),
+          textStyle: text.labelLarge!.copyWith(fontSize: 16),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.md)),
+        ),
       ),
       chipTheme: ChipThemeData(
         backgroundColor: c.surface,

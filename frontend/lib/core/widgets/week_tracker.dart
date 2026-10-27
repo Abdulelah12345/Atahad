@@ -21,10 +21,10 @@ class WeekTracker extends StatelessWidget {
       children: List.generate(7, (i) {
         final state = days[i];
         final (Color bg, BoxBorder? border, Widget inner) = switch (state) {
-          DayState.done => (c.shadda, null, const Icon(Icons.check_rounded, size: 18, color: Colors.white)),
+          DayState.done => (c.accent, null, const Icon(Icons.check_rounded, size: 18, color: Colors.white)),
           DayState.missed => (c.dangerSoft, null, Icon(Icons.close_rounded, size: 18, color: c.danger)),
           DayState.excused => (c.infoSoft, null, Icon(Icons.remove_rounded, size: 18, color: c.info)),
-          DayState.today => (c.surface, Border.all(color: c.primary, width: 2), _dayNumber(i, c.ink, text)),
+          DayState.today => (c.surface, Border.all(color: c.primary, width: 2), _dayNumber(i, c.primary, text)),
           DayState.planned => (c.primarySoft, null, _dayNumber(i, c.primary, text)),
           DayState.empty => (c.surfaceSunken, null, _dayNumber(i, c.inkSubtle, text)),
         };
@@ -32,8 +32,8 @@ class WeekTracker extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 34,
-              height: 34,
+              width: 36,
+              height: 36,
               alignment: Alignment.center,
               decoration: BoxDecoration(color: bg, border: border, borderRadius: BorderRadius.circular(Radii.sm)),
               child: inner,
@@ -42,7 +42,7 @@ class WeekTracker extends StatelessWidget {
             Text(
               weekDaysAr[i],
               style: text.labelSmall!.copyWith(
-                color: state == DayState.today ? c.ink : c.inkSubtle,
+                color: state == DayState.today ? c.primary : c.inkSubtle,
                 fontWeight: state == DayState.today ? FontWeight.w700 : null,
               ),
             ),

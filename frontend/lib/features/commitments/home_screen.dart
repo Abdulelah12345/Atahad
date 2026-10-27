@@ -6,8 +6,8 @@ import '../../core/api/api_client.dart';
 import '../../core/api/api_exception.dart';
 import '../proofs/activity_proof_entry.dart';
 import '../proofs/proof_widgets.dart';
+import '../proofs/request_forms.dart';
 import '../../core/auth/auth_state.dart';
-import '../../core/theme/at_colors.dart';
 import '../../core/theme/at_tokens.dart';
 import '../../core/utils/format.dart';
 import '../../core/widgets/widgets.dart';
@@ -118,37 +118,41 @@ class _HomeScreenState extends State<HomeScreen> {
       ..sort((a, b) => '${a['expiresAt']}'.compareTo('${b['expiresAt']}'));
     if (!mounted) return;
     if (usable.isEmpty) {
-      showMessage(context, 'ما عندك يوم سماح متاح. كل ١٥٠ نقطة تعطيك يوم.');
+      showMessage(context, 'ما عندك بطاقة عفو متاحة. كل ١٥٠ نقطة تعطيك بطاقة.');
       return;
     }
     final day = usable.first;
     final ok = await confirmDialog(
       context,
-      title: 'تستخدم يوم سماح؟',
-      message: 'ينحسب لـ "${task['title']}" مرة معذورة هالأسبوع، وإذا عليها عقوبة ما انقضت تنلغي. '
-          'يوم واحد بس بالأسبوع.\n\nبنستخدم اللي ينتهي ${arabicDigits(day['expiresAt'])} '
+      title: 'تستخدم بطاقة عفو؟',
+      message: 'تنحسب لـ "${task['title']}" مرة معذورة هالأسبوع، وإذا عليها خصم ما انقضى ينلغي. '
+          'بطاقة وحدة بس بالأسبوع.\n\nبنستخدم اللي تنتهي ${arabicDigits(day['expiresAt'])} '
           '(باقي عندك ${arabicDigits(usable.length)}).',
-      confirm: 'استخدمه',
+      confirm: 'استخدمها',
     );
     if (!ok || !mounted) return;
     try {
       await _api.useGraceDay(day['id'] as int, task['weekId'] as int);
       if (!mounted) return;
-      showMessage(context, 'استخدمت يوم سماح.');
+      showMessage(context, 'استخدمت بطاقة عفو.');
       await reload();
     } catch (error) {
       if (mounted) _showGraceOrPlanError(error);
     }
   }
 
+  Future<void> _excuse(JsonMap task, Future<void> Function() reload) async {
+    await Navigator.push(context, MaterialPageRoute(builder: (_) => ExcuseFormScreen(activities: [Map<String, dynamic>.from(task)])));
+    if (mounted) await reload();
+  }
+
   // the backend answers these two in English, the known ones are shown in Arabic
   void _showGraceOrPlanError(Object error) {
     const known = {
-      'Only one grace day can be used in a week':
-      'استخدمت يوم سماح هالأسبوع، يوم واحد بس بالأسبوع.',
-      'This week does not need a grace day': 'هالأسبوع ما يحتاج يوم سماح.',
-      'Grace day has expired': 'يوم السماح هذا انتهى.',
-      'Grace day already used': 'يوم السماح هذا مستخدم.',
+      'Only one grace day can be used in a week': 'استخدمت بطاقة عفو هالأسبوع، بطاقة وحدة بس بالأسبوع.',
+      'This week does not need a grace day': 'هالأسبوع ما يحتاج بطاقة عفو.',
+      'Grace day has expired': 'بطاقة العفو هذي انتهت.',
+      'Grace day already used': 'بطاقة العفو هذي مستخدمة.',
       'This week is not running': 'هالأسبوع خلص.',
       'You planned more days than the times of this week':
       'اخترت أيام أكثر من مرات هالأسبوع.',
@@ -326,31 +330,47 @@ class _HomeScreenState extends State<HomeScreen> {
         builder: (context, data, reload) {
           final tasks = data['tasks'] as List<JsonMap>;
           final stats = data['stats'] as JsonMap?;
+          // by the state, never by the creation date: what to do now first
+          final urgent = tasks.where((t) => questStateOf(t['trackStatus'] as String?) == QuestState.urgent).toList();
+          final missed = tasks.where((t) => questStateOf(t['trackStatus'] as String?) == QuestState.missed).toList();
+          final fine = tasks.where((t) => questStateOf(t['trackStatus'] as String?) == QuestState.safe).toList();
+          Widget quest(JsonMap t) => Padding(
+                padding: const EdgeInsets.only(bottom: Space.s3),
+                child: _Quest(
+                  task: t,
+                  onProve: () async {
+                    await openActivityProof(context, Map<String, dynamic>.from(t));
+                    if (context.mounted) await reload();
+                  },
+                  onPostpone: () => _postpone(t, reload),
+                  onPardon: () => _useGraceDay(t, reload),
+                  onExcuse: () => _excuse(t, reload),
+                ),
+              );
           return RefreshIndicator(
             onRefresh: reload,
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(Space.s4, Space.s4, Space.s4, Space.s16 + Space.s4),
+              padding: const EdgeInsets.fromLTRB(Space.s4, Space.s2, Space.s4, Space.s16 + Space.s4),
               children: [
-                if (stats != null) _StatsStrip(stats: stats, onTap: () => _open('/stats')),
-                SectionTitle('هالأسبوع', trailing: tasks.isEmpty ? null : Text(_todayLine(tasks), style: Theme.of(context).textTheme.labelSmall)),
+                if (stats != null) ...[
+                  _Resources(stats: stats, onTap: () => _open('/stats')),
+                  const SizedBox(height: Space.s3),
+                  // the next reward is always in sight
+                  RewardProgress(
+                    label: 'بطاقة العفو الجاية',
+                    current: 150 - ((stats['pointsToGraceDay'] ?? 150) as int).clamp(0, 150),
+                    target: 150,
+                    onTap: () => _open('/stats'),
+                  ),
+                ],
                 if (tasks.isEmpty)
                   const Padding(
                     padding: EdgeInsets.only(top: Space.s8),
                     child: EmptyView(message: 'ما عندك تعهّدات للحين. ابدأ بعادة وحدة.', icon: Icons.flag_outlined),
-                  )
-                else
-                  ...tasks.map((t) => Padding(
-                        padding: const EdgeInsets.only(bottom: Space.s3),
-                        child: _TaskCard(
-                          task: t,
-                          onTap: () async {
-                            await openActivityProof(context, Map<String, dynamic>.from(t));
-                            if (context.mounted) await reload();
-                          },
-                          onPostpone: () => _postpone(t, reload),
-                          onGraceDay: () => _useGraceDay(t, reload),
-                        ),
-                      )),
+                  ),
+                if (urgent.isNotEmpty) ...[_SectionHead('لازم اليوم', urgent.length), ...urgent.map(quest)],
+                if (missed.isNotEmpty) ...[_SectionHead('يحتاج قرار', missed.length), ...missed.map(quest)],
+                if (fine.isNotEmpty) ...[_SectionHead('ماشية تمام', fine.length), ...fine.map(quest)],
               ],
             ),
           );
@@ -358,145 +378,91 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
-
-  // "٢ لازم اليوم" when some must be done today
-  String _todayLine(List<JsonMap> tasks) {
-    final must = tasks.where((t) => t['trackStatus'] == 'MUST_TODAY').length;
-    final planned = tasks.where((t) => t['plannedToday'] == true && t['trackStatus'] != 'SETTLED').length;
-    if (must > 0) return '${arabicDigits(must)} لازم اليوم';
-    if (planned > 0) return '${arabicDigits(planned)} مخطط لها اليوم';
-    return '';
-  }
 }
 
-class _StatsStrip extends StatelessWidget {
-  final JsonMap stats;
-  final VoidCallback onTap;
+// «لازم اليوم ٢»
+class _SectionHead extends StatelessWidget {
+  final String title;
+  final int count;
 
-  const _StatsStrip({required this.stats, required this.onTap});
+  const _SectionHead(this.title, this.count);
 
   @override
   Widget build(BuildContext context) {
-    final text = Theme.of(context).textTheme;
-    Widget item(String value, String label) => Expanded(
-          child: Column(
+    return SectionTitle(title, trailing: Text(arabicDigits(count), style: Theme.of(context).textTheme.labelSmall));
+  }
+}
+
+// points, pardon cards and donations, a tap opens «مستواي»
+class _Resources extends StatelessWidget {
+  final JsonMap stats;
+  final VoidCallback onTap;
+
+  const _Resources({required this.stats, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        LevelBadge(stats['level'] as String?, size: 30, showName: false),
+        const SizedBox(width: Space.s3),
+        Expanded(
+          child: Wrap(
+            spacing: Space.s2,
+            runSpacing: Space.s2,
             children: [
-              Text(value, style: text.titleMedium),
-              Text(label, style: text.labelSmall),
+              ResourceChip(ResourceKind.points, (stats['points'] ?? 0) as num, onTap: onTap),
+              ResourceChip(ResourceKind.pardon, (stats['availableGraceDays'] ?? 0) as num, onTap: onTap),
+              ResourceChip(ResourceKind.donated, (stats['totalDonated'] ?? 0) as num, onTap: onTap),
             ],
           ),
-        );
-    return AppCard(
-      onTap: onTap,
-      child: Row(
-        children: [
-          item(levelsAr[stats['level']] ?? '${stats['level'] ?? '-'}', 'المستوى'),
-          item(arabicDigits(stats['consecutiveWeeks'] ?? 0), 'أسابيع متتالية'),
-          item(arabicDigits(stats['points'] ?? 0), 'نقطة'),
-          item(arabicDigits(stats['availableGraceDays'] ?? 0), 'أيام سماح'),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
 
-class _TaskCard extends StatelessWidget {
+class _Quest extends StatelessWidget {
   final JsonMap task;
-  final VoidCallback onTap;
+  final VoidCallback onProve;
   final VoidCallback onPostpone;
-  final VoidCallback onGraceDay;
+  final VoidCallback onPardon;
+  final VoidCallback onExcuse;
 
-  const _TaskCard({required this.task, required this.onTap, required this.onPostpone, required this.onGraceDay});
+  const _Quest({required this.task, required this.onProve, required this.onPostpone, required this.onPardon, required this.onExcuse});
 
   @override
   Widget build(BuildContext context) {
-    final text = Theme.of(context).textTheme;
     final t = task;
     final needed = (t['required'] ?? 0) as int;
     final completed = (t['completed'] ?? 0) as int;
     final excused = (t['excused'] ?? 0) as int;
-    // postponing and the manual grace day are for habits only (goals plan every task, and use grace days by themselves)
-    final habitRunning = t['type'] == 'HABIT' && t['trackStatus'] != 'SETTLED';
-    return AppCard(
-      onTap: onTap,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                  child: ActivityHeading(
-                      title: '${t['title']}',
-                      goalTitle: t['goalTitle'] as String?,
-                      taskTitle: t['taskTitle'] as String?,
-                      style: text.headlineSmall)),
-              StatusBadge.track(t['trackStatus'] as String?),
-            ],
-          ),
-          const SizedBox(height: Space.s1),
-          Text(
-            [
-              'باقي ${arabicDigits(t['remaining'])} من ${arabicDigits(needed)} هالأسبوع',
-              if (t['daysLeft'] != null) '${arabicDigits(t['daysLeft'])} أيام باقية',
-              if (t['type'] == 'GOAL') 'هدف',
-            ].join(' · '),
-            style: text.bodySmall,
-          ),
-          if (t['plannedToday'] == true && t['trackStatus'] != 'SETTLED')
-            Padding(
-              padding: const EdgeInsets.only(top: Space.s1),
-              child: Text('اليوم يومك 💪 سوّه أو أجّل', style: text.labelMedium!.copyWith(color: context.colors.primary)),
-            ),
-          const SizedBox(height: Space.s3),
-          // one box for every time this week: done / excused / left
-          Row(
-            children: List.generate(needed, (i) {
-              final c = context.colors;
-              final color = i < completed
-                  ? c.shadda
-                  : i < completed + excused
-                      ? c.info
-                      : c.surfaceSunken;
-              return Expanded(
-                child: Container(
-                  height: 6,
-                  margin: const EdgeInsetsDirectional.only(end: Space.s1),
-                  decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(Radii.full)),
-                ),
-              );
-            }),
-          ),
-          const SizedBox(height: Space.s3),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: Space.s3, vertical: Space.s2),
-            decoration: BoxDecoration(color: context.colors.surfaceSunken, borderRadius: BorderRadius.circular(Radii.md)),
-            child: Row(
-              children: [
-                Expanded(child: Text('لكل مرة تفوتك', style: text.bodySmall)),
-                RiyalAmount(t['amountPerTime'] as num?),
-              ],
-            ),
-          ),
-          if (habitRunning) ...[
-            const SizedBox(height: Space.s2),
-            Row(
-              children: [
-                TextButton.icon(
-                  icon: const Icon(Icons.event_repeat_rounded, size: 18),
-                  label: const Text('أجّل'),
-                  onPressed: onPostpone,
-                ),
-                if ((t['remaining'] ?? 0) as int > 0)
-                  TextButton.icon(
-                    icon: const Icon(Icons.beach_access_rounded, size: 18),
-                    label: const Text('يوم سماح'),
-                    onPressed: onGraceDay,
-                  ),
-              ],
-            ),
-          ],
-        ],
-      ),
+    final state = questStateOf(t['trackStatus'] as String?);
+    final settled = t['trackStatus'] == 'SETTLED';
+    // postponing and the manual pardon card are for habits only (goals plan every task, and use pardon cards by themselves)
+    final habitRunning = t['type'] == 'HABIT' && !settled;
+    final meta = [
+      'باقي ${arabicDigits(t['remaining'])} من ${arabicDigits(needed)}',
+      if (t['daysLeft'] != null && !settled) '${arabicDigits(t['daysLeft'])} أيام باقية',
+      if (state == QuestState.safe && t['plannedToday'] == true && !settled) 'مخططة اليوم',
+      if (t['type'] == 'GOAL') 'هدف',
+    ].join(' · ');
+    return QuestCard(
+      state: state,
+      icon: proofMethodIcon(t['proofMethod'] as String?),
+      title: ActivityHeading(title: '${t['title']}', goalTitle: t['goalTitle'] as String?, taskTitle: t['taskTitle'] as String?),
+      meta: meta,
+      // an excused time counts as done this week
+      done: completed + excused,
+      total: needed,
+      stake: t['amountPerTime'] as num?,
+      onTap: settled ? null : onProve,
+      actionLabel: t['proofMethod'] == 'QUIZ' ? 'ابدأ الكويز' : 'ارفع الإثبات',
+      onAction: onProve,
+      onPardon: habitRunning && (t['remaining'] ?? 0) as int > 0 ? onPardon : null,
+      onExcuse: onExcuse,
+      onPostpone: habitRunning ? onPostpone : null,
+      badge: settled ? StatusBadge.track('SETTLED') : null,
     );
   }
 }
@@ -545,10 +511,7 @@ class _PostponeSheetState extends State<_PostponeSheet> {
               },
             ),
             const SizedBox(height: Space.s4),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, _days),
-              child: const Text('احفظ أيام هالأسبوع'),
-            ),
+            AtButton('احفظ أيام هالأسبوع', onPressed: () => Navigator.pop(context, _days)),
           ],
         ),
       ),

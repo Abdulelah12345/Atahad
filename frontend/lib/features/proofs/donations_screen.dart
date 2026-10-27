@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
@@ -118,6 +119,7 @@ class _DonationsScreenState extends State<DonationsScreen> {
       await _reload();
       if (!mounted) return;
       if (status == 'ACCEPTED') {
+        HapticFeedback.mediumImpact(); // the app opens: one tap
         // all the donations so far (the paid amounts), for the unlocked screen
         num donated = 0;
         try {

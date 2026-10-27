@@ -94,13 +94,14 @@ class _WrappedCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(Icons.auto_awesome_rounded, color: c.goldLight, size: 20),
+              // on deep: the light blue of the dark theme (gold is for money only)
+              Icon(Icons.auto_awesome_rounded, color: AtColors.dark.primary, size: 20),
               const SizedBox(width: Space.s2),
-              Text(arabicDigits(item['month']), style: text.titleMedium!.copyWith(color: c.goldLight)),
+              Text(arabicDigits(item['month']), style: text.titleMedium!.copyWith(color: AtColors.dark.primary)),
             ],
           ),
           const SizedBox(height: Space.s3),
-          Text('${item['summary'] ?? ''}', style: text.bodyMedium!.copyWith(color: Colors.white)),
+          Text('${item['summary'] ?? ''}', style: text.bodyMedium!.copyWith(color: AtColors.dark.ink)),
         ],
       ),
     );

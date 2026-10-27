@@ -197,14 +197,10 @@ class _HabitFormScreenState extends State<HabitFormScreen> {
               ],
             ),
             const SizedBox(height: Space.s4),
-            TextFormField(
+            AmountField(
               controller: _amount,
-              keyboardType: const TextInputType.numberWithOptions(
-                decimal: true,
-              ),
-              decoration: const InputDecoration(
-                labelText: 'المبلغ لكل مرة تفوتك (٥ ريال أقل شي)',
-              ),
+              label: 'المبلغ لكل مرة تفوتك',
+              hint: 'لو فاتتك كلها: ${money(amount * _times)} ريال صدقة بالأسبوع. أقل مبلغ ٥ ريال.',
               onChanged: (_) => setState(() {}),
               validator: (v) {
                 final value = double.tryParse(normalizeWalkingNumber(v ?? ''));

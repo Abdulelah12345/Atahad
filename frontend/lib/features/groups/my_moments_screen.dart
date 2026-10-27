@@ -43,7 +43,7 @@ class _MyMomentsScreenState extends State<MyMomentsScreen> {
     final c = context.colors;
     final text = Theme.of(context).textTheme;
     final paper = paperColor(c);
-    final rule = c.isDark ? c.line : const Color(0xFFD8CFC0);
+    final rule = c.isDark ? c.line : c.lineStrong.withValues(alpha: 0.35);
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {

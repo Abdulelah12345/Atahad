@@ -996,7 +996,7 @@ class _SetGoalSheetState extends State<SetGoalSheet> {
       await widget.api.setGoal(widget.groupId, {
         'title': _title.text.trim(),
         'proofMethod': _method,
-        'amountPerTime': num.parse(_amount.text.trim()),
+        'amountPerTime': parseAmount(_amount.text)!,
         'proposalId': widget.proposal?['id'],
         'difficulty': _difficulty,
         'targetMinutes': _method == 'TIMER' ? int.parse(_minutes.text.trim()) : null,
@@ -1147,12 +1147,11 @@ class _SetGoalSheetState extends State<SetGoalSheet> {
               ],
             ),
             const SizedBox(height: Space.s4),
-            TextFormField(
+            AmountField(
               controller: _amount,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              textDirection: TextDirection.ltr,
-              decoration: const InputDecoration(labelText: 'مبلغ التبرّع في حال ما تمت المهمة', suffixIcon: Padding(padding: EdgeInsets.all(14), child: RiyalSymbol())),
-              validator: (v) => (num.tryParse(v?.trim() ?? '') ?? 0) < 5 ? '٥ أقل شي' : null,
+              label: 'مبلغ التبرّع لو ما تمت المهمة',
+              hint: 'أقل مبلغ ٥ ريال',
+              validator: (v) => (parseAmount(v ?? '') ?? 0) < 5 ? 'أقل مبلغ ٥ ريال' : null,
             ),
             if (_method == 'TIMER') ...[
               const SizedBox(height: Space.s4),

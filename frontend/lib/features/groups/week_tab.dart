@@ -143,7 +143,7 @@ class _WeekHero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
-    const soft = Color(0xFFDCEAF0);
+    const soft = Color(0xE6FFFFFF); // white text on the team colors (90%)
     // the confetti breathes a little (a celebration screen)
     Widget bit(double w, double h, Color color, double angle) => Pulse(
           scale: 1.3,

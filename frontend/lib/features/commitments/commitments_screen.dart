@@ -155,7 +155,7 @@ class _CommitmentsScreenState extends State<CommitmentsScreen> {
           Space.s16 + Space.s4,
         ),
         itemCount: sorted.length,
-        separatorBuilder: (context, i) => const SizedBox(height: Space.s3),
+        separatorBuilder: (context, i) => const SizedBox(height: Space.s6),
         itemBuilder: (context, i) => item(sorted[i]),
       ),
     );
@@ -189,50 +189,44 @@ class _CommitmentsScreenState extends State<CommitmentsScreen> {
           ..sort();
     final pendingTimes = h['pendingTimesPerWeek'];
     final pendingAmount = h['pendingBaseAmount'];
-    return AppCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(child: Text('${h['title']}', style: text.headlineSmall)),
-              commitmentStatusBadge(h['status'] as String?),
-              _menu(h, true),
-            ],
-          ),
-          Text(
-            '${arabicDigits(h['timesPerWeek'])} مرات بالأسبوع · ${h['proofMethod'] == 'STEPS' ? 'مجموع خطوات اليوم' : proofMethodsAr[h['proofMethod']] ?? h['proofMethod']}',
-            style: text.bodySmall,
-          ),
-          if (days.isNotEmpty)
-            Text(
-              'أيام التخطيط: ${days.map((i) => weekDaysAr[i]).join('، ')}',
-              style: text.bodySmall,
+    final active = h['status'] == 'ACTIVE';
+    // the planned days of the week (reminders only) and today, Sunday first
+    final today = DateTime.now().weekday % 7;
+    final week = List.generate(
+      7,
+      (i) => i == today
+          ? DayState.today
+          : days.contains(i)
+              ? DayState.planned
+              : DayState.empty,
+    );
+    return CommitmentCard(
+      title: '${h['title']}',
+      details: [
+        '${arabicDigits(h['timesPerWeek'])} مرات بالأسبوع · ${h['proofMethod'] == 'STEPS' ? 'مجموع خطوات اليوم' : proofMethodsAr[h['proofMethod']] ?? h['proofMethod']}',
+        if (h['proofMethod'] == 'STEPS') 'الهدف: ${arabicDigits(h['targetSteps'])} خطوة في اليوم',
+      ],
+      badge: commitmentStatusBadge(h['status'] as String?),
+      menu: _menu(h, true),
+      week: active ? week : null,
+      amount: h['baseAmount'] as num?,
+      extra: [
+        if (pendingTimes != null || pendingAmount != null)
+          Padding(
+            padding: const EdgeInsets.only(top: Space.s2),
+            child: Text(
+              'من الأسبوع الجاي: '
+              '${pendingTimes != null ? '${arabicDigits(pendingTimes)} مرات ' : ''}'
+              '${pendingAmount != null ? '${money(pendingAmount as num)} للمرة' : ''}',
+              style: text.labelSmall,
             ),
-          if (pendingTimes != null || pendingAmount != null)
-            Padding(
-              padding: const EdgeInsets.only(top: Space.s1),
-              child: Text(
-                'من الأسبوع الجاي: '
-                '${pendingTimes != null ? '${arabicDigits(pendingTimes)} مرات ' : ''}'
-                '${pendingAmount != null ? '${money(pendingAmount as num)} للمرة' : ''}',
-                style: text.labelSmall,
-              ),
-            ),
-          const SizedBox(height: Space.s2),
-          if (h['proofMethod'] == 'STEPS')
-            Text(
-              'الهدف: ${arabicDigits(h['targetSteps'])} خطوة في اليوم',
-              style: text.titleSmall,
-            ),
-          InfoRow(
-            'لكل مرة تفوتك',
-            RiyalAmount(h['baseAmount'] as num?, style: text.titleSmall),
           ),
-          if (h['proofMethod'] == 'STEPS' && h['status'] == 'ACTIVE')
-            TextButton.icon(
+      ],
+      action: h['proofMethod'] == 'STEPS' && active
+          ? AtButton(
+              'تابع خطواتك',
+              kind: AtButtonKind.outline,
               icon: const Icon(Icons.directions_walk_rounded),
-              label: const Text('تابع خطواتك'),
               onPressed: () async {
                 try {
                   final week = await _api.currentWeek((h['id'] as num).toInt());
@@ -245,39 +239,22 @@ class _CommitmentsScreenState extends State<CommitmentsScreen> {
                   if (context.mounted) showError(context, e);
                 }
               },
-            ),
-        ],
-      ),
+            )
+          : null,
     );
   }
 
   Widget _goalCard(BuildContext context, JsonMap g) {
-    final text = Theme.of(context).textTheme;
-    return AppCard(
+    return CommitmentCard(
+      title: '${g['title']}',
+      details: [
+        '${arabicDigits(g['totalWeeks'])} أسابيع · ${proofMethodsAr[g['proofMethod']] ?? g['proofMethod']}',
+        if (g['endDate'] != null) 'ينتهي ${arabicDigits(g['endDate'])}',
+      ],
+      badge: commitmentStatusBadge(g['status'] as String?),
+      menu: _menu(g, false),
       onTap: () => _open('/goal/${g['id']}'),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(child: Text('${g['title']}', style: text.headlineSmall)),
-              commitmentStatusBadge(g['status'] as String?),
-              _menu(g, false),
-            ],
-          ),
-          Text(
-            '${arabicDigits(g['totalWeeks'])} أسابيع · ${proofMethodsAr[g['proofMethod']] ?? g['proofMethod']}',
-            style: text.bodySmall,
-          ),
-          if (g['endDate'] != null)
-            Text('ينتهي ${arabicDigits(g['endDate'])}', style: text.bodySmall),
-          const SizedBox(height: Space.s1),
-          Align(
-            alignment: AlignmentDirectional.centerEnd,
-            child: Text('شوف التقدم ←', style: text.labelMedium),
-          ),
-        ],
-      ),
+      action: AtButton('شوف التقدم', kind: AtButtonKind.outline, onPressed: () => _open('/goal/${g['id']}')),
     );
   }
 }

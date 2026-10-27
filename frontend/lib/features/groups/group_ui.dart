@@ -3,6 +3,10 @@ import 'package:flutter/material.dart';
 import '../../core/theme/at_colors.dart';
 import '../../core/theme/at_tokens.dart';
 import '../../core/utils/format.dart';
+import '../../core/widgets/game.dart';
+
+// Pips, TitleTile, titleColor and reduceMotion moved to the design system widgets
+export '../../core/widgets/game.dart';
 
 // OWNER: Fai - the shared pieces of the group pages (the design system screens: Groups, GroupBoard, GroupVote, GroupWeek, GroupVS, Moments)
 
@@ -12,7 +16,6 @@ Color teamColor(Object? groupId) => AtColors.team(((groupId as int?) ?? 1) - 1);
 // a darker shade of a color, for the 3-4px edge under raised things
 Color edgeOf(Color color) => Color.lerp(color, Colors.black, 0.28)!;
 
-bool reduceMotion(BuildContext context) => MediaQuery.maybeOf(context)?.disableAnimations ?? false;
 
 // the first letter of the group in a rounded square (team color)
 class TeamAvatar extends StatelessWidget {
@@ -142,44 +145,7 @@ class Pill extends StatelessWidget {
   }
 }
 
-// the times of the week as small bars: done = accent
-class Pips extends StatelessWidget {
-  final int done;
-  final int total;
-  final double width; // 0 = fill the row
-  final Color? empty;
-
-  const Pips({super.key, required this.done, required this.total, this.width = 18, this.empty});
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-    if (total <= 0) return const SizedBox(height: 6);
-    // many times: one bar
-    if (total > 10) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(Radii.full),
-        child: LinearProgressIndicator(value: (done / total).clamp(0, 1).toDouble(), minHeight: 6, color: c.accent, backgroundColor: empty ?? c.surfaceSunken),
-      );
-    }
-    Widget pip(int i) => Container(
-          width: width == 0 ? null : width,
-          height: 6,
-          decoration: BoxDecoration(color: i < done ? c.accent : (empty ?? c.surfaceSunken), borderRadius: BorderRadius.circular(Radii.full)),
-        );
-    return Row(
-      mainAxisSize: width == 0 ? MainAxisSize.max : MainAxisSize.min,
-      children: [
-        for (var i = 0; i < total; i++) ...[
-          if (i > 0) const SizedBox(width: 3),
-          width == 0 ? Expanded(child: pip(i)) : pip(i),
-        ],
-      ],
-    );
-  }
-}
-
-// «باقي ٦٠ نقطة وكل واحد ياخذ يوم عفو»
+// «باقي ٦٠ نقطة وكل واحد ياخذ بطاقة عفو»
 class PardonBanner extends StatelessWidget {
   final int points;
   final int target;
@@ -195,11 +161,11 @@ class PardonBanner extends StatelessWidget {
       decoration: BoxDecoration(color: c.pardonSoft, borderRadius: BorderRadius.circular(Radii.lg)),
       child: Row(
         children: [
-          Icon(Icons.style_rounded, size: 20, color: c.pardon),
+          Icon(Icons.confirmation_number_rounded, size: 20, color: c.pardon),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              left == 0 ? 'وصلتوا! كل واحد ياخذ يوم عفو' : 'باقي ${arabicDigits(left)} نقطة وكل واحد ياخذ يوم عفو',
+              left == 0 ? 'وصلتوا! كل واحد ياخذ بطاقة عفو' : 'باقي ${arabicDigits(left)} نقطة وكل واحد ياخذ بطاقة عفو',
               style: Theme.of(context).textTheme.labelMedium!.copyWith(color: c.pardonText),
             ),
           ),
@@ -354,7 +320,7 @@ class PillTab extends StatelessWidget {
                 Container(
                   width: 8,
                   height: 8,
-                  decoration: BoxDecoration(color: const Color(0xFFE5484D), shape: BoxShape.circle, border: Border.all(color: selected ? Colors.white : team, width: 1)),
+                  decoration: BoxDecoration(color: context.colors.danger, shape: BoxShape.circle, border: Border.all(color: selected ? Colors.white : team, width: 1)),
                 ),
               ],
             ],
@@ -395,45 +361,6 @@ class HeaderIconButton extends StatelessWidget {
           child: SizedBox(width: 44, height: 44, child: Icon(icon, color: color, size: 22)),
         ),
       ),
-    );
-  }
-}
-
-// the icon of every title of the week, in its color tile
-const titleIcons = {
-  'IRON': Icons.fitness_center_rounded,
-  'ROCKET': Icons.rocket_launch_rounded,
-  'OWL': Icons.nightlight_round,
-  'ALARMIST': Icons.notifications_active_rounded,
-  'COMEBACK': Icons.replay_rounded,
-  'EXCUSE_KING': Icons.receipt_long_rounded,
-  'TOP_DONOR': Icons.volunteer_activism_rounded,
-};
-
-Color titleColor(String? code) => AtColors.titles[code] ?? const Color(0xFF7A869C);
-
-class TitleTile extends StatelessWidget {
-  final String code;
-  final double size;
-
-  const TitleTile(this.code, {super.key, this.size = 48});
-
-  @override
-  Widget build(BuildContext context) {
-    final Gradient? gradient = switch (code) {
-      'IRON' => const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFFB7C3CD), Color(0xFF5B6B79)]),
-      'TOP_DONOR' => const RadialGradient(center: Alignment(-0.3, -0.4), colors: [Color(0xFFFFE29A), Color(0xFFF2B33D), Color(0xFFC98A1E)], stops: [0, 0.55, 1]),
-      _ => null,
-    };
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        color: gradient == null ? titleColor(code) : null,
-        gradient: gradient,
-        borderRadius: BorderRadius.circular(size / 3),
-      ),
-      child: Icon(titleIcons[code] ?? Icons.workspace_premium_rounded, color: code == 'TOP_DONOR' ? const Color(0xFF0A1A3A) : Colors.white, size: size * 0.5),
     );
   }
 }
@@ -498,7 +425,7 @@ String votesAr(int n) => n == 1 ? 'صوت' : n == 2 ? 'صوتين' : n >= 3 && n
 
 
 // the paper of the moments (the dark theme keeps its own background)
-Color paperColor(AtColors c) => c.isDark ? c.bg : const Color(0xFFF2EDE4);
+Color paperColor(AtColors c) => c.isDark ? c.bg : c.surfaceSunken;
 
 // a game feel: things come in one after another (fade + slide up), once
 class Appear extends StatelessWidget {

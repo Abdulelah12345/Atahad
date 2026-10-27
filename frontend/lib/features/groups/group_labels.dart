@@ -56,7 +56,7 @@ const pointReasonsAr = {
   'MATCH_WIN': 'فوز بالمنافسة',
   'MATCH_ALL_DONE': 'الكل كمّل أسبوع المنافسة',
   'LEAST_PROCRASTINATION': 'الأقل تسويف بالمنافسة',
-  'GRACE_DAY_REDEEMED': 'انصرفت: يوم عفو لكل عضو',
+  'GRACE_DAY_REDEEMED': 'انصرفت: بطاقة عفو لكل عضو',
 };
 
 // the app messages in the chat come from the backend in English, this puts them in Arabic
