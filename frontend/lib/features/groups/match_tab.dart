@@ -120,7 +120,9 @@ class _MatchTabState extends State<MatchTab> with AutomaticKeepAliveClientMixin 
           final past = data.matches.where((m) => !identical(m, featured) && (m['status'] == 'FINISHED' || m['status'] == 'DECLINED')).toList();
           // one competition at a time: a running one or a challenge we sent closes the door
           final busy = active != null || outgoing.isNotEmpty;
-          final when = _when(featured);
+          // the pill on the title: the days of the running match, or that the shown match is over
+          final when = _when(featured) ??
+              (featured?['status'] == 'FINISHED' ? 'انتهت ${dayAr(featured!['endDate'])}' : null);
           // our live % this week (the scores are written on Sunday)
           final required = data.board.fold<int>(0, (s, r) => s + ((r['required'] as int?) ?? 0));
           final completed = data.board.fold<int>(0, (s, r) => s + ((r['completed'] as int?) ?? 0));
@@ -815,13 +817,13 @@ class _PendingCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(weChallenged ? 'تحدّيتوا $them' : '$them يتحداكم', style: text.titleSmall!.copyWith(color: _onNavy, fontWeight: FontWeight.w700)),
+                    Text(weChallenged ? 'تحدّيتوا $them' : 'تحدّي جديد من $them', style: text.titleSmall!.copyWith(color: _onNavy, fontWeight: FontWeight.w700)),
                     Text(
                       weChallenged
-                          ? 'ننتظر رد منشئ مجموعتهم.'
+                          ? 'ننتظر رد منشئ مجموعتهم، والمنافسة تبدأ الأحد اللي بعد ما يقبلون.'
                           : canRespond
                               ? 'أسبوع كامل يبدأ الأحد الجاي. تقبلون؟'
-                              : 'ننتظر رد منشئ المجموعة.',
+                              : 'منافسة جديدة غير اللي فوق، ومنشئ مجموعتكم هو اللي يقبلها أو يرفضها.',
                       style: text.labelSmall!.copyWith(color: _navySubtle),
                     ),
                   ],
