@@ -97,6 +97,15 @@ class _GroupScreenState extends State<GroupScreen> with SingleTickerProviderStat
           builder: (_) => _MembersSheet(api: _api, groupId: id, members: data.members, me: _me, isOwner: data.isOwner),
         );
         if (changed == true) _refresh();
+      case 'matching': // AI Group Matching - Abdulelah
+        final memberId = _me;
+        if (memberId == null) {
+          showMessage(context, 'سجّل الدخول أولاً');
+          return;
+        }
+        await Navigator.of(context).push(
+          MaterialPageRoute<void>(builder: (_) => GroupMatchingScreen(groupId: id, memberId: memberId)),
+        );
       case 'points':
         await showModalBottomSheet(context: context, showDragHandle: true, isScrollControlled: true, builder: (_) => _PointsSheet(api: _api, group: data.group));
       case 'edit':
@@ -129,18 +138,6 @@ class _GroupScreenState extends State<GroupScreen> with SingleTickerProviderStat
     }
   }
 
-  // AI Group Matching - Abdulelah
-  void _openMatching() {
-    final memberId = _me;
-    if (memberId == null) {
-      showMessage(context, 'سجّل الدخول أولاً');
-      return;
-    }
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => GroupMatchingScreen(groupId: widget.groupId, memberId: memberId)),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return AsyncView<_GroupData>(
@@ -170,13 +167,12 @@ class _GroupScreenState extends State<GroupScreen> with SingleTickerProviderStat
                 onPoints: () => _onMenu('points', data),
                 menu: PopupMenuButton<String>(
                   tooltip: 'خيارات المجموعة',
-                  onSelected: (a) => a == 'matching' ? _openMatching() : _onMenu(a, data),
+                  onSelected: (a) => _onMenu(a, data),
                   itemBuilder: (_) => [
-                    // AI Group Matching - Abdulelah
-                    const PopupMenuItem(value: 'matching', child: Text('تحديات المجموعات')),
                     const PopupMenuItem(value: 'invite', child: Text('كود الدعوة')),
                     const PopupMenuItem(value: 'members', child: Text('الأعضاء')),
                     const PopupMenuItem(value: 'points', child: Text('نقاط المجموعة')),
+                    const PopupMenuItem(value: 'matching', child: Text('تحديات المجموعات')),
                     if (data.isOwner) const PopupMenuItem(value: 'edit', child: Text('تعديل المجموعة')),
                     if (data.isOwner) const PopupMenuItem(value: 'add', child: Text('أضف عضو')),
                     if (!data.isOwner) const PopupMenuItem(value: 'leave', child: Text('اطلع من المجموعة')),

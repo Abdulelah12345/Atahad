@@ -1,0 +1,130 @@
+{
+  "name": "Atahad - AI Weekly Email Report",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtHour": 1
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        0,
+        0
+      ],
+      "id": "9f9b90fc-ee7b-4c5c-8bda-87bca2c94237",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "url": "https://well-presentations-positive-asin.trycloudflare.com/api/v1/n8n/weekly-reports",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-KEY",
+              "value": "9dde88db4e09dccd5e00f9c57b8a836f730241d82cff814c4d6d33ba1c7180ad"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        208,
+        0
+      ],
+      "id": "39ecc1df-90cb-44d2-8969-9d79bc86079a",
+      "name": "Get Weekly Reports"
+    },
+    {
+      "parameters": {
+        "fromEmail": "alwadaniabdulelah@gmail.com",
+        "toEmail": "alwadaniabdulelah1@gmail.com",
+        "subject": "أتعهد | تقرير إنجازك الأسبوعي",
+        "html": "=\n<!DOCTYPE html>\n<html lang=\"ar\" dir=\"rtl\">\n<head>\n  <meta charset=\"UTF-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n</head>\n\n<body style=\"margin:0;padding:0;background:#F4F7FC;font-family:Arial,Tahoma,sans-serif;direction:rtl;\">\n\n<table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"background:#F4F7FC;\">\n  <tr>\n    <td align=\"center\" style=\"padding:35px 12px;\">\n\n      <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\"\n             style=\"max-width:600px;background:#FFFFFF;border-radius:20px;overflow:hidden;\">\n\n        <!-- Header -->\n        <tr>\n          <td align=\"center\" style=\"padding:34px 20px;background:#2563EB;\">\n            <p style=\"margin:0 0 12px;color:#DBEAFE;font-size:15px;font-weight:bold;\">\n              تـعـهّـد\n            </p>\n            <h1 style=\"margin:0;color:#FFFFFF;font-size:27px;\">\n              تقرير إنجازك الأسبوعي\n            </h1>\n            <p style=\"margin:13px 0 0;color:#DBEAFE;font-size:14px;\">\n              {{ $json.weekStart }} — {{ $json.weekEnd }}\n            </p>\n          </td>\n        </tr>\n\n        <!-- Welcome -->\n        <tr>\n          <td style=\"padding:32px 30px 18px;text-align:right;\">\n            <h2 style=\"color:#1E3A8A;font-size:22px;margin:0 0 12px;\">\n              أهلًا {{ $json.name }} 👋\n            </h2>\n            <p style=\"color:#64748B;font-size:15px;line-height:1.9;margin:0;\">\n              كل أسبوع هو فرصة جديدة لتقترب من أهدافك.\n              جهزنا لك ملخص إنجازاتك وأداءك خلال الأسبوع الماضي.\n            </p>\n          </td>\n        </tr>\n\n        <!-- Completion -->\n        <tr>\n          <td style=\"padding:15px 30px;\">\n            <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\"\n                   style=\"background:#EFF6FF;border:1px solid #DBEAFE;border-radius:16px;\">\n              <tr>\n                <td align=\"center\" style=\"padding:30px 22px;\">\n                  <p style=\"color:#64748B;font-size:15px;margin:0;\">\n                    نسبة إنجازك لهذا الأسبوع\n                  </p>\n\n                  <h1 style=\"color:#2563EB;font-size:54px;margin:12px 0;font-weight:bold;\">\n                    {{ $json.completionPercentage }}%\n                  </h1>\n\n                  <div style=\"background:#DBEAFE;height:12px;border-radius:10px;overflow:hidden;direction:ltr;\">\n                    <div style=\"background:#2563EB;height:12px;border-radius:10px;width:{{ $json.completionPercentage }}%;\"></div>\n                  </div>\n\n                  <p style=\"color:#64748B;font-size:13px;margin:15px 0 0;\">\n                    كل إنجاز صغير يصنع فرقًا كبيرًا\n                  </p>\n                </td>\n              </tr>\n            </table>\n          </td>\n        </tr>\n\n        <!-- Statistics -->\n        <tr>\n          <td style=\"padding:20px 30px;\">\n            <table width=\"100%\" cellpadding=\"6\" cellspacing=\"6\">\n              <tr>\n                <td align=\"center\" width=\"33%\" style=\"background:#F8FAFC;border-radius:12px;padding:20px 6px;\">\n                  <h2 style=\"margin:0;color:#334155;font-size:29px;\">\n                    {{ $json.required }}\n                  </h2>\n                  <p style=\"color:#64748B;font-size:13px;margin:9px 0 0;\">المطلوب</p>\n                </td>\n\n                <td align=\"center\" width=\"33%\" style=\"background:#EFF6FF;border-radius:12px;padding:20px 6px;\">\n                  <h2 style=\"margin:0;color:#2563EB;font-size:29px;\">\n                    {{ $json.completed }}\n                  </h2>\n                  <p style=\"color:#64748B;font-size:13px;margin:9px 0 0;\">المنجز</p>\n                </td>\n\n                <td align=\"center\" width=\"33%\" style=\"background:#F8FAFC;border-radius:12px;padding:20px 6px;\">\n                  <h2 style=\"margin:0;color:#64748B;font-size:29px;\">\n                    {{ $json.excused }}\n                  </h2>\n                  <p style=\"color:#64748B;font-size:13px;margin:9px 0 0;\">الأعذار</p>\n                </td>\n              </tr>\n            </table>\n          </td>\n        </tr>\n\n        <!-- AI Analysis -->\n        <tr>\n          <td style=\"padding:15px 30px 30px;text-align:right;\">\n            <div style=\"border-top:1px solid #E2E8F0;margin-bottom:25px;\"></div>\n\n            <h3 style=\"color:#1E3A8A;font-size:19px;margin:0 0 16px;\">\n              ✨ تحليل أدائك وتوصياتك\n            </h3>\n\n            <div style=\"background:#F8FAFC;border:1px solid #E2E8F0;border-right:4px solid #2563EB;padding:22px;border-radius:12px;\">\n              <p style=\"margin:0;color:#334155;font-size:15px;line-height:2;white-space:pre-line;\">\n                {{ $json.aiAnalysis }}\n              </p>\n            </div>\n          </td>\n        </tr>\n\n        <!-- Motivation -->\n        <tr>\n          <td align=\"center\" style=\"padding:5px 30px 35px;\">\n            <p style=\"font-size:17px;color:#2563EB;margin:0;font-weight:bold;\">\n              استمر، أنت أقرب لهدفك مما تتخيل! 💙\n            </p>\n          </td>\n        </tr>\n\n        <!-- Footer -->\n        <tr>\n          <td align=\"center\" style=\"background:#EFF6FF;padding:27px 20px;border-top:1px solid #DBEAFE;\">\n            <h2 style=\"margin:0;color:#2563EB;font-size:22px;\">\n              تعهّد\n            </h2>\n            <p style=\"color:#64748B;font-size:13px;margin:12px 0 0;\">\n              التزامك اليوم، نجاحك بكرة.\n            </p>\n            <p style=\"color:#94A3B8;font-size:11px;margin:16px 0 0;\">\n              هذه رسالة تلقائية من منصة تعهّد\n            </p>\n          </td>\n        </tr>\n\n      </table>\n\n    </td>\n  </tr>\n</table>\n\n</body>\n</html>\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        464,
+        0
+      ],
+      "id": "766c35fb-aa76-4a4b-a500-faf12ed24160",
+      "name": "Send an Email",
+      "webhookId": "13cef6ee-ca8f-4c60-a390-1398d1304503",
+      "executeOnce": false,
+      "credentials": {
+        "smtp": {
+          "id": "77Zpu6ar2JZltGm5",
+          "name": "SMTP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## IMPORTANT: Workflow Setup\n\nAfter importing this workflow, please complete the following:\n\n1. Configure Gmail SMTP Credentials.\n2. Configure Header Auth (X-N8N-KEY) using the same key as the Spring Boot backend.\n3. Update the Get Weekly Reports URL to your backend URL.\n4. Publish and activate the workflow after completing the setup.\n\nNote: Credentials are not included in the exported JSON.",
+        "height": 416
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        672,
+        -176
+      ],
+      "id": "ae7694fa-c69a-41a9-aeee-803a5be97fc6",
+      "name": "Sticky Note"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get Weekly Reports",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send an Email": {
+      "main": [
+        []
+      ]
+    },
+    "Get Weekly Reports": {
+      "main": [
+        [
+          {
+            "node": "Send an Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "4728d466-5c2b-4f67-9723-b795c3eb3a78",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "82b4ba6d13f7c6cf69479126dabcde1b8b0b9a0ddbffc9ccc5b24401830ac15b"
+  },
+  "nodeGroups": [],
+  "id": "JVZMsnkn8SLAiv3F",
+  "tags": []
+}
