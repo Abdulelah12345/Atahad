@@ -17,6 +17,7 @@ import 'group_api.dart';
 import 'group_labels.dart';
 import 'group_ui.dart';
 import 'group_widgets.dart';
+import 'group_matching_screen.dart';
 import 'match_tab.dart';
 import 'moments_tab.dart';
 import 'week_tab.dart';
@@ -135,6 +136,59 @@ class _GroupScreenState extends State<GroupScreen> with SingleTickerProviderStat
       load: () => inArabic(_load()),
       builder: (context, data, reload) {
         final name = '${data.group['name'] ?? ''}';
+        return Scaffold(
+          appBar: AppBar(
+            title: Text(name),
+            actions: [
+
+              // AI Group Matching - Abdulelah
+              IconButton(
+                tooltip: 'تحديات المجموعات',
+                icon: const Icon(Icons.auto_awesome),
+                onPressed: () {
+                  final memberId = _me;
+
+                  if (memberId == null) {
+                    showMessage(context, 'سجّل الدخول أولاً');
+                    return;
+                  }
+
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => GroupMatchingScreen(
+                        groupId: widget.groupId,
+                        memberId: memberId,
+                      ),
+                    ),
+                  );
+                },
+              ),
+
+              PopupMenuButton<String>(
+                onSelected: (a) => _onMenu(a, data),
+                itemBuilder: (_) => [
+                  const PopupMenuItem(value: 'invite', child: Text('كود الدعوة')),
+                  const PopupMenuItem(value: 'members', child: Text('الأعضاء')),
+                  if (data.isOwner) const PopupMenuItem(value: 'edit', child: Text('تعديل المجموعة')),
+                  if (data.isOwner) const PopupMenuItem(value: 'add', child: Text('أضف عضو')),
+                  if (!data.isOwner) const PopupMenuItem(value: 'leave', child: Text('اطلع من المجموعة')),
+                  if (data.isOwner) const PopupMenuItem(value: 'archive', child: Text('احذف المجموعة')),
+                ],
+              ),
+            ],
+            bottom: TabBar(
+              controller: _tabs,
+              tabs: [_tab('اللوحة', _tabKinds[0]), _tab('الشات', _tabKinds[1]), _tab('اللحظات', _tabKinds[2]), _tab('الأسبوع', null)],
+            ),
+          ),
+          body: TabBarView(
+            controller: _tabs,
+            children: [
+              BoardTab(api: _api, group: data.group, isOwner: data.isOwner, me: _me, onChanged: _refresh, onInvite: () => _onMenu('invite', data)),
+              ChatTab(api: _api, groupId: widget.groupId, me: _me),
+              MomentsTab(api: _api, groupId: widget.groupId, me: _me),
+              WeekTab(api: _api, groupId: widget.groupId, groupName: name, members: data.members),
+            ],
         final c = context.colors;
         // the page color of every tab: the round corners of the header sit on it
         final pages = [c.bg, c.bg, paperColor(c), c.bg, const Color(0xFF0A1A3A)];

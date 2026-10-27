@@ -28,7 +28,7 @@ public class PointLog {
     private Integer points; // negative when a grace day is redeemed
 
     @NotEmpty(message = "Reason cannot be empty")
-    @Pattern(regexp = "^(TASK_DONE|FULL_WEEK|GOLDEN_WEEK|MATCH_ALL_DONE|MATCH_WIN|LEAST_PROCRASTINATION|GRACE_DAY_REDEEMED)$", message = "Reason is not valid")
+    @Pattern(regexp = "^(TASK_DONE|FULL_WEEK|GOLDEN_WEEK|MATCH_ALL_DONE|MATCH_WIN|LEAST_PROCRASTINATION|GRACE_DAY_REDEEMED|LUCKY_CHALLENGE)$", message = "Reason is not valid")
     @Column(columnDefinition = "VARCHAR(21) NOT NULL")
     private String reason;
 

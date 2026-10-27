@@ -1,3 +1,4 @@
+
 import '../../core/api/api_client.dart';
 import '../../core/api/api_exception.dart';
 import '../../core/config.dart';
@@ -61,9 +62,9 @@ class GroupApi {
   Future<void> setGoal(int groupId, Map<String, Object?> body) => api.post('$_goal/add/$groupId', body: body);
   // the AI splits the goal on the weeks (the same task and times for every member in a week), nothing is saved
   Future<Map<String, dynamic>> suggestPlan(int groupId, String goal, DateTime endDate) async => _map(await api.post(
-        '$_goal/suggest/$groupId',
-        body: {'goal': goal, 'endDate': endDate.toIso8601String().substring(0, 10)},
-      ));
+    '$_goal/suggest/$groupId',
+    body: {'goal': goal, 'endDate': endDate.toIso8601String().substring(0, 10)},
+  ));
 
   // my task of the goal this week (the same as the card of the today page)
   Future<Map<String, dynamic>> myTask(int groupId) async => _map(await api.get('$_goal/my-task/$groupId'));
@@ -75,10 +76,10 @@ class GroupApi {
   }
 
   Future<void> setMyPlace(int groupId, Map<String, dynamic> place) => api.put('$_goal/my-place/$groupId', body: {
-        'latitude': place['latitude'],
-        'longitude': place['longitude'],
-        'placeName': '${place['name'] ?? ''}'.length > 100 ? '${place['name']}'.substring(0, 100) : place['name'],
-      });
+    'latitude': place['latitude'],
+    'longitude': place['longitude'],
+    'placeName': '${place['name'] ?? ''}'.length > 100 ? '${place['name']}'.substring(0, 100) : place['name'],
+  });
 
   Future<List<Map<String, dynamic>>> searchPlaces(String query, {double? lat, double? lng}) async =>
       _list(await api.get('/api/v1/place/search', query: {'query': query, 'lat': lat, 'lng': lng}));
