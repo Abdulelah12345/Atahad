@@ -70,7 +70,7 @@ class _CommitmentsScreenState extends State<CommitmentsScreen> {
     final ok = await confirmDialog(
       context,
       title: 'حذف "${commitment['title']}"',
-      message: 'الحذف بس إذا ما صار فيه شي، وإلا انسحب منه. متأكد؟',
+      message: 'ينحذف كامل وكأنه ما كان. الحذف متاح أول ساعة بس وقبل أي إثبات، بعدها تقدر تنسحب. متأكد؟',
       confirm: 'احذف',
       danger: true,
     );
@@ -86,7 +86,7 @@ class _CommitmentsScreenState extends State<CommitmentsScreen> {
       showMessage(context, 'انحذف.');
       _reload();
     } catch (error) {
-      if (mounted) showError(context, error);
+      if (mounted) showCommitmentError(context, error);
     }
   }
 
@@ -178,6 +178,7 @@ class _CommitmentsScreenState extends State<CommitmentsScreen> {
 
   Widget _menu(JsonMap c, bool isHabit) {
     final active = c['status'] == 'ACTIVE';
+    final minutesLeft = editMinutesLeft(c);
     return PopupMenuButton<String>(
       onSelected: (v) {
         if (v == 'edit') _open('/habit/edit', extra: c);
@@ -189,7 +190,12 @@ class _CommitmentsScreenState extends State<CommitmentsScreen> {
           const PopupMenuItem(value: 'edit', child: Text('عدّل')),
         if (active)
           const PopupMenuItem(value: 'withdraw', child: Text('انسحب')),
-        const PopupMenuItem(value: 'delete', child: Text('احذف')),
+        // deleting is for the first hour after creating it, after that withdraw
+        if (minutesLeft != 0)
+          PopupMenuItem(
+            value: 'delete',
+            child: Text(minutesLeft == null ? 'احذف' : 'احذف (باقي ${arabicDigits(minutesLeft)} دقيقة)'),
+          ),
       ],
     );
   }

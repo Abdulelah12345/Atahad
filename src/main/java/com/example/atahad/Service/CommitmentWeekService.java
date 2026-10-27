@@ -485,6 +485,32 @@ public class CommitmentWeekService {
         return false;
     }
 
+    // a proof was already sent in it (any result): it cannot be deleted anymore, only withdrawn
+    public boolean hasProofs(Commitment commitment){
+        for(CommitmentWeek week : commitmentWeekRepository.findCommitmentWeeksByCommitmentOrderByWeekNumberDesc(commitment)){
+            if(!proofRepository.findProofsByCommitmentWeekId(week.getId()).isEmpty()){
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // an edit in the first hour changes this week too: the times, the amount and the days, like the week just started
+    @Transactional
+    public void refreshFirstWeek(Habit habit){
+        CommitmentWeek week = commitmentWeekRepository.findTopByCommitmentOrderByWeekNumberDesc(habit);
+        if(week == null || week.getWeekNumber() != 1){
+            return;
+        }
+        int days = daysBetween(week.getWeekStart().toLocalDate(), week.getWeekEnd().toLocalDate());
+        week.setRequired(Math.min(habit.getTimesPerWeek(), days));
+        week.setAmountPerDay(habit.getBaseAmount());
+        week.setPlannedDays(habit.getPlannedDays() == null ? new HashSet<>() : new HashSet<>(habit.getPlannedDays()));
+        week.setTrackStatus(week.getRequired() == 0 ? "SETTLED" : "SAFE");
+        commitmentWeekRepository.save(week);
+        evaluateWeek(week, LocalDate.now());
+    }
+
     // postpone inside this week, it changes the reminders only
     public void changeThisWeekPlan(Integer memberId, Integer weekId, Set<String> plannedDays){
         CommitmentWeek week = getWeekById(weekId);
