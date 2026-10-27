@@ -3,7 +3,7 @@ package com.example.atahad.Dto.In;
 import jakarta.validation.constraints.*;
 import lombok.Data;
 
-// بيانات إضافة أو تعديل اعتراض على بروف أو عذر؛ المستخدم يرسل السبب فقط.
+// an objection on a proof or an excuse, the member sends the reason only
 @Data
 public class ObjectionRequest {
 

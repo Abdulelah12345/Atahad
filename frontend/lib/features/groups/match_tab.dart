@@ -621,7 +621,12 @@ class _VsHero extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 6),
-            Text(name, style: text.labelLarge!.copyWith(color: Colors.white, fontWeight: FontWeight.w700), maxLines: 1, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center),
+            // a long name takes two lines instead of being cut
+            Text(name,
+                style: text.labelLarge!.copyWith(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13, height: 1.35),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center),
             const SizedBox(height: 4),
             score == null
                 ? Text('؟', style: text.displayLarge!.copyWith(color: Colors.white70, fontSize: 42, height: 1))
@@ -799,6 +804,8 @@ class _PendingCard extends StatelessWidget {
     final weChallenged = match['challengerId'] == groupId;
     final them = '${weChallenged ? match['opponentName'] : match['challengerName']}';
     final theirId = weChallenged ? match['opponentId'] : match['challengerId'];
+    final theirTimes = weChallenged ? match['opponentTimesPerWeek'] : match['challengerTimesPerWeek'];
+    final ourTimes = weChallenged ? match['challengerTimesPerWeek'] : match['opponentTimesPerWeek'];
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -831,6 +838,32 @@ class _PendingCard extends StatelessWidget {
               ),
               const Pill('بانتظار الرد', fg: Color(0xFFF5A55A), bg: Color(0xFF3A2A16)),
             ],
+          ),
+          // who they are: their name and how many times a week their goal asks, next to ours
+          const SizedBox(height: Space.s3),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(color: _navy, borderRadius: BorderRadius.circular(Radii.md)),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(them,
+                        style: text.labelLarge!.copyWith(color: _onNavy, fontWeight: FontWeight.w700), maxLines: 2, overflow: TextOverflow.ellipsis),
+                    Row(children: [
+                      const Icon(Icons.repeat_rounded, size: 14, color: _navySubtle),
+                      const SizedBox(width: 4),
+                      Text(theirTimes == null ? 'ما عندهم هدف الحين' : '${arabicDigits(theirTimes)} مرات بالأسبوع',
+                          style: text.labelSmall!.copyWith(color: _navySubtle)),
+                    ]),
+                  ]),
+                ),
+                if (ourTimes != null) ...[
+                  const SizedBox(width: 8),
+                  Text('إحنا ${arabicDigits(ourTimes)} مرات', style: text.labelSmall!.copyWith(color: _navyMuted)),
+                ],
+              ],
+            ),
           ),
           if (!weChallenged && canRespond && blockedBy != null) ...[
             const SizedBox(height: Space.s2),

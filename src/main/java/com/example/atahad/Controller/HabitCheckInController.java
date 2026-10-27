@@ -21,7 +21,7 @@ public class HabitCheckInController {
 
     @PostMapping("/proof/habit/{memberId}/{weekId}")
     public ResponseEntity<?> addHabitProof(@PathVariable Integer memberId, @PathVariable Integer weekId, @RequestBody @Valid ProofRequest request){
-        // فحص هوية طلب HTTP هنا، حتى لا نكسر إنشاء الإثبات من الإغلاق المجدول للزيارة.
+        // the identity check is here, the scheduled visit close creates proofs too
         authenticatedUserService.checkMember(memberId);
         return ResponseEntity.status(200).body(proofDecisionService.addHabitProof(memberId, weekId, request));
     }

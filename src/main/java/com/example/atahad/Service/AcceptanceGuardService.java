@@ -38,7 +38,7 @@ public class AcceptanceGuardService {
             throw new ApiException("Commitment week not found");
         }
 
-        // قد يكون الأسبوع محملًا قبل انتظار القفل؛ نحدثه حتى لا نستخدم عدادًا قديمًا.
+        // the week may be stale after waiting for the lock
         entityManager.refresh(week, LockModeType.PESSIMISTIC_WRITE);
 
         if (goalTaskId != null) {
@@ -49,14 +49,13 @@ public class AcceptanceGuardService {
             entityManager.refresh(task, LockModeType.PESSIMISTIC_WRITE);
         }
 
-        // نحدث الطلب الحالي أيضًا، حتى لا تحتسب إعادة قبول الطلب نفسه مرتين.
+        // refresh it too, so the same request is never counted twice
         if (proofId != null) {
             Proof proof = entityManager.find(Proof.class, proofId);
             if (proof == null) {
                 throw new ApiException("Proof not found");
             }
-            // البروف تصل من خدمة تجميع الأدلة بعد تحديثها تحت قفل الأسبوع.
-            // نثبت حجزها دون إعادة تحميل شبكة العلاقات والاعتراضات مرة ثانية.
+            // the proof was refreshed under the week lock already
             entityManager.lock(proof, LockModeType.PESSIMISTIC_WRITE);
         }
         if (excuseId != null) {

@@ -5,6 +5,8 @@ import 'package:provider/provider.dart';
 import '../../core/api/api_client.dart';
 import '../../core/auth/auth_state.dart';
 import '../../core/theme/at_colors.dart';
+import '../../core/theme/at_tokens.dart';
+import '../../core/utils/format.dart';
 import '../../core/widgets/widgets.dart';
 import 'camera_capture_screen.dart';
 import 'proof_widgets.dart';
@@ -257,68 +259,139 @@ class _ExcuseFormScreenState extends State<ExcuseFormScreen> {
     if (value != null) setState(() => _date = value);
   }
 
+  // the days of the chosen task's week that already came (up to today), Sunday first
+  List<DateTime> _days() {
+    final now = riyadhNow();
+    final today = DateTime(now.year, now.month, now.day);
+    final start = DateTime.tryParse('${_activity['weekStart']}') ?? today.subtract(Duration(days: today.weekday % 7));
+    final first = DateTime(start.year, start.month, start.day);
+    final end = DateTime.tryParse('${_activity['weekEnd']}');
+    final last = end == null || DateTime(end.year, end.month, end.day).isAfter(today) ? today : DateTime(end.year, end.month, end.day);
+    return [for (var d = first; !d.isAfter(last); d = d.add(const Duration(days: 1))) d];
+  }
+
   @override
-  Widget build(BuildContext context) => ProofPage(
-      title: widget.existing == null ? 'تقديم عذر' : 'تعديل العذر',
-      child: ListView(padding: const EdgeInsets.all(24), children: [
-        Text('وضّح سبب تعذّرك',
-            style: Theme.of(context).textTheme.headlineMedium),
-        const SizedBox(height: 10),
-        const Text('اختر النشاط واليوم، وأرفق مستندًا داعمًا للعذر لتقييمه.'),
-        const SizedBox(height: 24),
-        DropdownButtonFormField<int>(
-            initialValue: _selected,
-            isExpanded: true,
-            decoration: const InputDecoration(labelText: 'النشاط'),
-            items: [
-              for (final (i, activity) in widget.activities.indexed)
-                DropdownMenuItem(
-                    value: i,
-                    child: Text('${activity['title']}',
-                        overflow: TextOverflow.ellipsis))
-            ],
-            onChanged: widget.existing != null || _busy
-                ? null
-                : (v) => setState(() => _selected = v ?? 0)),
-        const SizedBox(height: 20),
-        Text('نوع الظرف', style: Theme.of(context).textTheme.titleMedium),
-        const SizedBox(height: 10),
-        Wrap(spacing: 10, runSpacing: 10, children: [
-          for (final type in excuseNames.entries)
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final text = Theme.of(context).textTheme;
+    final now = riyadhNow();
+    final today = DateTime(now.year, now.month, now.day);
+    final picked = DateTime(_date.year, _date.month, _date.day);
+    Widget label(String title, {String? hint}) => Padding(
+          padding: const EdgeInsets.only(top: 20, bottom: 8),
+          child: Row(children: [
+            Text(title, style: text.labelLarge!.copyWith(fontWeight: FontWeight.w700)),
+            if (hint != null) ...[const SizedBox(width: 6), Text(hint, style: text.labelSmall)],
+          ]),
+        );
+    const reasons = [
+      ('SICK', Icons.medical_services_outlined, 'مرض'),
+      ('TRAVEL', Icons.flight_takeoff_rounded, 'سفر'),
+      ('EMERGENCY', Icons.warning_amber_rounded, 'طارئ'),
+      ('OTHER', Icons.more_horiz_rounded, 'غيره'),
+    ];
+    return ProofPage(
+      title: widget.existing == null ? 'قدّم عذر' : 'تعديل العذر',
+      child: ListView(padding: const EdgeInsets.fromLTRB(20, 12, 20, 28), children: [
+        // what an excuse does, in one line (design: Excuse)
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(color: c.pardonSoft, borderRadius: BorderRadius.circular(18)),
+          child: Row(children: [
+            IconTile(Icons.shield_outlined, size: 44, fg: Colors.white, bg: c.pardon),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('العذر يحمي اليوم', style: text.titleSmall!.copyWith(color: c.pardonText, fontWeight: FontWeight.w800)),
+                Text('لو انقبل، ما عليه خصم', style: text.labelSmall!.copyWith(color: c.pardonText)),
+              ]),
+            ),
+          ]),
+        ),
+        label('أي مهمة؟'),
+        Wrap(spacing: 8, runSpacing: 8, children: [
+          for (final (i, activity) in widget.activities.indexed)
             ChoiceChip(
-                label: Text(type.value),
-                selected: _type == type.key,
-                onSelected:
-                    _busy ? null : (_) => setState(() => _type = type.key))
+              label: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 260),
+                child: Text('${activity['title']}', overflow: TextOverflow.ellipsis),
+              ),
+              selected: _selected == i,
+              showCheckmark: false,
+              onSelected: widget.existing != null || _busy ? null : (_) => setState(() => _selected = i),
+            ),
         ]),
-        const SizedBox(height: 20),
-        AppCard(
-            onTap: _busy ? null : _pickDate,
-            child: Row(children: [
-              const Icon(Icons.calendar_month_outlined),
-              const SizedBox(width: 12),
-              const Text('يوم النشاط'),
-              const Spacer(),
-              Text(displayDate(_date.toIso8601String())),
+        label('أي يوم؟'),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(children: [
+            for (final d in _days().reversed) ...[
+              ChoiceChip(
+                label: Text(d == today ? 'اليوم' : weekDaysAr[d.weekday % 7]),
+                selected: d == picked,
+                showCheckmark: false,
+                onSelected: _busy ? null : (_) => setState(() => _date = d),
+              ),
               const SizedBox(width: 8),
-              const Icon(Icons.expand_more)
-            ])),
-        const SizedBox(height: 20),
+            ],
+            ActionChip(
+              avatar: const Icon(Icons.calendar_month_outlined, size: 18),
+              label: const Text('تاريخ'),
+              onPressed: _busy ? null : _pickDate,
+            ),
+          ]),
+        ),
+        label('وش السبب؟'),
+        Row(children: [
+          for (final (i, (key, icon, name)) in reasons.indexed) ...[
+            if (i > 0) const SizedBox(width: 8),
+            Expanded(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: _busy ? null : () => setState(() => _type = key),
+                child: AnimatedContainer(
+                  duration: Motion.base,
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  decoration: BoxDecoration(
+                    color: _type == key ? c.primarySoft : c.surface,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: _type == key ? c.accent : c.line, width: _type == key ? 2 : 1),
+                  ),
+                  child: Column(children: [
+                    Icon(icon, size: 22, color: _type == key ? c.primary : c.inkMuted),
+                    const SizedBox(height: 4),
+                    Text(name, style: text.labelSmall!.copyWith(fontWeight: FontWeight.w700, color: _type == key ? c.primary : c.inkMuted)),
+                  ]),
+                ),
+              ),
+            ),
+          ],
+        ]),
+        label('المستند', hint: '(إجباري)'),
         AttachmentPicker(
-            label: 'مستند داعم للعذر — مطلوب',
+            label: 'تقرير طبي، تذكرة سفر...',
             image: _attachment,
             onChanged: (value) => setState(() => _attachment = value)),
         if (widget.existing?['evidenceUrl'] != null && _attachment == null)
-          const Padding(
-              padding: EdgeInsets.only(top: 10),
-              child: Text('المرفق السابق محفوظ. اختيار صورة جديدة يستبدله.')),
+          Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Row(children: [
+                Icon(Icons.attach_file_rounded, size: 16, color: c.success),
+                const SizedBox(width: 4),
+                Text('المرفق السابق محفوظ', style: text.labelSmall),
+              ])),
         const SizedBox(height: 20),
-        const ProofNotice(
-            'آخر وقت لرفع الأعذار هو نهاية الأسبوع، السبت ١١:٥٩ مساءً. إذا بدأ التحليل أو التحويل للأدمن، يتوقف التعديل والحذف.'),
-        const SizedBox(height: 24),
+        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Icon(Icons.auto_awesome_rounded, size: 16, color: c.inkSubtle),
+          const SizedBox(width: 6),
+          Expanded(child: Text('الذكاء يراجعه أول، ولو ما حسم يروح للمشرف · آخر وقت السبت ١١:٥٩م', style: text.labelSmall)),
+        ]),
+        const SizedBox(height: 16),
         AtButton(widget.existing == null ? 'أرسل العذر' : 'احفظ التعديل',
-            onPressed: _busy ? null : _save, loading: _busy),
-      ]));
+            icon: const Icon(Icons.send_rounded, size: 18), onPressed: _busy ? null : _save, loading: _busy),
+      ]),
+    );
+  }
 }
 
 class LegacyProofEditScreen extends StatefulWidget {

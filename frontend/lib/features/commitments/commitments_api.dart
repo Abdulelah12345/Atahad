@@ -20,11 +20,15 @@ class CommitmentsApi {
       _map(await client.get('$_base/commitment-week/getCurrent/$commitmentId'));
 
   // postpone inside this week, it only moves the reminders
-  Future<void> changeWeekPlan(int weekId, Set<String> plannedDays) =>
-      client.put('$_base/commitment-week/changePlan/$weekId', body: plannedDays.toList());
+  // a goal moves the days of one of its tasks (goalTaskId)
+  Future<void> changeWeekPlan(int weekId, Set<String> plannedDays, {int? goalTaskId}) =>
+      client.put('$_base/commitment-week/changePlan/$weekId',
+          query: goalTaskId == null ? null : {'goalTaskId': goalTaskId}, body: plannedDays.toList());
 
-  // withdraw from a habit or a goal, the answer says how many times became penalties
+  // withdraw from a habit or a goal: it ends when this week ends
   Future<String> withdraw(int id) async => _message(await client.put('$_base/commitment/withdraw/$id'));
+
+  Future<void> cancelWithdraw(int id) => client.put('$_base/commitment/withdraw/cancel/$id');
 
   // the place of a LOCATION commitment or the minutes of a TIMER one
   Future<void> setTarget(int id, JsonMap body) => client.put('$_base/commitment/target/$id', body: body);
@@ -42,8 +46,8 @@ class CommitmentsApi {
   Future<List<JsonMap>> goals() async => _list(await client.get('$_base/goal/getMyGoals'));
 
   // the AI plan, nothing is saved
-  Future<JsonMap> suggestPlan(String goal, DateTime endDate) async =>
-      _map(await client.post('$_base/goal/suggest', body: {'goal': goal, 'endDate': isoDate(endDate)}));
+  Future<JsonMap> suggestPlan(String goal, DateTime endDate, {DateTime? startDate}) async => _map(await client.post('$_base/goal/suggest',
+      body: {'goal': goal, 'endDate': isoDate(endDate), if (startDate != null) 'startDate': isoDate(startDate)}));
 
   // saves the plan and starts the goal
   Future<JsonMap> addWithPlan(JsonMap body) async => _map(await client.post('$_base/goal/addWithPlan', body: body));

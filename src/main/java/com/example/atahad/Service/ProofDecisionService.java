@@ -93,17 +93,14 @@ public class ProofDecisionService {
         // one proof for every day
         LocalDate day = activityTime.toLocalDate();
 
-        // بداية يوم النشاط، مثل الأحد الساعة 00:00.
+        // [day start, next day start)
         LocalDateTime dayStart = day.atStartOfDay();
 
-        // بداية اليوم التالي، حتى يشمل البحث يوم النشاط كاملًا.
         LocalDateTime nextDayStart = day.plusDays(1).atStartOfDay();
 
-        // إثبات العادة لا يرتبط بمهمة هدف، لذلك يكون معرف المهمة فارغًا.
         Integer goalTaskId = null;
 
-        // نبحث عن اعتراض معلق على إثبات سابق لنفس العادة والأسبوع واليوم.
-        // لا نسمح بإثبات بديل حتى ينتهي الاعتراض السابق.
+        // no new proof while an objection on that day is open
         boolean hasPendingProofObjection =
                 objectionRepository.existsPendingProofObjection(
                         weekId,
@@ -118,8 +115,7 @@ public class ProofDecisionService {
             );
         }
 
-        // نبحث عن اعتراض معلق على عذر لنفس العادة والأسبوع واليوم.
-        // قبول الاعتراض قد يحتسب اليوم كعذر، لذلك نمنع تداخل إثبات جديد معه.
+        // an accepted objection may excuse the day
         boolean hasPendingExcuseObjection =
                 objectionRepository.existsPendingExcuseObjection(
                         weekId,
@@ -281,7 +277,7 @@ public class ProofDecisionService {
         }
         String task = proof.getGoalTask() == null ? commitment.getTitle() : commitment.getTitle() + " - " + proof.getGoalTask().getTitle();
 
-        // مسار صور البروف يستخدم OpenRouter المجاني فقط، مع التصعيد عند تعذر التحليل.
+        // free OpenRouter models, escalated when it can't decide
         String answer = proofImageAIService.check(task, proof.getEvidenceData());
         String decision = proofImageAIService.field(answer, "DECISION");
         if (!List.of("ACCEPTED", "REJECTED", "ESCALATED").contains(decision)) { decision = "ESCALATED"; }

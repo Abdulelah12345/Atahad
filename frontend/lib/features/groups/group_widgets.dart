@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/api/api_exception.dart';
 import '../../core/theme/at_colors.dart';
 import '../../core/theme/at_tokens.dart';
+import '../../core/widgets/kit.dart';
 import 'group_labels.dart';
 
 // small widgets used by the group pages
@@ -13,8 +14,9 @@ class SheetBody extends StatelessWidget {
   final String title;
   final Widget child;
   final String? error;
+  final IconData? icon; // a colored tile before the title
 
-  const SheetBody({super.key, required this.title, required this.child, this.error});
+  const SheetBody({super.key, required this.title, required this.child, this.error, this.icon});
 
   @override
   Widget build(BuildContext context) {
@@ -25,8 +27,12 @@ class SheetBody extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(title, style: Theme.of(context).textTheme.headlineSmall),
-            const SizedBox(height: Space.s4),
+            if (icon != null)
+              SheetHeader(icon: icon, title: title)
+            else ...[
+              Text(title, style: Theme.of(context).textTheme.headlineSmall),
+              const SizedBox(height: Space.s4),
+            ],
             if (error != null) ...[
               Container(
                 padding: const EdgeInsets.all(Space.s3),
@@ -92,7 +98,7 @@ Future<bool> confirm(BuildContext context, String title, String message, {String
     context: context,
     builder: (context) => AlertDialog(
       title: Text(title),
-      content: Text(message),
+      content: message.isEmpty ? null : Text(message), // just the question when there is nothing to add
       actions: [
         TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('إلغاء')),
         TextButton(onPressed: () => Navigator.pop(context, true), child: Text(yes)),

@@ -5,7 +5,7 @@ import lombok.Data;
 
 import java.time.LocalDate;
 
-// بيانات إضافة أو تعديل العذر؛ حقول النظام لا يستقبلها المستخدم.
+// add or edit an excuse, the status fields are set by the server
 @Data
 public class ExcuseRequest {
 
@@ -14,12 +14,11 @@ public class ExcuseRequest {
             message = "Type must be SICK, TRAVEL, EMERGENCY or OTHER")
     private String type;
 
-    // المستند إلزامي قبل تقديم العذر للتقييم.
     @NotBlank(message = "أرفق مستندًا داعمًا للعذر")
     @Size(max = 500, message = "Evidence URL must be 500 characters max")
     private String evidenceUrl;
 
-    // يجوز أن يكون التاريخ سابقا أو لاحقا، بشرط انتمائه للأسبوع.
+    // any day of the week, before or after today
     @NotNull(message = "Excuse date is required")
     private LocalDate excuseDate;
 }

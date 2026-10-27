@@ -78,7 +78,12 @@ public class GroupGoalService {
         int totalWeeks = plan == null ? dto.getTotalWeeks() : plan.size();
         goal.setTimesPerWeek(plan == null ? dto.getTimesPerWeek() : plan.get(0).timesPerWeek());
         goal.setAmountPerTime(dto.getAmountPerTime());
-        goal.setDifficulty(dto.getDifficulty() == null ? "SOLO" : dto.getDifficulty());
+        // the group decides who donates (chosen when it was made), an old group still picks per goal
+        if(group.getPayMode() != null){
+            goal.setDifficulty("ALL".equals(group.getPayMode()) ? "HARD" : "SOLO");
+        }else{
+            goal.setDifficulty(dto.getDifficulty() == null ? "SOLO" : dto.getDifficulty());
+        }
         goal.setTotalWeeks(totalWeeks);
         if("TIMER".equals(dto.getProofMethod()) && dto.getTargetMinutes() == null){
             throw new ApiException("A TIMER goal needs the minutes of one time");

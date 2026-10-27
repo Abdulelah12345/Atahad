@@ -94,29 +94,54 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
 
-                    const Center(
-                      child: AppLogo(width: 150, tagline: true),
-                    ),
+                    const Center(child: AppLogo(width: 110)),
 
-                    const SizedBox(height: 28),
+                    const SizedBox(height: 20),
 
-                    Text(
-                      'إنشاء حساب',
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.headlineMedium,
-                    ),
-
-                    const SizedBox(height: 8),
-
-                    Text(
-                      'ابدأ رحلتك مع أتعهد وحقق أهدافك',
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: colors.inkMuted,
+                    // a live preview of the new member (design: Onboarding): the first letter follows the name
+                    Container(
+                      padding: const EdgeInsets.all(18),
+                      decoration: BoxDecoration(color: colors.deep, borderRadius: BorderRadius.circular(24)),
+                      child: Row(
+                        children: [
+                          ValueListenableBuilder<TextEditingValue>(
+                            valueListenable: nameController,
+                            builder: (context, value, _) {
+                              final name = value.text.trim();
+                              return AnimatedContainer(
+                                duration: const Duration(milliseconds: 220),
+                                width: 60,
+                                height: 60,
+                                alignment: Alignment.center,
+                                decoration: BoxDecoration(
+                                  color: colors.accent,
+                                  shape: BoxShape.circle,
+                                  boxShadow: [BoxShadow(color: colors.deep, spreadRadius: 3), const BoxShadow(color: Color(0xFF7DA6FF), spreadRadius: 5)],
+                                ),
+                                child: name.isEmpty
+                                    ? const Icon(Icons.person_rounded, color: Colors.white, size: 30)
+                                    : Text(name.characters.first,
+                                        style: Theme.of(context).textTheme.headlineMedium!.copyWith(color: Colors.white, fontWeight: FontWeight.w800, height: 1.2)),
+                              );
+                            },
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('خلّنا نتعرّف عليك',
+                                    style: Theme.of(context).textTheme.headlineSmall!.copyWith(color: Colors.white, fontWeight: FontWeight.w800)),
+                                const SizedBox(height: 2),
+                                Text('مبتدئ · ٠ نقطة', style: Theme.of(context).textTheme.labelSmall!.copyWith(color: const Color(0xFFB7C5E8))),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                     ),
 
-                    const SizedBox(height: 28),
+                    const SizedBox(height: 24),
 
                     Text('الاسم', style: Theme.of(context).textTheme.labelLarge),
 
@@ -261,7 +286,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     const SizedBox(height: 28),
 
                     AtButton(
-                      'إنشاء حساب',
+                      'يلا نبدأ',
                       loading: loading,
                       onPressed: loading ? null : register,
                     ),

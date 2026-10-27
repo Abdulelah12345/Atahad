@@ -31,7 +31,7 @@ public class ProofOutcomeService {
         String submittedData = proof.getEvidenceData();
         Integer submittedCapture = proof.getPrimaryCaptureId();
         if (!entityManager.contains(proof)) { proof=entityManager.find(Proof.class,proof.getId()); }
-        // نسلسل تحديث أدلة المحاولة نفسها قبل تجميع القرار النهائي.
+        // one evidence update at a time per attempt
         entityManager.lock(proof.getCommitmentWeek(), jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
         entityManager.lock(proof, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
         entityManager.refresh(proof, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
@@ -43,7 +43,7 @@ public class ProofOutcomeService {
         if (evidence == null) {
             evidence = new ProofEvidence(); evidence.setProof(proof); evidence.setType(type); evidence.setCreatedAt(now());
         }
-        // نجاح الدليل لا يسحب بسبب إعادة طلب أو فشل دليل إضافي لاحق.
+        // a success is never taken back by a later failure
         if (evidence.getResult().equals("ACCEPTED")) { return; }
         if (type.equals(proof.getType())) {
             proof.setEvidenceData(submittedData);
@@ -81,7 +81,7 @@ public class ProofOutcomeService {
             Integer taskId = proof.getGoalTask() == null ? null : proof.getGoalTask().getId();
             acceptanceGuardService.lockAndCheck(proof.getCommitmentWeek().getId(), taskId,
                     proof.getActivityTime().toLocalDate(), proof.getId(), null);
-            // القفل يحدث نسخة البروف؛ نعيد الفحص قبل زيادة العداد.
+            // the lock refreshed the proof, check again before counting
             if (proof.getResult().equals("ACCEPTED")) { return; }
             proof.setResult("ACCEPTED"); proof.setProcessingStatus("FINISHED"); proof.setDecidedAt(now()); proof.setRejectionReason(null);
             proofRepository.saveAndFlush(proof);

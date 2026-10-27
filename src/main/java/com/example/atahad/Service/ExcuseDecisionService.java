@@ -40,7 +40,7 @@ public class ExcuseDecisionService {
 
     @Transactional
     public Excuse addHabitExcuse(Integer memberId, Integer weekId, ExcuseRequest request){
-        // المعرف في الرابط يجب أن يخص العضو المسجل، وليس أي عضو موجود.
+        // the id in the path must be the logged in member
         authenticatedUserService.checkMember(memberId);
         Member member = memberRepository.findMemberById(memberId);
         if(member == null){
@@ -72,28 +72,24 @@ public class ExcuseDecisionService {
                 throw new ApiException("This day already has an excuse");
             }
         }
-        // نبحث عن إثباتات نفس أسبوع العادة.
         for (Proof proof : proofRepository.findProofsByCommitmentWeekId(weekId)) {
 
-            // لا نستطيع مقارنة يوم الإثبات إذا كان وقت النشاط غير موجود.
             if (proof.getActivityTime() == null) {
                 throw new ApiException("Proof activity time is missing");
             }
 
-            // نقارن يوم نشاط الإثبات بتاريخ العذر الذي أدخله المستخدم.
             LocalDate proofDate = proof.getActivityTime().toLocalDate();
             boolean isSameDay = proofDate.equals(day);
 
             if (isSameDay) {
 
-                // نقرأ نتيجة الإثبات لمعرفة هل تمنع إضافة العذر.
                 String result = proof.getResult();
 
                 if (result == null) {
                     throw new ApiException("Proof result is missing");
                 }
 
-                // اليوم المكتمل بإثبات مقبول لا نضيف له عذرًا.
+                // a day with an accepted proof needs no excuse
                 boolean isAccepted = result.equals("ACCEPTED");
 
                 if (isAccepted) {
@@ -102,7 +98,7 @@ public class ExcuseDecisionService {
                     );
                 }
 
-                // ننتظر انتهاء معالجة الإثبات قبل السماح بإضافة عذر.
+                // wait for the proof of that day first
                 boolean isPending = result.equals("PENDING");
 
                 if (isPending) {
@@ -111,7 +107,6 @@ public class ExcuseDecisionService {
                     );
                 }
 
-                // الإثبات المحول للأدمن لم يصدر قراره النهائي بعد.
                 boolean isEscalated = result.equals("ESCALATED");
 
                 if (isEscalated) {
@@ -122,16 +117,14 @@ public class ExcuseDecisionService {
             }
         }
 
-        // بداية يوم العذر، وتدخل ضمن فترة البحث.
+        // [day start, next day start)
         LocalDateTime dayStart = day.atStartOfDay();
 
-        // بداية اليوم التالي، ولا تدخل ضمن فترة البحث.
         LocalDateTime nextDayStart = day.plusDays(1).atStartOfDay();
 
-        // عذر العادة لا يرتبط بمهمة هدف.
         Integer goalTaskId = null;
 
-        // نمنع إضافة العذر إذا كان هناك اعتراض معلق على إثبات لنفس اليوم.
+        // not while an objection on that day is open
         boolean hasPendingProofObjection =
                 objectionRepository.existsPendingProofObjection(
                         weekId,
@@ -146,7 +139,6 @@ public class ExcuseDecisionService {
             );
         }
 
-        // نمنع إضافة العذر إذا كان هناك اعتراض معلق على عذر سابق لنفس اليوم.
         boolean hasPendingExcuseObjection =
                 objectionRepository.existsPendingExcuseObjection(
                         weekId,
@@ -162,7 +154,7 @@ public class ExcuseDecisionService {
 
         Excuse excuse = new Excuse();
         excuse.setType(request.getType());
-        // لا نقبل مرجعا لصورة تخص عضوا آخر.
+        // the attachment must be his
         proofAttachmentService.requireExcuseDocument(memberId, request.getEvidenceUrl());
         excuse.setEvidenceUrl(request.getEvidenceUrl());
         excuse.setExcuseDate(day);
@@ -213,7 +205,7 @@ public class ExcuseDecisionService {
                 goalTaskId = excuse.getGoalTask().getId();
             }
 
-            // نحجز الأسبوع ونمنع احتساب اليوم مرتين قبل حفظ القبول وتحديث العداد.
+            // lock the week so the day is never counted twice
             acceptanceGuardService.lockAndCheck(
                     excuse.getCommitmentWeek().getId(),
                     goalTaskId,

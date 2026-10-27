@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 
 import '../theme/at_colors.dart';
 
@@ -19,10 +18,13 @@ class AppLogo extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final onDark = white ?? Theme.of(context).brightness == Brightness.dark;
-    final logo = SvgPicture.asset(
-      onDark ? 'assets/brand/logo_reverse.svg' : 'assets/brand/logo.svg',
+    // a PNG made from the approved SVG: the SVG renderer dropped the letters
+    final logo = Image.asset(
+      onDark ? 'assets/brand/logo_reverse.png' : 'assets/brand/logo.png',
       width: width,
-      semanticsLabel: 'أتعهّد',
+      fit: BoxFit.contain,
+      filterQuality: FilterQuality.high,
+      semanticLabel: 'أتعهّد',
     );
     if (!tagline) return logo;
     return Column(

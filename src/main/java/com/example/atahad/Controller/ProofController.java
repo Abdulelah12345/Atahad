@@ -28,8 +28,6 @@ import java.util.List;
 public class ProofController {
     private final ProofService proofService;
 
-
-
     @GetMapping("/get-all")
     public ResponseEntity<?> getAllProofs() {
         List<Proof> proofList = proofService.getAllProofs();
@@ -43,8 +41,6 @@ public class ProofController {
         return ResponseEntity.status(200).body(proof);
     }
 
-
-
     @PostMapping("/add/goal-task/{goalTaskId}/week/{commitmentWeekId}")
     public ResponseEntity<?> addGoalTaskProof(
             @AuthenticationPrincipal User user,
@@ -52,7 +48,6 @@ public class ProofController {
             @PathVariable Integer commitmentWeekId,
             @RequestBody @Valid ProofRequest request) {
 
-        // معرف المستخدم المسجل؛ يتحقق السيرفس من ملكيته للجول.
         Integer userId = user.getId();
 
         proofService.addGoalTaskProof(
@@ -68,7 +63,6 @@ public class ProofController {
             @PathVariable Integer proofId,
             @RequestBody @Valid ProofUpdateRequest request) {
 
-        // معرف المستخدم المسجل؛ يتحقق السيرفس من ملكيته للجول.
         Integer userId = user.getId();
 
         proofService.updateGoalTaskProof(userId, proofId, request);
@@ -82,7 +76,6 @@ public class ProofController {
             @AuthenticationPrincipal User user,
             @PathVariable Integer proofId) {
 
-        // معرف المستخدم من جلسة الدخول، والملكية يفحصها السيرفس.
         Integer userId = user.getId();
 
         proofService.deleteGoalTaskProof(userId, proofId);
@@ -95,7 +88,6 @@ public class ProofController {
     public ResponseEntity<?> getAllProofsByUserId(
             @AuthenticationPrincipal User user) {
 
-        // نأخذ معرف المستخدم المسجل حتى لا يطلب بروفات شخص آخر.
         Integer userId = user.getId();
 
         List<Proof> proofList = proofService.getAllProofsByUserId(userId);

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../theme/at_colors.dart';
 import '../theme/at_tokens.dart';
+import '../utils/format.dart';
 import 'at_button.dart';
 import 'game.dart';
 import 'riyal.dart';
@@ -44,6 +45,8 @@ class QuestCard extends StatelessWidget {
   final VoidCallback? onExcuse; // missed
   final VoidCallback? onPostpone; // safe
   final Widget? badge; // safe: the state (آمن، خلص الأسبوع)
+  final int? pardons; // how many pardon cards the member has (shown on the pardon button)
+  final Widget? metaWidget; // replaces the meta line (and the bar) when given
 
   const QuestCard({
     super.key,
@@ -61,6 +64,8 @@ class QuestCard extends StatelessWidget {
     this.onExcuse,
     this.onPostpone,
     this.badge,
+    this.pardons,
+    this.metaWidget,
   });
 
   @override
@@ -73,6 +78,7 @@ class QuestCard extends StatelessWidget {
       QuestState.safe => (c.successSoft, c.success),
     };
     final compact = state == QuestState.safe;
+    final pardonLabel = pardons == null ? 'بطاقة عفو' : 'بطاقة عفو (${arabicDigits(pardons)})';
     final iconBox = Container(
       width: compact ? 36 : 44,
       height: compact ? 36 : 44,
@@ -86,7 +92,7 @@ class QuestCard extends StatelessWidget {
           style: (compact ? text.labelLarge : text.titleMedium)!.copyWith(fontWeight: FontWeight.w700),
           child: title,
         ),
-        Text(meta, style: text.labelSmall!.copyWith(color: c.inkSubtle)),
+        if (metaWidget != null) ...[const SizedBox(height: 4), metaWidget!] else Text(meta, style: text.labelSmall!.copyWith(color: c.inkSubtle)),
       ],
     );
 
@@ -104,6 +110,33 @@ class QuestCard extends StatelessWidget {
               style: TextButton.styleFrom(minimumSize: const Size(44, 44), padding: const EdgeInsets.symmetric(horizontal: Space.s2)),
               child: const Text('أجّل'),
             ),
+          // the other ways out of a time, in a small menu
+          if (onPardon != null || onExcuse != null)
+            PopupMenuButton<String>(
+              tooltip: 'خيارات',
+              icon: Icon(Icons.more_vert_rounded, color: c.inkSubtle),
+              onSelected: (v) => v == 'pardon' ? onPardon?.call() : onExcuse?.call(),
+              itemBuilder: (context) => [
+                if (onPardon != null)
+                  PopupMenuItem(
+                    value: 'pardon',
+                    child: Row(children: [
+                      Icon(Icons.confirmation_number_rounded, size: 20, color: c.pardon),
+                      const SizedBox(width: Space.s3),
+                      Text('استخدم $pardonLabel'),
+                    ]),
+                  ),
+                if (onExcuse != null)
+                  PopupMenuItem(
+                    value: 'excuse',
+                    child: Row(children: [
+                      Icon(Icons.description_outlined, size: 20, color: c.inkMuted),
+                      const SizedBox(width: Space.s3),
+                      const Text('عندي عذر'),
+                    ]),
+                  ),
+              ],
+            ),
         ],
       );
     } else {
@@ -118,24 +151,41 @@ class QuestCard extends StatelessWidget {
               if (state == QuestState.urgent) const StatusBadge('لازم اليوم', kind: BadgeKind.streak),
             ],
           ),
-          const SizedBox(height: 12),
-          Pips(done: done, total: total, width: 0, height: 8),
+          if (metaWidget == null) ...[
+            const SizedBox(height: 12),
+            Pips(done: done, total: total, width: 0, height: 8),
+          ],
           const SizedBox(height: 12),
           if (state == QuestState.urgent)
-            Row(
-              children: [
-                Expanded(child: _Stake(stake)),
-                const SizedBox(width: 10),
-                AtButton(actionLabel, expand: false, onPressed: onAction),
+            ...[
+              Row(
+                children: [
+                  Expanded(child: _Stake(stake)),
+                  const SizedBox(width: 10),
+                  AtButton(actionLabel, expand: false, onPressed: onAction),
+                ],
+              ),
+              // can't make it today: the two other ways, smaller than the proof
+              if (onPardon != null || onExcuse != null) ...[
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    if (onPardon != null)
+                      Expanded(child: _SoftButton(pardonLabel, icon: Icons.confirmation_number_rounded, fg: c.pardonText, bg: c.pardonSoft, onPressed: onPardon)),
+                    if (onPardon != null && onExcuse != null) const SizedBox(width: Space.s2),
+                    if (onExcuse != null)
+                      Expanded(child: _SoftButton('عندي عذر', icon: Icons.description_outlined, fg: c.ink, bg: c.surfaceSunken, onPressed: onExcuse)),
+                  ],
+                ),
               ],
-            )
+            ]
           else ...[
             if (stake != null) ...[_Stake(stake), const SizedBox(height: Space.s2)],
             Row(
               children: [
-                Expanded(child: _SoftButton('استخدم بطاقة عفو', fg: c.pardonText, bg: c.pardonSoft, onPressed: onPardon)),
+                Expanded(child: _SoftButton(pardonLabel, icon: Icons.confirmation_number_rounded, fg: c.pardonText, bg: c.pardonSoft, onPressed: onPardon)),
                 const SizedBox(width: Space.s2),
-                Expanded(child: _SoftButton('عندي عذر', fg: c.ink, bg: c.surfaceSunken, onPressed: onExcuse)),
+                Expanded(child: _SoftButton('عندي عذر', icon: Icons.description_outlined, fg: c.ink, bg: c.surfaceSunken, onPressed: onExcuse)),
               ],
             ),
           ],
@@ -192,8 +242,9 @@ class _SoftButton extends StatelessWidget {
   final Color fg;
   final Color bg;
   final VoidCallback? onPressed;
+  final IconData? icon;
 
-  const _SoftButton(this.label, {required this.fg, required this.bg, required this.onPressed});
+  const _SoftButton(this.label, {required this.fg, required this.bg, required this.onPressed, this.icon});
 
   @override
   Widget build(BuildContext context) {
@@ -207,10 +258,23 @@ class _SoftButton extends StatelessWidget {
           constraints: const BoxConstraints(minHeight: 44),
           alignment: Alignment.center,
           padding: const EdgeInsets.symmetric(horizontal: Space.s2),
-          child: Text(
-            label,
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.labelLarge!.copyWith(color: onPressed == null ? context.colors.inkSubtle : fg, fontSize: 13.5),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (icon != null) ...[
+                Icon(icon, size: 18, color: onPressed == null ? context.colors.inkSubtle : fg),
+                const SizedBox(width: 6),
+              ],
+              Flexible(
+                child: Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelLarge!.copyWith(color: onPressed == null ? context.colors.inkSubtle : fg, fontSize: 13.5),
+                ),
+              ),
+            ],
           ),
         ),
       ),

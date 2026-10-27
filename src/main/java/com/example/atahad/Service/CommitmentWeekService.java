@@ -101,7 +101,8 @@ public class CommitmentWeekService {
                     list.add(new TodayTaskResponse(goal.getId(), week.getId(), task.getId(), "GOAL",
                             (goal.getTitle().trim().equals(task.getTitle().trim()) ? task.getTitle() : goal.getTitle() + " - " + task.getTitle()), task.getProofMethod(), required,
                             task.getCompletedCount(), task.getExcusedCount(), remaining, daysLeft,
-                            task.getTrackStatus(), task.getAmountPerTime(), goal.getTitle(), task.getTitle(), planned, false, doneToday));
+                            task.getTrackStatus(), task.getAmountPerTime(), goal.getTitle(), task.getTitle(), planned, false, doneToday,
+                            task.getPlannedDays() == null ? Set.of() : new HashSet<>(task.getPlannedDays())));
                 }
             }else{
                 int remaining = Math.max(0, week.getRequired() - week.getCompleted() - week.getExcusedDays() - lostPenalties(week, null).size());
@@ -116,7 +117,7 @@ public class CommitmentWeekService {
                 list.add(new TodayTaskResponse(commitment.getId(), week.getId(), null, "HABIT",
                         commitment.getTitle(), commitment.getProofMethod(), week.getRequired(),
                         week.getCompleted(), week.getExcusedDays(), remaining, daysLeft,
-                        week.getTrackStatus(), week.getAmountPerDay(), null, null, planned, postponedToday, doneToday));
+                        week.getTrackStatus(), week.getAmountPerDay(), null, null, planned, postponedToday, doneToday, new HashSet<>(weekDays)));
             }
         }
         return list;
@@ -129,6 +130,11 @@ public class CommitmentWeekService {
     public CommitmentWeek startFirstWeek(Commitment commitment){
         if(commitmentWeekRepository.findTopByCommitmentOrderByWeekNumberDesc(commitment) != null){
             throw new ApiException("This commitment already started");
+        }
+        // a later start day: week 1 opens on that day at 00:00 (until then «اليوم» does not show it)
+        LocalDate start = commitment.getStartDate();
+        if(start != null && start.isAfter(LocalDate.now())){
+            return createWeek(commitment, 1, start.atStartOfDay(), endOfWeek(start));
         }
         LocalDateTime now = LocalDateTime.now();
         return createWeek(commitment, 1, now, endOfWeek(now.toLocalDate()));
@@ -262,6 +268,12 @@ public class CommitmentWeekService {
             members.put(member.getId(), member);
             allFull.put(member.getId(), allFull.getOrDefault(member.getId(), true) && full);
 
+            // he asked to withdraw: this was the last week
+            if(Boolean.TRUE.equals(commitment.getWithdrawAtWeekEnd())){
+                commitment.setStatus("WITHDRAWN");
+                commitmentRepository.save(commitment);
+                continue;
+            }
             startNextWeek(commitment, last, sunday);
         }
 
@@ -444,6 +456,12 @@ public class CommitmentWeekService {
 
     // withdrawal: every time left this week becomes a penalty and the app is locked
     @Transactional
+    // true while the commitment is inside a running week
+    public boolean hasRunningWeek(Commitment commitment){
+        CommitmentWeek week = commitmentWeekRepository.findTopByCommitmentOrderByWeekNumberDesc(commitment);
+        return week != null && isRunning(week, LocalDate.now());
+    }
+
     public int penalizeWithdrawal(Commitment commitment){
         CommitmentWeek week = commitmentWeekRepository.findTopByCommitmentOrderByWeekNumberDesc(commitment);
         LocalDate today = LocalDate.now();
@@ -511,8 +529,12 @@ public class CommitmentWeekService {
         evaluateWeek(week, LocalDate.now());
     }
 
-    // postpone inside this week, it changes the reminders only
+    // postpone inside this week, it changes the reminders only (a habit's week, or one task of a goal's week)
     public void changeThisWeekPlan(Integer memberId, Integer weekId, Set<String> plannedDays){
+        changeThisWeekPlan(memberId, weekId, null, plannedDays);
+    }
+
+    public void changeThisWeekPlan(Integer memberId, Integer weekId, Integer goalTaskId, Set<String> plannedDays){
         CommitmentWeek week = getWeekById(weekId);
         if(!week.getCommitment().getMember().getId().equals(memberId)){
             throw new ApiException("You can only change your own week");
@@ -520,8 +542,15 @@ public class CommitmentWeekService {
         if(!isRunning(week, LocalDate.now())){
             throw new ApiException("This week is not running");
         }
-        if(!(Hibernate.unproxy(week.getCommitment()) instanceof Habit)){
-            throw new ApiException("Goals plan their days in every task");
+        Object real = Hibernate.unproxy(week.getCommitment());
+        GoalTask task = null;
+        if(real instanceof Goal goal){
+            task = goalTaskId == null ? null : goalTaskRepository.findGoalTaskById(goalTaskId);
+            if(task == null || !task.getGoal().getId().equals(goal.getId()) || !task.getWeekNumber().equals(week.getWeekNumber())){
+                throw new ApiException("Choose the task of this week to postpone");
+            }
+        }else if(!(real instanceof Habit)){
+            throw new ApiException("This commitment cannot be postponed");
         }
         if(plannedDays == null){
             plannedDays = new HashSet<>();
@@ -531,8 +560,14 @@ public class CommitmentWeekService {
                 throw new ApiException("Planned day must be SUN, MON, TUE, WED, THU, FRI or SAT");
             }
         }
-        if(plannedDays.size() > week.getRequired()){
+        int limit = task == null ? week.getRequired() : taskRequired(task, week);
+        if(plannedDays.size() > limit){
             throw new ApiException("You planned more days than the times of this week");
+        }
+        if(task != null){
+            task.setPlannedDays(new HashSet<>(plannedDays));
+            goalTaskRepository.save(task);
+            return;
         }
         week.setPlannedDays(new HashSet<>(plannedDays));
         commitmentWeekRepository.save(week);

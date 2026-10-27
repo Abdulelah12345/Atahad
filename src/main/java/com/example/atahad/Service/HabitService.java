@@ -19,6 +19,7 @@ public class HabitService {
     private final MemberRepository memberRepository;
     private final CommitmentWeekService commitmentWeekService;
     private final WalkingStepsService walkingStepsService;
+    private final ProofMethodService proofMethodService;
 
     // admin
     public List<Habit> getAllHabits(){
@@ -48,7 +49,9 @@ public class HabitService {
         }
         habit.setMember(member);
         habit.setStatus("ACTIVE");
-        habit.setEffectiveFrom(LocalDate.now());
+        CommitmentService.checkStartDate(habit);
+        proofMethodService.apply(habit);
+        habit.setEffectiveFrom(habit.getStartDate() == null ? LocalDate.now() : habit.getStartDate());
         habit.setPendingTimesPerWeek(null);
         habit.setPendingBaseAmount(null);
         CommitmentService.checkTargets(habit);
@@ -87,8 +90,16 @@ public class HabitService {
                 return;
             }
         }else{
+            // the proof method can change any time (the next proof uses it), with its place or minutes
             if(!oldHabit.getProofMethod().equals(habit.getProofMethod())){
-                throw new ApiException("Proof method cannot change after the habit starts");
+                oldHabit.setProofMethod(habit.getProofMethod());
+                oldHabit.setTargetLatitude(habit.getTargetLatitude());
+                oldHabit.setTargetLongitude(habit.getTargetLongitude());
+                oldHabit.setTargetPlaceName(habit.getTargetPlaceName());
+                oldHabit.setTargetRadiusMeters(habit.getTargetRadiusMeters());
+                oldHabit.setTargetMinutes(habit.getTargetMinutes());
+                CommitmentService.checkTargets(oldHabit);
+                proofMethodService.apply(oldHabit);
             }
             if(!oldHabit.getTimesPerWeek().equals(habit.getTimesPerWeek())){
                 oldHabit.setPendingTimesPerWeek(habit.getTimesPerWeek());

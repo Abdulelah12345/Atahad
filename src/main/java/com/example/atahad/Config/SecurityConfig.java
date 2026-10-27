@@ -41,7 +41,7 @@ public class SecurityConfig {
 
         return http
                 .cors(org.springframework.security.config.Customizer.withDefaults())
-                // هذا يعطل حماية CSRF، ولا يغني عن مراجعتها عند استخدام جلسات المتصفح.
+                // no CSRF: the app sends basic auth, not browser cookies
                 .csrf(csrf -> csrf.disable())
 
                 .userDetailsService(myUserDetailsService)
@@ -50,7 +50,7 @@ public class SecurityConfig {
                 )
                 .authorizeHttpRequests(auth -> auth
 
-                        // صفحة التجربة فقط؛ كل بياناتها وعملياتها خلف صلاحيات API.
+                        // the test page only, its data is behind the API roles
                         .requestMatchers(HttpMethod.GET,"/proof-session.html").permitAll()
 
                         // Public endpoints
@@ -103,7 +103,7 @@ public class SecurityConfig {
                                 "/api/v1/admin/profile"
                         ).hasAuthority("ADMIN")
 
-                        // صفحات الإثباتات تقرأ سجلات العضو فقط؛ لا يوجد معرف مستخدم يختاره العميل.
+                        // proof pages read the logged in member's records only
                         .requestMatchers(HttpMethod.GET, "/api/v1/proof-workspace/my", "/api/v1/proof-workspace/attachment/{captureId}").hasAuthority("MEMBER")
                         .requestMatchers(HttpMethod.POST,
                                 "/api/v1/excuse/attachment", "/api/v1/excuse/attachment/{captureId}",
@@ -217,6 +217,7 @@ public class SecurityConfig {
                         .requestMatchers(
                                 HttpMethod.PUT,
                                 "/api/v1/commitment/withdraw/{id}",
+                                "/api/v1/commitment/withdraw/cancel/{id}",
                                 "/api/v1/commitment/target/{id}",
                                 "/api/v1/commitment-week/changePlan/{weekId}",
                                 "/api/v1/habit/update/{id}",
@@ -270,7 +271,7 @@ public class SecurityConfig {
                                 "/api/v1/n8n/weekly-reports"
                         ).permitAll()
 
-                        // محاولات البروف والجلسات والكاميرا للأعضاء؛ الملكية داخل السيرفس.
+                        // proof attempts, sessions and camera: members, ownership is checked in the service
                         .requestMatchers("/api/v1/proof-attempt/**").hasAuthority("MEMBER")
                         .requestMatchers("/api/v1/walking/**").hasAuthority("MEMBER")
 

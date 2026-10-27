@@ -5,6 +5,7 @@ import '../../core/auth/auth_state.dart';
 import '../../core/theme/at_colors.dart';
 import '../../core/utils/format.dart';
 import '../../core/widgets/widgets.dart';
+import 'admin_tools_screen.dart';
 import 'proof_widgets.dart';
 import 'proofs_api.dart';
 
@@ -30,7 +31,9 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
 
   Future<void> _reload() async {
     final future = _load();
-    setState(() => _data = future);
+    setState(() {
+      _data = future;
+    });
     try {
       await future;
     } catch (_) {}
@@ -57,6 +60,15 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
   Widget build(BuildContext context) => ProofPage(
       title: 'مركز المراجعة',
       actions: [
+        // the admin tools: member accounts and the proof methods
+        IconButton(
+            tooltip: 'الأعضاء',
+            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminMembersScreen())),
+            icon: const Icon(Icons.manage_accounts_rounded)),
+        IconButton(
+            tooltip: 'طرق الإثبات',
+            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminProofMethodsScreen())),
+            icon: const Icon(Icons.fact_check_rounded)),
         IconButton(
             tooltip: 'تحديث',
             onPressed: _reload,

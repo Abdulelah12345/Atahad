@@ -12,9 +12,10 @@ class AppTheme {
   static ThemeData _build(Brightness brightness, AtColors c) {
     final text = AtText.theme(c.ink, c.inkMuted);
     // the fields: sunken, a 3:1 border, the primary border when focused
+    final dark = brightness == Brightness.dark;
     final fieldBorder = OutlineInputBorder(
-      borderRadius: BorderRadius.circular(Radii.md),
-      borderSide: BorderSide(color: c.lineStrong),
+      borderRadius: BorderRadius.circular(14),
+      borderSide: BorderSide(color: dark ? c.line : c.lineStrong.withValues(alpha: 0.55)),
     );
     return ThemeData(
       useMaterial3: true,
@@ -59,7 +60,10 @@ class AppTheme {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: c.surfaceSunken,
+        // light: white fields on the grey page (the design), dark: a step below the cards
+        fillColor: dark ? c.surfaceSunken : c.surface,
+        prefixIconColor: c.inkSubtle,
+        suffixIconColor: c.inkSubtle,
         contentPadding: const EdgeInsets.symmetric(horizontal: Space.s4, vertical: Space.s3 + 2),
         border: fieldBorder,
         enabledBorder: fieldBorder,
@@ -72,7 +76,9 @@ class AppTheme {
       ),
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: c.surface,
+        height: 68,
         indicatorColor: c.primarySoft,
+        indicatorShape: const StadiumBorder(),
         elevation: 0,
         surfaceTintColor: Colors.transparent,
         labelTextStyle: WidgetStateProperty.resolveWith(
@@ -146,10 +152,35 @@ class AppTheme {
         labelStyle: text.labelMedium,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.full)),
       ),
+      // the menus: rounded, a line instead of a shadow tint
+      popupMenuTheme: PopupMenuThemeData(
+        color: c.surface,
+        surfaceTintColor: Colors.transparent,
+        elevation: 8,
+        shadowColor: const Color(0x3310245E),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.lg), side: BorderSide(color: c.line)),
+        textStyle: text.labelLarge,
+        labelTextStyle: WidgetStatePropertyAll(text.labelLarge),
+      ),
+      listTileTheme: ListTileThemeData(
+        iconColor: c.primary,
+        titleTextStyle: text.labelLarge!.copyWith(fontSize: 15),
+        subtitleTextStyle: text.labelSmall,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.md)),
+        minVerticalPadding: 10,
+      ),
+      expansionTileTheme: ExpansionTileThemeData(
+        iconColor: c.primary,
+        collapsedIconColor: c.inkSubtle,
+        shape: const RoundedRectangleBorder(side: BorderSide.none),
+        collapsedShape: const RoundedRectangleBorder(side: BorderSide.none),
+      ),
       bottomSheetTheme: BottomSheetThemeData(
         backgroundColor: c.surface,
         surfaceTintColor: Colors.transparent,
-        dragHandleColor: c.line,
+        dragHandleColor: c.lineStrong.withValues(alpha: 0.4),
+        dragHandleSize: const Size(40, 5),
+        showDragHandle: true,
         shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(Radii.xl))),
       ),
       dialogTheme: DialogThemeData(

@@ -34,7 +34,7 @@ public class ProofChallengeService {
             "لوّح للكاميرا بيدك", "حط يدك على راسك");
 
     public ProofChallengeResponse create(Integer memberId, Integer weekId, Integer goalTaskId){
-        // العضو في الرابط يجب أن يكون صاحب جلسة الدخول.
+        // the id in the path must be the logged in member
         authenticatedUserService.checkMember(memberId);
         CommitmentWeek week = commitmentWeekRepository.findCommitmentWeekById(weekId);
         if(week == null || !week.getCommitment().getMember().getId().equals(memberId)){

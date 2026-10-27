@@ -3,7 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/api/api_client.dart';
-import '../../core/auth/auth_state.dart';
+import '../../core/theme/at_colors.dart';
 import '../../core/theme/at_tokens.dart';
 import '../../core/utils/format.dart';
 import '../../core/widgets/widgets.dart';
@@ -56,10 +56,18 @@ class _CommitmentsScreenState extends State<CommitmentsScreen> {
     try {
       final message = await _api.withdraw(commitment['id'] as int);
       if (!mounted) return;
-      // the withdrawal can lock the app, the router then moves to /lock
-      await context.read<AuthState>().refreshLock();
+      showMessage(context, withdrawMessage(message));
+      _reload();
+    } catch (error) {
+      if (mounted) showError(context, error);
+    }
+  }
+
+  Future<void> _cancelWithdraw(JsonMap commitment) async {
+    try {
+      await _api.cancelWithdraw(commitment['id'] as int);
       if (!mounted) return;
-      showMessage(context, message);
+      showMessage(context, 'تراجعت، التعهّد مكمّل');
       _reload();
     } catch (error) {
       if (mounted) showError(context, error);
@@ -97,11 +105,32 @@ class _CommitmentsScreenState extends State<CommitmentsScreen> {
       child: Scaffold(
         appBar: AppBar(
           title: const Text('تعهّداتي'),
-          bottom: const TabBar(
-            tabs: [
-              Tab(text: 'العادات'),
-              Tab(text: 'الأهداف'),
-            ],
+          // two pills in a sunken track instead of a line under the tab
+          bottom: PreferredSize(
+            preferredSize: const Size.fromHeight(56),
+            child: Builder(builder: (context) {
+              final c = context.colors;
+              return Container(
+                margin: const EdgeInsets.fromLTRB(Space.s4, 0, Space.s4, Space.s2),
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(color: c.surfaceSunken, borderRadius: BorderRadius.circular(14)),
+                child: TabBar(
+                  dividerColor: Colors.transparent,
+                  indicatorSize: TabBarIndicatorSize.tab,
+                  indicator: BoxDecoration(
+                    color: c.surface,
+                    borderRadius: BorderRadius.circular(10),
+                    boxShadow: const [BoxShadow(color: Color(0x1F10245E), blurRadius: 4, offset: Offset(0, 1))],
+                  ),
+                  labelColor: c.primary,
+                  unselectedLabelColor: c.inkSubtle,
+                  tabs: const [
+                    Tab(height: 40, icon: null, child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.repeat_rounded, size: 18), SizedBox(width: 6), Text('العادات')])),
+                    Tab(height: 40, child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.flag_rounded, size: 18), SizedBox(width: 6), Text('الأهداف')])),
+                  ],
+                ),
+              );
+            }),
           ),
         ),
         floatingActionButton: Builder(
@@ -183,19 +212,17 @@ class _CommitmentsScreenState extends State<CommitmentsScreen> {
       onSelected: (v) {
         if (v == 'edit') _open('/habit/edit', extra: c);
         if (v == 'withdraw') _withdraw(c);
+        if (v == 'stay') _cancelWithdraw(c);
         if (v == 'delete') _delete(c, isHabit);
       },
       itemBuilder: (context) => [
-        if (isHabit && active)
-          const PopupMenuItem(value: 'edit', child: Text('عدّل')),
-        if (active)
-          const PopupMenuItem(value: 'withdraw', child: Text('انسحب')),
+        if (isHabit && active) menuItem(context, 'edit', Icons.edit_rounded, 'عدّل'),
+        if (active && !withdrawing(c)) menuItem(context, 'withdraw', Icons.directions_walk_rounded, 'انسحب'),
+        if (withdrawing(c)) menuItem(context, 'stay', Icons.undo_rounded, 'تراجع عن الانسحاب'),
         // deleting is for the first hour after creating it, after that withdraw
         if (minutesLeft != 0)
-          PopupMenuItem(
-            value: 'delete',
-            child: Text(minutesLeft == null ? 'احذف' : 'احذف (باقي ${arabicDigits(minutesLeft)} دقيقة)'),
-          ),
+          menuItem(context, 'delete', Icons.delete_outline_rounded,
+              minutesLeft == null ? 'احذف' : 'احذف · باقي ${arabicDigits(minutesLeft)} د', danger: true),
       ],
     );
   }
@@ -226,6 +253,8 @@ class _CommitmentsScreenState extends State<CommitmentsScreen> {
       details: [
         '${arabicDigits(h['timesPerWeek'])} مرات بالأسبوع · ${h['proofMethod'] == 'STEPS' ? 'مجموع خطوات اليوم' : proofMethodsAr[h['proofMethod']] ?? h['proofMethod']}',
         if (h['proofMethod'] == 'STEPS') 'الهدف: ${arabicDigits(h['targetSteps'])} خطوة في اليوم',
+        if (startsLater(h) != null) startsLater(h)!,
+        if (withdrawing(h)) 'ينتهي بعد هالأسبوع',
       ],
       badge: commitmentStatusBadge(h['status'] as String?),
       menu: _menu(h, true),
@@ -270,6 +299,8 @@ class _CommitmentsScreenState extends State<CommitmentsScreen> {
       title: '${g['title']}',
       details: [
         '${arabicDigits(g['totalWeeks'])} أسابيع · ${proofMethodsAr[g['proofMethod']] ?? g['proofMethod']}',
+        if (startsLater(g) != null) startsLater(g)!,
+        if (withdrawing(g)) 'ينتهي بعد هالأسبوع',
         if (g['endDate'] != null) 'ينتهي ${arabicDigits(g['endDate'])}',
       ],
       badge: commitmentStatusBadge(g['status'] as String?),

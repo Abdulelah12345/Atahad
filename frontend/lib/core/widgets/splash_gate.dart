@@ -97,25 +97,25 @@ class _SplashGateState extends State<SplashGate> {
             child: ColoredBox(
               color: _dark ? SplashGate.darkBg : SplashGate.lightBg,
               child: ready
-                  // the video at 62% of the screen width (the logo stays small and calm), its edges fade into the background
+                  // the video at 80% of the screen width, only its far corners fade into the background
                   ? Center(
                       child: FractionallySizedBox(
-                        widthFactor: 0.62,
+                        widthFactor: 0.8,
                         child: AspectRatio(
                           aspectRatio: video.value.aspectRatio,
                           child: ShaderMask(
                             blendMode: BlendMode.dstIn,
                             shaderCallback: (rect) => const RadialGradient(
-                              radius: 0.75,
+                              radius: 1.0,
                               colors: [Colors.white, Colors.white, Colors.transparent],
-                              stops: [0, 0.6, 1],
+                              stops: [0, 0.8, 1],
                             ).createShader(rect),
                             child: VideoPlayer(video),
                           ),
                         ),
                       ),
                     )
-                  : (_video == null ? Center(child: AppLogo(width: 200, tagline: true, white: _dark)) : const SizedBox.expand()),
+                  : (_video == null ? Center(child: AppLogo(width: 250, tagline: true, white: _dark)) : const SizedBox.expand()),
             ),
           ),
         ),

@@ -30,7 +30,6 @@ public class ExcuseController {
             @AuthenticationPrincipal User user,
             @PathVariable Integer id) {
 
-        // نأخذ هوية المستخدم من الجلسة، والملكية يفحصها السيرفس.
         Integer userId = user.getId();
 
         Excuse excuse = excuseService.getExcuseById(userId, id);
@@ -45,7 +44,6 @@ public class ExcuseController {
             @PathVariable Integer commitmentWeekId,
             @RequestBody @Valid ExcuseRequest request) {
 
-        // معرف المستخدم من جلسة الدخول، والملكية يفحصها السيرفس.
         Integer userId = user.getId();
 
         excuseService.addGoalTaskExcuse(
@@ -55,14 +53,12 @@ public class ExcuseController {
                 .body(new ApiResponse("Excuse added successfully"));
     }
 
-
     @PutMapping("/update/goal-task/{excuseId}")
     public ResponseEntity<?> updateGoalTaskExcuse(
             @AuthenticationPrincipal User user,
             @PathVariable Integer excuseId,
             @RequestBody @Valid ExcuseRequest request) {
 
-        // معرف المستخدم من الجلسة، والملكية يفحصها السيرفس.
         Integer userId = user.getId();
 
         excuseService.updateGoalTaskExcuse(userId, excuseId, request);
@@ -76,7 +72,6 @@ public class ExcuseController {
             @AuthenticationPrincipal User user,
             @PathVariable Integer excuseId) {
 
-        // معرف المستخدم من الجلسة، والملكية يفحصها السيرفس.
         Integer userId = user.getId();
 
         excuseService.deleteGoalTaskExcuse(userId, excuseId);

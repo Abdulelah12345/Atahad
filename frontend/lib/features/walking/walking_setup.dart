@@ -205,10 +205,6 @@ class _WalkingSetupState extends State<WalkingSetup> {
               onPressed: _checking ? null : widget.onUseTimer,
               child: const Text('أفضل تعهّد المشي بالدقائق'),
             ),
-            Text(
-              'المؤقّت هدف مستقل بالدقائق؛ لا نحوله إلى خطوات ولا يثبت الحركة.',
-              style: text.bodySmall,
-            ),
           ],
         ],
       ),

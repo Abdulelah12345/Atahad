@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../core/api/api_client.dart';
+import '../../core/state/data_refresh.dart';
 import '../../core/theme/at_colors.dart';
 import '../../core/theme/at_tokens.dart';
 import '../../core/utils/format.dart';
@@ -35,12 +36,47 @@ class _ProofsHomeScreenState extends State<ProofsHomeScreen> {
       _api.workspace(),
       _api.activities(),
     ]);
-    return {...values[0] as Json, 'activities': values[1]};
+    // what is still owed, for the donation card on top of «طلباتي»
+    num owed = 0;
+    if (widget.requestsOnly) {
+      try {
+        final lock = await context.read<ApiClient>().get('/api/v1/commitment/lockStatus');
+        owed = (lock is Map ? lock['totalToDonate'] as num? : null) ?? 0;
+      } catch (_) {}
+    }
+    return {...values[0] as Json, 'activities': values[1], 'owed': owed};
+  }
+
+  Json? _last; // kept on screen while a quiet reload runs
+
+  @override
+  void initState() {
+    super.initState();
+    DataRefresh.instance.addListener(_quietReload);
+  }
+
+  @override
+  void dispose() {
+    DataRefresh.instance.removeListener(_quietReload);
+    super.dispose();
+  }
+
+  // something changed on another page: load again without the spinner
+  Future<void> _quietReload() async {
+    if (!mounted || _last == null) return;
+    try {
+      final data = await _load();
+      if (mounted) setState(() {
+      _data = Future.value(data);
+    });
+    } catch (_) {}
   }
 
   Future<void> _reload() async {
     final future = _load();
-    setState(() => _data = future);
+    setState(() {
+      _data = future;
+    });
     try {
       await future;
     } catch (_) {}
@@ -70,12 +106,9 @@ class _ProofsHomeScreenState extends State<ProofsHomeScreen> {
             onSelected: (value) => context.push(
               value == 'donations' ? '/proofs/donations' : '/proofs',
             ),
-            itemBuilder: (_) => const [
-              PopupMenuItem(
-                value: 'donations',
-                child: Text('التبرعات والمبالغ'),
-              ),
-              PopupMenuItem(value: 'proofs', child: Text('سجل إثباتاتي')),
+            itemBuilder: (context) => [
+              menuItem(context, 'donations', Icons.volunteer_activism_rounded, 'التبرعات والمبالغ'),
+              menuItem(context, 'proofs', Icons.fact_check_outlined, 'سجل إثباتاتي'),
             ],
           ),
         IconButton(
@@ -95,7 +128,7 @@ class _ProofsHomeScreenState extends State<ProofsHomeScreen> {
       child: FutureBuilder<Json>(
         future: _data,
         builder: (context, snapshot) {
-          if (snapshot.connectionState != ConnectionState.done) {
+          if (snapshot.connectionState != ConnectionState.done && _last == null) {
             return const LoadingView();
           }
           if (snapshot.hasError) {
@@ -104,7 +137,8 @@ class _ProofsHomeScreenState extends State<ProofsHomeScreen> {
               onRetry: _reload,
             );
           }
-          final data = snapshot.data!;
+          final data = snapshot.connectionState == ConnectionState.done ? snapshot.data! : _last!;
+          _last = data;
           final proofs = ProofsApi.maps(data['proofs']);
           final excuses = ProofsApi.maps(data['excuses']);
           final objections = ProofsApi.maps(data['objections']);
@@ -140,6 +174,8 @@ class _ProofsHomeScreenState extends State<ProofsHomeScreen> {
               excuses: excuses,
               objections: objections,
               shown: shown,
+              owed: data['owed'] as num? ?? 0,
+              onDonate: () => context.push('/proofs/donations'),
               tab: _tab,
               filter: _filter,
               onRefresh: _reload,

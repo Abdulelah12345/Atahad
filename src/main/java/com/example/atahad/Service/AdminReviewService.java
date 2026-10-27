@@ -48,7 +48,7 @@ public class AdminReviewService {
         }
         for(Objection objection : objectionDecisionService.getWaitingForAdmin()){
             Member member = objection.getMember();
-            // يظهر للأدمن النشاط وصوره الأصلية مع سبب الاعتراض، حتى يستطيع مراجعة القرار.
+            // the admin sees the activity, its photos and the reason
             String about;
             List<String> images = new ArrayList<>();
             if (objection.getProof() != null) {
@@ -124,7 +124,7 @@ public class AdminReviewService {
         adminRepository.save(admin);
     }
 
-    // نعرض للأدمن نتيجة كل دليل والصور المرتبطة به، ليتمكن من مراجعة المحاولة كاملة.
+    // every evidence result with its photos
     private String proofDetails(Proof proof) {
         StringBuilder details = new StringBuilder(proof.getType() + " at " + proof.getActivityTime());
         if("STEPS".equals(proof.getType())) { details.append("\n").append(proof.getEvidenceData()); }
@@ -163,7 +163,7 @@ public class AdminReviewService {
         return result;
     }
 
-    // بداية مراجعة الاعتراض تقفل تعديل السبب وحذفه عند العضو، دون إصدار قرار بالنيابة عن الأدمن.
+    // starting the review stops the member from editing or deleting it
     @Transactional
     public void startObjectionReview(Integer adminId, Integer objectionId) {
         getAdmin(adminId);

@@ -46,6 +46,14 @@ class _BoardTabState extends State<BoardTab> with AutomaticKeepAliveClientMixin 
   String? _error;
   Timer? _timer;
   bool _proving = false;
+  // after a nudge the button rests for a few seconds (kept per group and member, even after leaving the page)
+  static const _nudgeRest = Duration(seconds: 30);
+  static final Map<String, DateTime> _nudgedAt = {};
+  String _nudgeKey(Map<String, dynamic> row) => '$_groupId-${row['memberId']}';
+  bool _resting(Map<String, dynamic> row) {
+    final at = _nudgedAt[_nudgeKey(row)];
+    return at != null && DateTime.now().difference(at) < _nudgeRest;
+  }
   int get _groupId => widget.group['id'] as int;
 
   @override
@@ -188,6 +196,7 @@ class _BoardTabState extends State<BoardTab> with AutomaticKeepAliveClientMixin 
                         place: i + 1,
                         isMe: row['memberId'] == widget.me,
                         title: data.titles[row['memberId']],
+                        nudged: _resting(row),
                         onAlert: () => _alert(row),
                       ),
                     ),
@@ -228,12 +237,22 @@ class _BoardTabState extends State<BoardTab> with AutomaticKeepAliveClientMixin 
   }
 
   Future<void> _alert(Map<String, dynamic> row) async {
+    if (_resting(row)) return;
+    final key = _nudgeKey(row);
+    setState(() => _nudgedAt[key] = DateTime.now());
+    // wake the button up again when the rest ends
+    Future.delayed(_nudgeRest, () {
+      if (mounted) setState(() {});
+    });
     try {
       final res = await widget.api.sendAlert(_groupId, row['memberId'] as int);
       if (!mounted) return;
       showMessage(context, res['isCollective'] == true ? 'انضم تنبيهك لتنبيهات المجموعة' : 'وصل التنبيه لـ ${row['name']}');
     } catch (e) {
-      if (mounted) showGroupError(context, e);
+      _nudgedAt.remove(key); // it did not go out, so it can be tried again now
+      if (!mounted) return;
+      setState(() {});
+      showGroupError(context, e);
     }
   }
 
@@ -244,6 +263,7 @@ class _BoardTabState extends State<BoardTab> with AutomaticKeepAliveClientMixin 
       isScrollControlled: true,
       builder: (_) => SheetBody(
         title: 'أهداف المجموعة',
+      icon: Icons.history_rounded,
         child: FutureBuilder<List<Map<String, dynamic>>>(
           future: widget.api.goalHistory(_groupId),
           builder: (context, snap) {
@@ -420,8 +440,9 @@ class _LeaderRow extends StatelessWidget {
   final bool isMe;
   final String? title; // his title of last week
   final VoidCallback onAlert;
+  final bool nudged; // nudged a moment ago, the button rests
 
-  const _LeaderRow({required this.row, required this.place, required this.isMe, required this.title, required this.onAlert});
+  const _LeaderRow({required this.row, required this.place, required this.isMe, required this.title, required this.onAlert, this.nudged = false});
 
   @override
   Widget build(BuildContext context) {
@@ -439,7 +460,7 @@ class _LeaderRow extends StatelessWidget {
     if (hasExcuse) {
       trailing = Pill('عنده عذر', fg: c.info, bg: c.infoSoft);
     } else if (canAlert) {
-      trailing = NudgeButton(onPressed: onAlert);
+      trailing = NudgeButton(onPressed: nudged ? null : onAlert);
     } else if (remaining == 0) {
       trailing = Pill('كمّل', fg: c.success, bg: c.successSoft);
     } else {
@@ -864,6 +885,7 @@ class _ProposeSheetState extends State<_ProposeSheet> {
   Widget build(BuildContext context) {
     return SheetBody(
       title: 'اقترح هدف',
+      icon: Icons.lightbulb_rounded,
       error: _error,
       child: Column(
         children: [
@@ -914,6 +936,17 @@ class _SetGoalSheetState extends State<SetGoalSheet> {
   final _minutes = TextEditingController();
   String _method = 'PHOTO';
   String _difficulty = 'SOLO';
+  String? _payMode = 'LOADING'; // the group's choice; null = an old group that still picks per goal
+
+  // the group decides who donates, only an old group shows the levels here
+  Future<void> _loadPayMode() async {
+    try {
+      final group = await widget.api.group(widget.groupId);
+      if (mounted) setState(() => _payMode = group['payMode'] as String?);
+    } catch (_) {
+      if (mounted) setState(() => _payMode = null);
+    }
+  }
   int _times = 3;
   int _weeks = 4;
   bool _loading = false;
@@ -924,6 +957,12 @@ class _SetGoalSheetState extends State<SetGoalSheet> {
   List<_PlanWeek>? _plan;
   String? _note;
   bool _suggesting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPayMode();
+  }
 
   @override
   void dispose() {
@@ -941,7 +980,7 @@ class _SetGoalSheetState extends State<SetGoalSheet> {
     final picked = await showDatePicker(
       context: context,
       initialDate: _endDate,
-      firstDate: now.add(const Duration(days: 1)),
+      firstDate: DateTime(now.year, now.month, now.day), // the goal can end today
       lastDate: now.add(const Duration(days: 364)),
     );
     if (picked != null) setState(() => _endDate = picked);
@@ -1023,6 +1062,7 @@ class _SetGoalSheetState extends State<SetGoalSheet> {
     final plan = _plan;
     return SheetBody(
       title: 'اعتمد هدف المجموعة',
+      icon: Icons.flag_rounded,
       error: _error,
       child: Form(
         key: _form,
@@ -1118,6 +1158,22 @@ class _SetGoalSheetState extends State<SetGoalSheet> {
               _Stepper(label: 'كم أسبوع', value: _weeks, min: 1, max: 52, onChanged: (v) => setState(() => _weeks = v)),
               const SizedBox(height: Space.s2),
             ],
+            if (_payMode == 'SOLO' || _payMode == 'ALL')
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(color: c.surfaceSunken, borderRadius: BorderRadius.circular(Radii.md)),
+                child: Row(children: [
+                  Icon(_payMode == 'ALL' ? Icons.groups_rounded : Icons.person_rounded, size: 20, color: c.inkMuted),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _payMode == 'ALL' ? 'بهالمجموعة لو أحد سوّف الكل يتبرّع' : 'بهالمجموعة اللي يسوّف هو بس اللي يتبرّع',
+                      style: text.labelMedium,
+                    ),
+                  ),
+                ]),
+              ),
+            if (_payMode == null) ...[
             Text('مستوى التحدي', style: text.labelLarge),
             const SizedBox(height: Space.s2),
             Row(
@@ -1146,6 +1202,7 @@ class _SetGoalSheetState extends State<SetGoalSheet> {
                 ),
               ],
             ),
+            ],
             const SizedBox(height: Space.s4),
             AmountField(
               controller: _amount,
@@ -1309,7 +1366,7 @@ class _MyPlaceCardState extends State<_MyPlaceCard> {
     final text = Theme.of(context).textTheme;
     final c = context.colors;
     final name = '${_place?['name'] ?? ''}';
-    return Padding(
+    final card = Padding(
       padding: const EdgeInsets.only(top: Space.s3),
       child: AppCard(
         onTap: _choose,
@@ -1331,6 +1388,18 @@ class _MyPlaceCardState extends State<_MyPlaceCard> {
           ],
         ),
       ),
+    );
+    // my place on a small map under the card
+    final lat = (_place?['latitude'] as num?)?.toDouble();
+    final lng = (_place?['longitude'] as num?)?.toDouble();
+    if (lat == null || lng == null) return card;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        card,
+        const SizedBox(height: Space.s2),
+        PlaceMap(latitude: lat, longitude: lng, height: 150),
+      ],
     );
   }
 }
@@ -1422,6 +1491,7 @@ class _PlaceSearchSheetState extends State<_PlaceSearchSheet> {
     final text = Theme.of(context).textTheme;
     return SheetBody(
       title: 'وين مكانك؟',
+      icon: Icons.place_rounded,
       error: _error,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

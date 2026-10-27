@@ -59,7 +59,7 @@ public class GoalTask {
             message = "Planned day must be SUN, MON, TUE, WED, THU, FRI or SAT")
             String> plannedDays; // Only for reminders, never for deductions
 
-///////////////احتاجها في البروف
+// used by the proofs
     @NotBlank(message = "Proof method cannot be empty")
     @Pattern(
             regexp = "^(LOCATION|PHOTO|QUIZ|TIMER)$",
@@ -67,11 +67,6 @@ public class GoalTask {
     )
     @Column(columnDefinition = "VARCHAR(8) NOT NULL")
     private String proofMethod;
-
-
-
-
-
 
     //Relations
     @ManyToOne

@@ -22,4 +22,6 @@ public class GroupMatchResponse {
     private String leastProcrastinatingName;
     private LocalDate startDate;
     private LocalDate endDate;
+    private Integer challengerTimesPerWeek; // the times of its running goal (null = no goal now)
+    private Integer opponentTimesPerWeek;
 }

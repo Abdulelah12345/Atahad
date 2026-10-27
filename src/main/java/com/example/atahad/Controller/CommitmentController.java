@@ -29,11 +29,14 @@ public class CommitmentController {
 
     @PutMapping("/withdraw/{id}")
     public ResponseEntity<?> withdraw(@AuthenticationPrincipal User user, @PathVariable Integer id){
-        Integer penalties = commitmentService.withdraw(user.getId(), id);
-        if(penalties == 0){
-            return ResponseEntity.status(200).body(new ApiResponse("Withdrawn from the commitment"));
-        }
-        return ResponseEntity.status(200).body(new ApiResponse("Withdrawn from the commitment, " + penalties + " times left this week became penalties and the app is locked until you donate"));
+        boolean waits = commitmentService.withdraw(user.getId(), id);
+        return ResponseEntity.status(200).body(new ApiResponse(waits ? "WITHDRAW_AT_WEEK_END" : "WITHDRAWN"));
+    }
+
+    @PutMapping("/withdraw/cancel/{id}")
+    public ResponseEntity<?> cancelWithdraw(@AuthenticationPrincipal User user, @PathVariable Integer id){
+        commitmentService.cancelWithdraw(user.getId(), id);
+        return ResponseEntity.status(200).body(new ApiResponse("Withdrawal canceled"));
     }
 
     // LOCATION: the place from the map (a group member sets his own), TIMER: the minutes

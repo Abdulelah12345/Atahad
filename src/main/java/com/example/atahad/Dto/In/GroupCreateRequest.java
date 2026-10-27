@@ -14,4 +14,6 @@ public class GroupCreateRequest {
 
     @Size(max = 255, message = "Description must be 255 characters max")
     private String description;
+    @Pattern(regexp = "^(SOLO|ALL)$", message = "Pay mode must be SOLO or ALL")
+    private String payMode; // empty = SOLO
 }

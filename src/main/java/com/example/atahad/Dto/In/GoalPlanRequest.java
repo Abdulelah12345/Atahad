@@ -52,4 +52,7 @@ public class GoalPlanRequest {
     @Min(value = 1, message = "Minutes must be at least 1")
     @Max(value = 600, message = "Minutes must be at most 600")
     private Integer targetMinutes;
+
+    // the day week 1 starts: today or later (empty = today)
+    private java.time.LocalDate startDate;
 }

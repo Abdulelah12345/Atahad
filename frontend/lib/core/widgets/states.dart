@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../api/api_exception.dart';
+import '../state/data_refresh.dart';
 import '../theme/at_colors.dart';
 import '../theme/at_tokens.dart';
 import 'at_button.dart';
@@ -22,6 +23,38 @@ class AsyncView<T> extends StatefulWidget {
 
 class _AsyncViewState<T> extends State<AsyncView<T>> {
   late Future<T> _future = widget.load();
+  T? _last; // the data on screen, kept while a quiet reload runs
+  bool _hasLast = false;
+  bool _quiet = false;
+
+  @override
+  void initState() {
+    super.initState();
+    DataRefresh.instance.addListener(_quietReload);
+  }
+
+  @override
+  void dispose() {
+    DataRefresh.instance.removeListener(_quietReload);
+    super.dispose();
+  }
+
+  // the data may have changed on another page: load again without the spinner
+  Future<void> _quietReload() async {
+    if (!mounted || !_hasLast || _quiet) return;
+    _quiet = true;
+    try {
+      final data = await widget.load();
+      if (!mounted) return;
+      setState(() {
+        _future = Future.value(data);
+      });
+    } catch (_) {
+      // keep what is on screen, the member can pull to refresh
+    } finally {
+      _quiet = false;
+    }
+  }
 
   Future<void> _reload() async {
     final next = widget.load();
@@ -38,8 +71,14 @@ class _AsyncViewState<T> extends State<AsyncView<T>> {
     return FutureBuilder<T>(
       future: _future,
       builder: (context, snapshot) {
-        if (snapshot.connectionState != ConnectionState.done) return const LoadingView();
+        if (snapshot.connectionState != ConnectionState.done) {
+          // a Future.value is done after one frame: keep the old data instead of flashing the spinner
+          if (_hasLast) return widget.builder(context, _last as T, _reload);
+          return const LoadingView();
+        }
         if (snapshot.hasError) return ErrorView(message: '${snapshot.error}', onRetry: _reload);
+        _last = snapshot.data as T;
+        _hasLast = true;
         return widget.builder(context, snapshot.data as T, _reload);
       },
     );

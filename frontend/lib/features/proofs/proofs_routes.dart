@@ -7,7 +7,7 @@ import 'proof_session_screen.dart';
 import '../walking/walking_screen.dart';
 import '../walking/walking_list_screen.dart';
 
-// تظهر الطلبات والتبرع أثناء القفل؛ الباك إند يطبق الصلاحيات على كل إجراء فعلي.
+// requests and donation stay open while locked, the backend checks every action
 const allowedWhileLocked = [
   '/lock',
   '/requests',

@@ -42,7 +42,7 @@ public class Excuse {
     @Column(columnDefinition = "VARCHAR(9)")
     private String status; // PENDING by default
 
-    // حالة معالجة العذر، مستقلة عن قرار القبول أو الرفض أو التحويل للأدمن.
+    // WAITING / PROCESSING / DONE, separate from the decision
     @NotBlank(message = "Processing status cannot be empty")
     @Pattern(regexp = "^(WAITING|PROCESSING|FINISHED)$", message = "Invalid processing status")
     @Column(columnDefinition = "VARCHAR(10) NOT NULL")
@@ -51,8 +51,7 @@ public class Excuse {
     @Column(columnDefinition = "BOOLEAN DEFAULT false")
     private Boolean forwardedToAdmin = false;
 
-    // وقت صدور قرار الذكاء، وتبدأ منه مهلة تقديم الاعتراض البالغة 48 ساعة.
-    // يبقى فارغا عند الإضافة ويعبئه النظام عند إصدار القرار.
+    // the 48 hours to object start here
     @Column(columnDefinition = "DATETIME")
     private LocalDateTime decidedAt;
 
@@ -71,9 +70,7 @@ public class Excuse {
     @JsonIgnore
     private Objection objection;
 
-
-    // المهمة التي يغطيها العذر.
-// تكون فارغة عندما يكون العذر لعادة.
+// null for a habit
     @ManyToOne
     @JoinColumn(name = "goal_task_id")
     @JsonIgnore

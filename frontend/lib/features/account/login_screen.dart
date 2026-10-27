@@ -92,7 +92,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   children: [
 
                     const Center(
-                      child: AppLogo(width: 170, tagline: true),
+                      child: AppLogo(width: 190, tagline: true),
                     ),
 
                     const SizedBox(height: 40),

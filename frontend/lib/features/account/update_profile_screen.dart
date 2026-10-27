@@ -58,7 +58,7 @@ class _UpdateProfileScreenState extends State<UpdateProfileScreen> {
       final email = emailController.text.trim().toLowerCase();
 
       await auth.api.put(
-        '/api/v1/member/update/$memberId',
+        '/api/v1/member/update', // the backend takes the logged in member
         body: {
           'name': nameController.text.trim(),
           'email': email,

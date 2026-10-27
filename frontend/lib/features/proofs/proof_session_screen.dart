@@ -8,6 +8,7 @@ import '../../core/api/api_client.dart';
 import '../../core/api/api_exception.dart';
 import '../../core/auth/auth_state.dart';
 import '../../core/theme/at_colors.dart';
+import '../../core/theme/at_tokens.dart';
 import '../../core/utils/format.dart';
 import '../../core/widgets/widgets.dart';
 import 'camera_capture_screen.dart';
@@ -146,81 +147,149 @@ class _ProofStartScreenState extends State<ProofStartScreen> {
       if (task['proofMethod'] == 'LOCATION') {
         return VisitScreen(activity: task);
       }
+      final method = task['proofMethod'] as String?;
+      final c = context.colors;
+      final text = Theme.of(context).textTheme;
+      // the steps of this method in three short lines with icons, instead of a paragraph
+      final steps = switch (method) {
+        'TIMER' => const [
+            (Icons.timer_outlined, 'اختر المدة'),
+            (Icons.play_arrow_rounded, 'ابدأ وخلك بالتطبيق'),
+            (Icons.verified_rounded, 'تكمّلها = إثباتك'),
+          ],
+        'QUIZ' => const [
+            (Icons.photo_library_outlined, 'صوّر الصفحات (اختياري)'),
+            (Icons.quiz_outlined, '٤ أسئلة سهلة'),
+            (Icons.verified_rounded, '٣ صح = إثباتك'),
+          ],
+        _ => const [
+            (Icons.directions_run_rounded, 'سوّ النشاط'),
+            (Icons.photo_camera_outlined, 'صوّر بالكاميرا مباشرة'),
+            (Icons.verified_rounded, 'الذكاء يراجعها'),
+          ],
+      };
       return ProofPage(
         title: 'إثبات النشاط',
         child: ListView(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.fromLTRB(Space.s5, Space.s4, Space.s5, Space.s6),
           children: [
-            Icon(
-              methodIcon(task['proofMethod'] as String?),
-              size: 54,
-              color: context.colors.primary,
+            Center(
+              child: Container(
+                width: 88,
+                height: 88,
+                decoration: BoxDecoration(
+                  color: c.primarySoft,
+                  shape: BoxShape.circle,
+                  boxShadow: [BoxShadow(color: c.primarySoft.withValues(alpha: 0.6), spreadRadius: 10)],
+                ),
+                child: Icon(methodIcon(method), size: 42, color: c.primary),
+              ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: Space.s5),
             ActivityHeading(
               title: '${task['title']}',
               goalTitle: task['goalTitle'] as String?,
               taskTitle: task['taskTitle'] as String?,
-              style: Theme.of(context).textTheme.headlineMedium,
+              style: text.headlineSmall!.copyWith(fontWeight: FontWeight.w800),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 10),
-            Text(
-              methodNames[task['proofMethod']] ?? '',
-              style: Theme.of(context).textTheme.titleMedium,
-              textAlign: TextAlign.center,
+            const SizedBox(height: Space.s2),
+            Center(child: TagPill(methodNames[method] ?? '', fg: c.primary, bg: c.primarySoft, icon: methodIcon(method))),
+            const SizedBox(height: Space.s5),
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+              decoration: BoxDecoration(color: c.surface, borderRadius: BorderRadius.circular(Radii.card), border: Border.all(color: c.line)),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (final (i, (icon, line)) in steps.indexed)
+                    Expanded(
+                      child: Column(
+                        children: [
+                          Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              IconTile(icon, size: 44),
+                              PositionedDirectional(
+                                top: -6,
+                                start: -6,
+                                child: Container(
+                                  width: 20,
+                                  height: 20,
+                                  alignment: Alignment.center,
+                                  decoration: BoxDecoration(color: c.primary, shape: BoxShape.circle, border: Border.all(color: c.surface, width: 2)),
+                                  child: Text(arabicDigits(i + 1), style: text.labelSmall!.copyWith(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w800, height: 1.1)),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                            child: Text(line, style: text.labelSmall!.copyWith(color: c.inkMuted, fontWeight: FontWeight.w600), textAlign: TextAlign.center),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
             ),
-            const SizedBox(height: 28),
-            ProofNotice(switch (task['proofMethod']) {
-              'TIMER' =>
-                'اختر المدة اللي تناسبك. إكمالها يكفي لتوثيق النشاط، وتقدر تاخذ استراحة أو تمدد بعدها.',
-              'QUIZ' =>
-                'أربعة أسئلة سهلة، والنجاح من ثلاث. صور الصفحات اختيارية، وإذا ما أرفقت صورًا تكون الأسئلة عامة عن الموضوع.',
-              _ =>
-                'بعد تنفيذ النشاط، التقط صورة واضحة مباشرة بالكاميرا. نخلي الإثبات بسيطًا ويركز على إنجازك.',
-            }),
-            const SizedBox(height: 24),
-            if (task['proofMethod'] == 'TIMER') ...[
+            const SizedBox(height: Space.s5),
+            if (method == 'TIMER') ...[
+              Text('كم دقيقة؟', style: text.labelLarge),
+              const SizedBox(height: Space.s2),
+              Row(
+                children: [
+                  for (final (i, m) in const [15, 25, 45, 60].indexed) ...[
+                    if (i > 0) const SizedBox(width: 8),
+                    Expanded(
+                      child: ChoiceChip(
+                        label: SizedBox(width: double.infinity, child: Text(arabicDigits(m), textAlign: TextAlign.center)),
+                        selected: _minutes.text == '$m',
+                        showCheckmark: false,
+                        onSelected: (_) => setState(() => _minutes.text = '$m'),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              const SizedBox(height: Space.s2),
               TextFormField(
                 controller: _minutes,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'مدة الجلسة بالدقائق',
-                  helperText: 'المدة مقترحة؛ عدّلها قبل البداية بما يناسبك.',
-                ),
+                onChanged: (_) => setState(() {}),
+                decoration: const InputDecoration(prefixIcon: Icon(Icons.timer_outlined), suffixText: 'دقيقة', hintText: 'أو اكتب المدة'),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: Space.s4),
             ],
             AppCard(
               child: Column(
                 children: [
                   SwitchListTile.adaptive(
                     contentPadding: EdgeInsets.zero,
-                    title: const Text('أضيف صور قبل وبعد'),
-                    subtitle: const Text(
-                      'اختياري؛ نجاح أي طريقة يكفي لتوثيق النشاط.',
-                    ),
+                    secondary: IconTile(Icons.compare_rounded, size: 40, fg: c.pardon, bg: c.pardonSoft),
+                    title: const Text('صور قبل وبعد'),
+                    subtitle: const Text('اختياري'),
                     value: _withPhotos,
                     onChanged: _busy
                         ? null
                         : (value) => setState(() => _withPhotos = value),
                   ),
                   if (_withPhotos) ...[
+                    const SizedBox(height: 8),
+                    Text('صوّر قبل تبدأ، وبعد ما تخلص', style: text.labelSmall),
                     const SizedBox(height: 12),
-                    const Text(
-                      'صوّر البداية قبل تنفيذ النشاط، والنهاية بعده. نبحث عن تغيير واضح مرتبط بمهمتك.',
-                    ),
-                    const SizedBox(height: 16),
                     if (_before != null)
                       Padding(
                         padding: const EdgeInsets.only(bottom: 14),
-                        child: Image.memory(_before!.bytes, height: 180),
+                        child: ClipRRect(borderRadius: BorderRadius.circular(Radii.md), child: Image.memory(_before!.bytes, height: 180)),
                       ),
                     AtButton(
                       _before == null
                           ? 'التقط صورة البداية'
                           : 'أعد صورة البداية',
                       kind: AtButtonKind.outline,
+                      icon: const Icon(Icons.photo_camera_outlined, size: 18),
                       loading: _busy,
                       onPressed: _takeBefore,
                     ),
@@ -468,15 +537,13 @@ class _ProofSessionScreenState extends State<ProofSessionScreen> {
             AcceptedMoment(animate: _justAccepted),
             const SizedBox(height: 16),
           ],
-          if (accepted)
-            const ProofNotice(
-              'كفو، توثّق إنجازك! ما تحتاج تضيف دليلًا آخر، والنشاط ينحسب مرة واحدة.',
-              icon: Icons.verified_outlined,
-            ),
+          if (accepted) ...[
+            // the way back is the main action once it is accepted (design: ProofDone)
+            AtButton('رجوع لليوم', icon: const Icon(Icons.event_available_rounded, size: 20), onPressed: () => context.go('/')),
+            const SizedBox(height: 8),
+          ],
           if (closed && !accepted)
-            const ProofNotice(
-              'انتهت مهلة هذه المحاولة. التفاصيل والنتائج محفوظة في سجلك.',
-            ),
+            const ProofNotice('انتهت مهلة المحاولة، والنتيجة محفوظة بسجلك', icon: Icons.timer_off_outlined),
           if (_state!['timer'] != null)
             _timer(Map<String, dynamic>.from(_state!['timer'] as Map), closed),
           if (proof['type'] == 'PHOTO' &&
@@ -484,9 +551,7 @@ class _ProofSessionScreenState extends State<ProofSessionScreen> {
               !accepted &&
               !closed) ...[
             const SizedBox(height: 24),
-            const ProofNotice(
-              'صوّر النتيجة المرتبطة بالنشاط بوضوح. الصورة المباشرة فقط، دون رفع من المعرض.',
-            ),
+            const ProofNotice('صورة واضحة للنتيجة، بالكاميرا مباشرة', icon: Icons.photo_camera_outlined),
             const SizedBox(height: 16),
             AtButton(
               'التقط صورة الإثبات',
@@ -513,9 +578,7 @@ class _ProofSessionScreenState extends State<ProofSessionScreen> {
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
                   const SizedBox(height: 10),
-                  const Text(
-                    'صورة البداية محفوظة. بعد التنفيذ صوّر النهاية؛ إذا نجحت الصور، يكفي هذا لقبول النشاط.',
-                  ),
+                  const Text('صورة البداية محفوظة ✓ صوّر النهاية بعد ما تخلص'),
                   const SizedBox(height: 16),
                   AtButton(
                     'التقط صورة النهاية',
@@ -540,7 +603,7 @@ class _ProofSessionScreenState extends State<ProofSessionScreen> {
             ),
           ],
           const SizedBox(height: 24),
-          Text('نتيجة كل دليل', style: Theme.of(context).textTheme.titleLarge),
+          if (evidence.isNotEmpty) Text('نتيجة كل دليل', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 12),
           for (final item in evidence)
             Padding(
@@ -607,12 +670,13 @@ class _ProofSessionScreenState extends State<ProofSessionScreen> {
             ),
           ],
           const SizedBox(height: 20),
-          // the main page keeps the bottom bar («طلباتي» is one tap away there), a page of its own would have no way back
-          AtButton(
-            'ارجع للرئيسية',
-            kind: AtButtonKind.text,
-            onPressed: () => context.go('/'),
-          ),
+          // go home, a page of its own has no way back
+          if (!accepted)
+            AtButton(
+              'ارجع للرئيسية',
+              kind: AtButtonKind.text,
+              onPressed: () => context.go('/'),
+            ),
         ],
       ),
     );
@@ -630,57 +694,76 @@ class _ProofSessionScreenState extends State<ProofSessionScreen> {
         : elapsed >= required / 2
         ? 1
         : 0;
+    final c = context.colors;
+    final text = Theme.of(context).textTheme;
+    const ink = Color(0xFFEDF1FA);
+    const soft = Color(0xFFB7C5E8);
+    final status = switch (timer['status']) {
+      'PAUSED' => reached ? 'اكتملت المدة' : 'متوقف مؤقتًا',
+      'FINISHED' => 'اكتملت الجلسة',
+      'EXPIRED' => 'انتهت المهلة',
+      _ => 'جارٍ التركيز',
+    };
+    String clock(int seconds) => arabicDigits('${(seconds ~/ 60).toString().padLeft(2, '0')}:${(seconds % 60).toString().padLeft(2, '0')}');
     return Column(
       children: [
-        const SizedBox(height: 30),
-        Text(switch (timer['status']) {
-          'PAUSED' => reached ? 'اكتملت المدة المطلوبة' : 'متوقف مؤقتًا',
-          'FINISHED' => 'اكتملت الجلسة',
-          'EXPIRED' => 'انتهت مهلة الجلسة',
-          _ => 'جارٍ التركيز',
-        }, textAlign: TextAlign.center),
-        if (messageIndex > 0)
-          Text(
-            messageIndex < messages.length
-                ? messages[messageIndex]
-                : 'خذ وقتك، خطوة خطوة.',
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-        const SizedBox(height: 24),
-        SizedBox(
-          width: 238,
-          height: 238,
-          child: Stack(
-            alignment: Alignment.center,
+        const SizedBox(height: 16),
+        // the focus card (design: ProofTimer): navy, the big ring, the time in white
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(Space.s4, Space.s5, Space.s4, Space.s5),
+          decoration: BoxDecoration(color: c.deep, borderRadius: BorderRadius.circular(28)),
+          child: Column(
             children: [
-              SizedBox.expand(
-                child: CircularProgressIndicator(
-                  value: (elapsed / required).clamp(0, 1),
-                  strokeWidth: 9,
-                  backgroundColor: context.colors.surfaceSunken,
-                  strokeCap: StrokeCap.round,
+              TagPill(status, fg: ink, bg: c.deepRaised, icon: timer['status'] == 'RUNNING' ? Icons.bolt_rounded : Icons.pause_rounded),
+              const SizedBox(height: Space.s5),
+              SizedBox(
+                width: 230,
+                height: 230,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    SizedBox.expand(
+                      child: CircularProgressIndicator(
+                        value: (elapsed / required).clamp(0, 1).toDouble(),
+                        strokeWidth: 12,
+                        backgroundColor: c.deepRaised,
+                        valueColor: const AlwaysStoppedAnimation(Color(0xFF8FB4FF)),
+                        strokeCap: StrokeCap.round,
+                      ),
+                    ),
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(clock(remaining), style: text.displayLarge!.copyWith(color: ink, fontWeight: FontWeight.w800)),
+                        Text('من ${clock(total)}', style: text.labelSmall!.copyWith(color: soft)),
+                      ],
+                    ),
+                  ],
                 ),
               ),
-              Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    arabicDigits(
-                      '${(remaining ~/ 60).toString().padLeft(2, '0')}:${(remaining % 60).toString().padLeft(2, '0')}',
-                    ),
-                    style: Theme.of(context).textTheme.displayLarge,
+              if (messageIndex > 0) ...[
+                const SizedBox(height: Space.s4),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(color: c.deepRaised, borderRadius: BorderRadius.circular(16)),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(Icons.auto_awesome_rounded, size: 18, color: Color(0xFF8FB4FF)),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          messageIndex < messages.length && messages[messageIndex].trim().isNotEmpty
+                              ? messages[messageIndex]
+                              : 'خذ وقتك، خطوة خطوة.',
+                          style: text.bodySmall!.copyWith(color: ink, height: 1.6),
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    timer['status'] == 'RUNNING'
-                        ? 'وقت لك ولإنجازك'
-                        : reached
-                        ? 'اكتملت المدة الأصلية'
-                        : 'الجلسة متوقفة',
-                  ),
-                ],
-              ),
+                ),
+              ],
             ],
           ),
         ),
@@ -716,10 +799,13 @@ class _ProofSessionScreenState extends State<ProofSessionScreen> {
             ],
           ),
         const SizedBox(height: 18),
-        Text(
-          'الاستراحة ما تنحسب من الوقت. تنتهي الجلسة مع نهاية اليوم بتوقيت الرياض.',
-          style: Theme.of(context).textTheme.bodySmall,
-          textAlign: TextAlign.center,
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.info_outline_rounded, size: 14, color: c.inkSubtle),
+            const SizedBox(width: 4),
+            Flexible(child: Text('الاستراحة ما تنحسب · تنتهي آخر اليوم', style: text.labelSmall, textAlign: TextAlign.center)),
+          ],
         ),
         if (reached && !closed) ...[
           const SizedBox(height: 24),
@@ -727,39 +813,39 @@ class _ProofSessionScreenState extends State<ProofSessionScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'ودّك تكمل شوي؟',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'التمديد اختياري، وإنجازك الأصلي محفوظ. خذ راحة إذا احتجت.',
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: _extension,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'كم دقيقة إضافية؟',
-                  ),
-                ),
+                Row(children: [
+                  IconTile(Icons.more_time_rounded, size: 40),
+                  const SizedBox(width: 10),
+                  Expanded(child: Text('ودّك تكمّل؟', style: text.titleMedium)),
+                  TagPill('إنجازك محفوظ', fg: c.success, bg: c.successSoft, icon: Icons.check_rounded),
+                ]),
                 const SizedBox(height: 12),
-                AtButton(
-                  'مدّد الجلسة',
-                  kind: AtButtonKind.outline,
-                  onPressed: _busy
-                      ? null
-                      : () {
-                          final minutes = int.tryParse(_extension.text);
-                          if (minutes == null || minutes < 1 || minutes > 600) {
-                            showMessage(
-                              context,
-                              'اختر من دقيقة إلى ٦٠٠ دقيقة.',
-                            );
-                            return;
-                          }
-                          _timerAction('extend', body: {'minutes': minutes});
-                        },
+                Row(
+                  children: [
+                    for (final m in const [10, 15, 30]) ...[
+                      Expanded(
+                        child: _ExtendChip(
+                          label: '+${arabicDigits(m)}',
+                          caption: 'دقيقة',
+                          onTap: _busy ? null : () => _timerAction('extend', body: {'minutes': m}),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+                    // any minutes, or until a time
+                    Expanded(
+                      child: _ExtendChip(
+                        icon: Icons.tune_rounded,
+                        caption: 'مدة ثانية',
+                        onTap: _busy
+                            ? null
+                            : () async {
+                                final minutes = await showAtSheet<int>(context, builder: (_) => const _ExtendSheet());
+                                if (minutes != null && mounted) _timerAction('extend', body: {'minutes': minutes});
+                              },
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -778,11 +864,12 @@ class _ProofSessionScreenState extends State<ProofSessionScreen> {
             alignment: WrapAlignment.center,
             children: [
               for (final feeling in {
-                'EASY': 'سهلة',
-                'OK': 'مناسبة',
-                'TIRING': 'متعبة',
+                'EASY': '😌 سهلة',
+                'OK': '🙂 مناسبة',
+                'TIRING': '😮‍💨 متعبة',
               }.entries)
                 ChoiceChip(
+                  showCheckmark: false,
                   label: Text(feeling.value),
                   selected: timer['feedback'] == feeling.key,
                   onSelected: _busy
@@ -795,10 +882,7 @@ class _ProofSessionScreenState extends State<ProofSessionScreen> {
             ],
           ),
           const SizedBox(height: 8),
-          Text(
-            'رأيك اختياري وما يغير قبول الإثبات.',
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
+          Text('اختياري', style: Theme.of(context).textTheme.labelSmall),
         ],
       ],
     );
@@ -1098,4 +1182,165 @@ class _QuizPanelState extends State<QuizPanel> {
       ),
     ),
   );
+}
+
+
+// one choice of the extension: a number (or an icon) over a short caption
+class _ExtendChip extends StatelessWidget {
+  final String? label;
+  final IconData? icon;
+  final String caption;
+  final VoidCallback? onTap;
+
+  const _ExtendChip({this.label, this.icon, required this.caption, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final text = Theme.of(context).textTheme;
+    return Material(
+      color: c.primarySoft,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: SizedBox(
+          height: 62,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (icon != null)
+                Icon(icon, size: 22, color: c.primary)
+              else
+                Text(label ?? '', style: text.titleMedium!.copyWith(color: c.primary, fontWeight: FontWeight.w800, height: 1.2)),
+              Text(caption, style: text.labelSmall!.copyWith(color: c.primary, fontSize: 11)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// «مدة ثانية»: by minutes (a big number with − and +) or until a clock time
+class _ExtendSheet extends StatefulWidget {
+  const _ExtendSheet();
+
+  @override
+  State<_ExtendSheet> createState() => _ExtendSheetState();
+}
+
+class _ExtendSheetState extends State<_ExtendSheet> {
+  bool _byTime = false;
+  int _minutes = 20;
+  TimeOfDay? _until;
+
+  // the minutes from now until the chosen time (tomorrow is not allowed: the session ends with the day)
+  int? get _untilMinutes {
+    final t = _until;
+    if (t == null) return null;
+    final now = TimeOfDay.now();
+    final diff = (t.hour * 60 + t.minute) - (now.hour * 60 + now.minute);
+    return diff > 0 ? diff : null;
+  }
+
+  String _clock(TimeOfDay t) {
+    final h = t.hourOfPeriod == 0 ? 12 : t.hourOfPeriod;
+    return '${arabicDigits(h)}:${arabicDigits(t.minute.toString().padLeft(2, '0'))} ${t.period == DayPeriod.am ? 'ص' : 'م'}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final text = Theme.of(context).textTheme;
+    final result = _byTime ? _untilMinutes : _minutes;
+    Widget round(IconData icon, VoidCallback? onTap) => Material(
+          color: c.surfaceSunken,
+          shape: const CircleBorder(),
+          child: InkWell(customBorder: const CircleBorder(), onTap: onTap, child: SizedBox(width: 52, height: 52, child: Icon(icon, color: c.primary))),
+        );
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(Space.s4, 0, Space.s4, Space.s5),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const SheetHeader(icon: Icons.more_time_rounded, title: 'كم تبي تكمّل؟'),
+          SegmentedPills<bool>(
+            options: const [(false, 'بالدقائق'), (true, 'لين الساعة')],
+            value: _byTime,
+            onChanged: (v) => setState(() => _byTime = v),
+          ),
+          const SizedBox(height: Space.s5),
+          if (!_byTime) ...[
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                round(Icons.remove_rounded, _minutes > 5 ? () => setState(() => _minutes -= 5) : null),
+                SizedBox(
+                  width: 130,
+                  child: Column(
+                    children: [
+                      Text(arabicDigits(_minutes), style: text.headlineLarge!.copyWith(fontWeight: FontWeight.w800, color: c.ink)),
+                      Text('دقيقة', style: text.labelSmall),
+                    ],
+                  ),
+                ),
+                round(Icons.add_rounded, _minutes < 240 ? () => setState(() => _minutes += 5) : null),
+              ],
+            ),
+            const SizedBox(height: Space.s3),
+            Wrap(
+              alignment: WrapAlignment.center,
+              spacing: 8,
+              children: [
+                for (final m in const [20, 45, 60, 90])
+                  ChoiceChip(
+                    label: Text(arabicDigits(m)),
+                    showCheckmark: false,
+                    selected: _minutes == m,
+                    onSelected: (_) => setState(() => _minutes = m),
+                  ),
+              ],
+            ),
+          ] else ...[
+            Material(
+              color: c.surfaceSunken,
+              borderRadius: BorderRadius.circular(Radii.card),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(Radii.card),
+                onTap: () async {
+                  final picked = await showTimePicker(
+                    context: context,
+                    initialTime: _until ?? TimeOfDay.fromDateTime(DateTime.now().add(const Duration(minutes: 30))),
+                  );
+                  if (picked != null) setState(() => _until = picked);
+                },
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 18),
+                  child: Column(
+                    children: [
+                      Icon(Icons.schedule_rounded, color: c.primary, size: 28),
+                      const SizedBox(height: 6),
+                      Text(_until == null ? 'اختر الساعة' : _clock(_until!),
+                          style: text.headlineSmall!.copyWith(fontWeight: FontWeight.w800, color: c.ink)),
+                      if (_until != null)
+                        Text(_untilMinutes == null ? 'اختر وقت بعد الحين' : 'يعني ${arabicDigits(_untilMinutes)} دقيقة',
+                            style: text.labelSmall!.copyWith(color: _untilMinutes == null ? c.danger : null)),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+          const SizedBox(height: Space.s5),
+          AtButton(
+            result == null ? 'مدّد' : 'مدّد ${arabicDigits(result)} دقيقة',
+            icon: const Icon(Icons.play_arrow_rounded, size: 20),
+            onPressed: result == null || result < 1 || result > 600 ? null : () => Navigator.pop(context, result),
+          ),
+        ],
+      ),
+    );
+  }
 }

@@ -14,7 +14,7 @@ public class FrontendCorsConfig {
     @Value("${app.frontend-origins:http://localhost:5173,http://127.0.0.1:5173}")
     private String frontendOrigins;
 
-    // نسمح لواجهة Flutter المحلية بالاتصال فقط؛ تسجيل الدخول والملكية والصلاحيات تبقى مطلوبة.
+    // only the local Flutter app, login and roles still apply
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();

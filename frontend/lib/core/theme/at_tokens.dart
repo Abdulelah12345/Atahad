@@ -52,5 +52,5 @@ class AtShadows {
 
   // the gold (donate) button only
   static List<BoxShadow> gold(bool dark) =>
-      [BoxShadow(color: dark ? const Color(0x40F2B33D) : const Color(0x59C98A1E), blurRadius: 20, offset: const Offset(0, 6))];
+      [BoxShadow(color: dark ? const Color(0x33DDAE52) : const Color(0x4DB4873A), blurRadius: 20, offset: const Offset(0, 6))];
 }
