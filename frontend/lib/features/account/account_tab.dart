@@ -19,7 +19,8 @@ class AccountTab extends StatelessWidget {
     final auth = context.watch<AuthState>();
     final profile = auth.profile ?? {};
     final c = context.colors;
-    final themeMode = context.watch<ThemeState>().mode;
+    context.watch<ThemeState>();
+    final dark = Theme.of(context).brightness == Brightness.dark; // what is shown now
 
     final name = profile['name']?.toString() ?? '-';
     final email = profile['email']?.toString() ?? '-';
@@ -33,22 +34,21 @@ class AccountTab extends StatelessWidget {
         title: const Text('حسابي'),
         centerTitle: true,
         actions: [
-          PopupMenuButton<ThemeMode>(
-            tooltip: 'تغيير المظهر',
-            initialValue: themeMode,
-            onSelected: (mode) => context.read<ThemeState>().setMode(mode),
-            icon: Icon(
-              themeMode == ThemeMode.dark
-                  ? Icons.dark_mode_outlined
-                  : themeMode == ThemeMode.light
-                  ? Icons.light_mode_outlined
-                  : Icons.brightness_auto_outlined,
+          // one tap: light <-> dark (until the first tap it follows the phone, so it flips what is shown now)
+          IconButton(
+            tooltip: dark ? 'المظهر الفاتح' : 'المظهر الداكن',
+            onPressed: () => context.read<ThemeState>().setMode(dark ? ThemeMode.light : ThemeMode.dark),
+            icon: AnimatedSwitcher(
+              duration: Motion.base,
+              transitionBuilder: (child, animation) => RotationTransition(
+                turns: Tween(begin: 0.75, end: 1.0).animate(animation),
+                child: FadeTransition(opacity: animation, child: child),
+              ),
+              child: Icon(
+                dark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
+                key: ValueKey(dark),
+              ),
             ),
-            itemBuilder: (context) => const [
-              PopupMenuItem(value: ThemeMode.light, child: Text('فاتح')),
-              PopupMenuItem(value: ThemeMode.dark, child: Text('داكن')),
-              PopupMenuItem(value: ThemeMode.system, child: Text('حسب الجهاز')),
-            ],
           ),
           const SizedBox(width: Space.s2),
         ],

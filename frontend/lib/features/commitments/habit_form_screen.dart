@@ -154,17 +154,24 @@ class _HabitFormScreenState extends State<HabitFormScreen> {
       if (!mounted) return;
       showMessage(
         context,
-        _editing
-            ? 'تم الحفظ. تغيير المرات والمبلغ يبدأ من الأسبوع الجاي.'
-            : 'بدأت العادة، الأسبوع يبدأ من اليوم.',
+        !_editing
+            ? 'بدأت العادة، الأسبوع يبدأ من اليوم. تقدر تعدّلها أو تحذفها خلال ساعة.'
+            : _firstHour
+                ? 'تم الحفظ، والتغيير يبدأ من هالأسبوع.'
+                : 'تم الحفظ. تغيير المرات والمبلغ يبدأ من الأسبوع الجاي.',
       );
       Navigator.of(context).pop(true);
     } catch (error) {
-      if (mounted) showError(context, error);
+      if (mounted) showCommitmentError(context, error);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
+
+  // the first hour after creating the habit: everything changes this week too (the backend checks it again)
+  int get _minutesLeft => _editing ? (editMinutesLeft(widget.habit!) ?? 60) : 0;
+  bool get _firstHour => _editing && _minutesLeft > 0;
+  bool get _methodLocked => _editing && (!_firstHour || widget.habit!['proofMethod'] == 'STEPS');
 
   // the first page of a new habit: one question, a few quick answers, then the filled form
   Widget _titleStep(BuildContext context) {
@@ -250,18 +257,22 @@ class _HabitFormScreenState extends State<HabitFormScreen> {
               initialValue: _proofMethod,
               decoration: InputDecoration(
                 labelText: 'طريقة الإثبات',
-                helperText: _editing ? 'ما تتغير بعد ما تبدأ العادة' : null,
+                helperText: !_editing
+                    ? null
+                    : _methodLocked
+                        ? 'ما تتغير بعد أول ساعة من إنشاء العادة'
+                        : 'تقدر تغيّرها أول ساعة (باقي ${arabicDigits(_minutesLeft)} دقيقة)',
               ),
-              // the steps only for a walking habit (a reading habit never sees it)
+              // the steps only for a walking habit (a reading habit never sees it), and they cannot be added or removed after it starts
               items: {
                 ...proofMethodsAr,
-                if (_proofMethod == 'STEPS' || isWalkingTitle(_title.text)) 'STEPS': 'مجموع خطوات اليوم',
+                if (_proofMethod == 'STEPS' || (!_editing && isWalkingTitle(_title.text))) 'STEPS': 'مجموع خطوات اليوم',
               }.entries
                   .map(
                     (e) => DropdownMenuItem(value: e.key, child: Text(e.value)),
                   )
                   .toList(),
-              onChanged: _editing
+              onChanged: _methodLocked
                   ? null
                   : (v) => setState(() {
                       _methodPicked = true;

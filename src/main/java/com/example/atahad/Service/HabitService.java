@@ -73,10 +73,19 @@ public class HabitService {
         }
         oldHabit.setTitle(habit.getTitle());
         oldHabit.setPlannedDays(habit.getPlannedDays());
-        if(!hasStarted(oldHabit)){
+        // the first hour after creating it (and no proof yet): everything changes now, this week included
+        boolean firstHour = oldHabit.inEditWindow() && !commitmentWeekService.hasProofs(oldHabit);
+        if(!hasStarted(oldHabit) || firstHour){
             oldHabit.setProofMethod(habit.getProofMethod());
             oldHabit.setTimesPerWeek(habit.getTimesPerWeek());
             oldHabit.setBaseAmount(habit.getBaseAmount());
+            oldHabit.setPendingTimesPerWeek(null);
+            oldHabit.setPendingBaseAmount(null);
+            if(firstHour){
+                habitRepository.save(oldHabit);
+                commitmentWeekService.refreshFirstWeek(oldHabit);
+                return;
+            }
         }else{
             if(!oldHabit.getProofMethod().equals(habit.getProofMethod())){
                 throw new ApiException("Proof method cannot change after the habit starts");
@@ -91,10 +100,13 @@ public class HabitService {
         habitRepository.save(oldHabit);
     }
 
-    // a habit can be deleted only if nothing happened in it yet, after that it is withdrawn
+    // a habit can be deleted only in the first hour after creating it and before any proof, after that it is withdrawn
     public void deleteHabit(Integer memberId, Integer id){
         Habit habit = getMyHabit(memberId, id);
-        if(commitmentWeekService.hasProgress(habit)){
+        if(hasStarted(habit) && !habit.inEditWindow()){
+            throw new ApiException("A habit can only be deleted in the first hour, withdraw from it instead");
+        }
+        if(commitmentWeekService.hasProgress(habit) || commitmentWeekService.hasProofs(habit)){
             throw new ApiException("Habit already has progress, withdraw from it instead");
         }
         habitRepository.delete(habit);

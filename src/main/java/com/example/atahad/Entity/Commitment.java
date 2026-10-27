@@ -1,6 +1,7 @@
 package com.example.atahad.Entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
 import lombok.*;
@@ -96,4 +97,25 @@ public abstract class Commitment {
     @JoinColumn
     @JsonIgnore
     private GroupGoal groupGoal; // Null for a personal commitment
+
+    // the first hour after creating it: it can still change for this week, or be deleted
+    public static final int EDIT_WINDOW_MINUTES = 60;
+
+    // week 1 starts the moment it is created, so the window ends an hour after that (null = not started yet)
+    @JsonProperty("editableUntil")
+    public LocalDateTime getEditableUntil(){
+        if(weeks == null){
+            return null;
+        }
+        return weeks.stream()
+                .filter(w -> Integer.valueOf(1).equals(w.getWeekNumber()) && w.getWeekStart() != null)
+                .findFirst()
+                .map(w -> w.getWeekStart().plusMinutes(EDIT_WINDOW_MINUTES))
+                .orElse(null);
+    }
+
+    public boolean inEditWindow(){
+        LocalDateTime until = getEditableUntil();
+        return until != null && LocalDateTime.now().isBefore(until);
+    }
 }

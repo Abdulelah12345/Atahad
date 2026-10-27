@@ -58,7 +58,7 @@ class _GoalPlanScreenState extends State<GoalPlanScreen> {
     final picked = await showDatePicker(
       context: context,
       initialDate: _endDate ?? now.add(const Duration(days: 28)),
-      firstDate: now.add(const Duration(days: 1)),
+      firstDate: DateTime(now.year, now.month, now.day), // a goal can end today
       lastDate: now.add(const Duration(days: 364)),
     );
     if (picked != null) setState(() => _endDate = picked);
