@@ -144,24 +144,173 @@ class _HomeScreenState extends State<HomeScreen> {
   // the backend answers these two in English, the known ones are shown in Arabic
   void _showGraceOrPlanError(Object error) {
     const known = {
-      'Only one grace day can be used in a week': 'استخدمت يوم سماح هالأسبوع، يوم واحد بس بالأسبوع.',
+      'Only one grace day can be used in a week':
+      'استخدمت يوم سماح هالأسبوع، يوم واحد بس بالأسبوع.',
       'This week does not need a grace day': 'هالأسبوع ما يحتاج يوم سماح.',
       'Grace day has expired': 'يوم السماح هذا انتهى.',
       'Grace day already used': 'يوم السماح هذا مستخدم.',
       'This week is not running': 'هالأسبوع خلص.',
-      'You planned more days than the times of this week': 'اخترت أيام أكثر من مرات هالأسبوع.',
+      'You planned more days than the times of this week':
+      'اخترت أيام أكثر من مرات هالأسبوع.',
     };
+
     final message = error is ApiException ? known[error.message] : null;
+
     message != null ? showMessage(context, message) : showError(context, error);
+  }
+
+  // Lucky Challenge card
+  Widget _luckyChallengeCard() {
+    return AppCard(
+      onTap: () => context.push('/lucky-challenge'),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: context.colors.primary.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              Icons.casino_outlined,
+              color: context.colors.primary,
+              size: 28,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'تحدي الحظ 🎲',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'فاجئني بتحدي اليوم واكسب 20 نقطة!',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '3 فرص يوميًا',
+                  style: TextStyle(
+                    color: context.colors.primary,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Icon(Icons.chevron_left),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final name = context.watch<AuthState>().profile?['name'] ?? '';
+
+    final text = Theme.of(context).textTheme;
+
     return Scaffold(
       appBar: AppBar(
         title: Text('هلا $name'),
         actions: [
+          IconButton(
+            tooltip: 'إضافة نشاط',
+            icon: const Icon(Icons.add),
+            onPressed: () => context.push('/commitments/new'),
+          ),
+        ],
+      ),
+      body: AsyncView<List<dynamic>>(
+        load: () async => await context.read<ApiClient>().get(
+          '/api/v1/commitment-week/today',
+        ) as List<dynamic>,
+        builder: (context, tasks, reload) {
+          if (tasks.isEmpty) {
+            return Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const EmptyView(
+                    message: 'ما عندك تعهّدات للحين. ابدأ بعادة وحدة.',
+                    icon: Icons.flag_outlined,
+                  ),
+                  AtButton(
+                    'إضافة نشاط',
+                    expand: false,
+                    onPressed: () => context.push('/commitments/new'),
+                  ),
+                  const SizedBox(height: Space.s3),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: Space.s4),
+                    child: _luckyChallengeCard(),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          return RefreshIndicator(
+            onRefresh: reload,
+            child: ListView.separated(
+              padding: const EdgeInsets.all(Space.s4),
+              itemCount: tasks.length + 1,
+              separatorBuilder: (context, i) =>
+              const SizedBox(height: Space.s3),
+              itemBuilder: (context, i) {
+                if (i == tasks.length) {
+                  return _luckyChallengeCard();
+                }
+                final t = tasks[i] as Map;
+
+                return AppCard(
+                  onTap: () async {
+                    await openActivityProof(
+                      context,
+                      Map<String, dynamic>.from(t),
+                    );
+
+                    if (context.mounted) {
+                      await reload();
+                    }
+                  },
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                              child: ActivityHeading(
+                                  title: '${t['title']}',
+                                  goalTitle: t['goalTitle'] as String?,
+                                  taskTitle: t['taskTitle'] as String?,
+                                  style: text.headlineSmall)),
+                          StatusBadge.track(t['trackStatus'] as String?),
+                        ],
+                      ),
+                      const SizedBox(height: Space.s1),
+                      Text(
+                        'باقي ${arabicDigits(t['remaining'])} من ${arabicDigits(t['required'])} هالأسبوع',
+                        style: text.bodySmall,
+                      ),
+                      const SizedBox(height: Space.s3),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: Space.s3, vertical: Space.s2),
+                        decoration: BoxDecoration(
+                            color: context.colors.surfaceSunken,
+                            borderRadius: BorderRadius.circular(Radii.md)),
+                        child: Row(
+                          children: [
+                            Expanded(
+                                child: Text('لكل مرة تفوتك',
+                                    style: text.bodySmall)),
+                            RiyalAmount(t['amountPerTime'] as num?),
+                          ],
           IconButton(tooltip: 'تعهّداتي', icon: const Icon(Icons.list_alt_rounded), onPressed: () => _open('/commitments')),
           IconButton(tooltip: 'مستواي ونقاطي', icon: const Icon(Icons.insights_rounded), onPressed: () => _open('/stats')),
         ],

@@ -8,7 +8,7 @@ import 'goal_screen.dart';
 import 'habit_form_screen.dart';
 import 'stats_screen.dart';
 import 'wrapped_screen.dart';
-
+import '../lucky_challenge/lucky_challenge_screen.dart';
 final commitmentsRoutes = <GoRoute>[
   GoRoute(
       path: '/commitments/new',
@@ -29,4 +29,8 @@ final commitmentsRoutes = <GoRoute>[
   ),
   GoRoute(path: '/stats', builder: (context, state) => const StatsScreen()),
   GoRoute(path: '/wrapped', builder: (context, state) => const WrappedScreen()),
+  GoRoute(
+    path: '/lucky-challenge',
+    builder: (context, state) => const LuckyChallengeScreen(),
+  ),
 ];
