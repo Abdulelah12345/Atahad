@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -98,11 +97,16 @@ class _GoogleCalendarScreenState extends State<GoogleCalendarScreen> {
 
     try {
       final api = context.read<ApiClient>();
-      await api.post('/api/v1/google-calendar/approve-schedule');
+
+      await api.post(
+        '/api/v1/google-calendar/approve-schedule',
+        body: _schedules,
+      );
 
       if (!mounted) return;
 
       setState(() => _schedules = []);
+
       _showMessage('تمت إضافة المواعيد إلى Google Calendar بنجاح');
     } catch (e) {
       _showError(e);
@@ -153,6 +157,7 @@ class _GoogleCalendarScreenState extends State<GoogleCalendarScreen> {
 
   void _showMessage(String message) {
     if (!mounted) return;
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message)),
     );
@@ -182,6 +187,7 @@ class _GoogleCalendarScreenState extends State<GoogleCalendarScreen> {
         children: [
           const Icon(Icons.calendar_month_outlined, size: 70),
           const SizedBox(height: 16),
+
           Text(
             _connected
                 ? 'Google Calendar متصل'
@@ -189,6 +195,7 @@ class _GoogleCalendarScreenState extends State<GoogleCalendarScreen> {
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.titleLarge,
           ),
+
           const SizedBox(height: 20),
 
           if (!_connected)
@@ -202,6 +209,7 @@ class _GoogleCalendarScreenState extends State<GoogleCalendarScreen> {
               onPressed: _loading ? null : _generate,
               child: const Text('Generate AI Schedule'),
             ),
+
             const SizedBox(height: 20),
 
             if (_schedules.isNotEmpty) ...[
@@ -209,6 +217,7 @@ class _GoogleCalendarScreenState extends State<GoogleCalendarScreen> {
                 'الجدول المقترح',
                 style: Theme.of(context).textTheme.titleLarge,
               ),
+
               const SizedBox(height: 12),
 
               for (final item in _schedules)
@@ -223,7 +232,9 @@ class _GoogleCalendarScreenState extends State<GoogleCalendarScreen> {
                             '${item['title'] ?? 'تعهد'}',
                             style: Theme.of(context).textTheme.titleMedium,
                           ),
+
                           const SizedBox(height: 8),
+
                           if (item['suggestions'] is List)
                             for (final suggestion in item['suggestions'])
                               if (suggestion is Map)
@@ -248,6 +259,7 @@ class _GoogleCalendarScreenState extends State<GoogleCalendarScreen> {
                 icon: const Icon(Icons.check),
                 label: const Text('Approve - إضافة للتقويم'),
               ),
+
               const SizedBox(height: 10),
 
               OutlinedButton.icon(

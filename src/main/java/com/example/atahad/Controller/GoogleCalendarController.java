@@ -23,10 +23,94 @@ public class GoogleCalendarController {
         return ResponseEntity.status(200).body(googleCalendarService.getAuthorizationUrl(user.getId()));
     }
 
-    @GetMapping("/callback")
-    public ResponseEntity<?> callback(@RequestParam String code,@RequestParam String state){
+    @GetMapping(value = "/callback", produces = "text/html;charset=UTF-8")
+    public ResponseEntity<String> callback(@RequestParam String code,@RequestParam String state){
+
         googleCalendarService.handleCallback(code,state);
-        return ResponseEntity.status(200).body(new ApiResponse("Google Calendar connected successfully"));
+
+        String html = """
+            <!DOCTYPE html>
+            <html lang="ar" dir="rtl">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1">
+                <title>تم ربط التقويم - تعهّد</title>
+                <style>
+                    * { box-sizing: border-box; }
+
+                    body {
+                        margin: 0;
+                        min-height: 100vh;
+                        display: flex;
+                        justify-content: center;
+                        align-items: center;
+                        background: #f5f7fc;
+                        font-family: Arial, sans-serif;
+                        padding: 24px;
+                    }
+
+                    .card {
+                        background: white;
+                        padding: 36px 24px;
+                        border-radius: 20px;
+                        text-align: center;
+                        max-width: 400px;
+                        width: 100%;
+                        border: 1px solid #e3e8f0;
+                    }
+
+                    .icon {
+                        background: #e8f0ff;
+                        color: #2563eb;
+                        width: 76px;
+                        height: 76px;
+                        border-radius: 50%;
+                        display: flex;
+                        justify-content: center;
+                        align-items: center;
+                        font-size: 40px;
+                        margin: 0 auto 24px;
+                    }
+
+                    h2 {
+                        color: #10245e;
+                        font-size: 23px;
+                        margin-bottom: 12px;
+                    }
+
+                    p {
+                        color: #64748b;
+                        line-height: 1.8;
+                        font-size: 15px;
+                    }
+
+                    .note {
+                        margin-top: 24px;
+                        padding: 14px;
+                        border-radius: 12px;
+                        background: #f1f5f9;
+                        color: #475569;
+                        font-size: 14px;
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="card">
+                    <div class="icon">✓</div>
+                    <h2>تم ربط Google Calendar بنجاح</h2>
+                    <p>
+                        أصبح تقويم Google مرتبطًا بحسابك في تعهّد.
+                        يمكنك الآن العودة إلى التطبيق والاستفادة من ميزات التقويم.
+                    </p>
+                    <div class="note">
+                        يمكنك إغلاق هذه الصفحة والعودة إلى تطبيق تعهّد.
+                    </div>
+                </div>
+            </body>
+            </html>
+            """;
+
+        return ResponseEntity.status(200).body(html);
     }
 
     @GetMapping("/status")

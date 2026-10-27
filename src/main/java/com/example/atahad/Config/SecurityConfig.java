@@ -315,6 +315,8 @@ public class SecurityConfig {
                         //anyone, the photos and videos of the moments (random names, the app shows them without login)
                         .requestMatchers(HttpMethod.GET, "/uploads/**").permitAll()
 
+                        .requestMatchers("/api/v1/lucky-challenge/**").hasAuthority("MEMBER")
+
                         // All remaining endpoints require authentication
                         .anyRequest().authenticated()
                 )
