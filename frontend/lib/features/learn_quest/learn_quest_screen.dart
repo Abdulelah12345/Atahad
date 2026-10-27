@@ -314,9 +314,36 @@ class _LearnQuestScreenState extends State<LearnQuestScreen> {
     }
 
     if (_query.isEmpty) {
-      return _state(
-        Icons.explore_outlined,
-        'ابحث عن مهارة أو موضوع، واكتشف مصادر تساعدك تتعلّم.',
+      // a start the member can tap, so the page is never empty
+      const ideas = ['تطوير الذات', 'روايات', 'البرمجة', 'اللغة الإنجليزية', 'إدارة الوقت', 'التاريخ'];
+      return Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(Space.s6),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.explore_outlined, color: context.colors.primary, size: 48),
+              const SizedBox(height: Space.s3),
+              const Text('ابحث عن مهارة أو موضوع، أو ابدأ بواحد من هذي:', textAlign: TextAlign.center),
+              const SizedBox(height: Space.s4),
+              Wrap(
+                alignment: WrapAlignment.center,
+                spacing: Space.s2,
+                runSpacing: Space.s2,
+                children: [
+                  for (final idea in ideas)
+                    ActionChip(
+                      label: Text(idea),
+                      onPressed: () {
+                        _searchController.text = idea;
+                        _search();
+                      },
+                    ),
+                ],
+              ),
+            ],
+          ),
+        ),
       );
     }
 

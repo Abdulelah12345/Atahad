@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../core/api/api_client.dart';
+import '../../core/state/data_refresh.dart';
 import '../../core/theme/at_colors.dart';
 import '../../core/theme/at_tokens.dart';
 import '../../core/utils/format.dart';
@@ -36,6 +37,29 @@ class _ProofsHomeScreenState extends State<ProofsHomeScreen> {
       _api.activities(),
     ]);
     return {...values[0] as Json, 'activities': values[1]};
+  }
+
+  Json? _last; // kept on screen while a quiet reload runs
+
+  @override
+  void initState() {
+    super.initState();
+    DataRefresh.instance.addListener(_quietReload);
+  }
+
+  @override
+  void dispose() {
+    DataRefresh.instance.removeListener(_quietReload);
+    super.dispose();
+  }
+
+  // something changed on another page: load again without the spinner
+  Future<void> _quietReload() async {
+    if (!mounted || _last == null) return;
+    try {
+      final data = await _load();
+      if (mounted) setState(() => _data = Future.value(data));
+    } catch (_) {}
   }
 
   Future<void> _reload() async {
@@ -95,7 +119,7 @@ class _ProofsHomeScreenState extends State<ProofsHomeScreen> {
       child: FutureBuilder<Json>(
         future: _data,
         builder: (context, snapshot) {
-          if (snapshot.connectionState != ConnectionState.done) {
+          if (snapshot.connectionState != ConnectionState.done && _last == null) {
             return const LoadingView();
           }
           if (snapshot.hasError) {
@@ -104,7 +128,8 @@ class _ProofsHomeScreenState extends State<ProofsHomeScreen> {
               onRetry: _reload,
             );
           }
-          final data = snapshot.data!;
+          final data = snapshot.connectionState == ConnectionState.done ? snapshot.data! : _last!;
+          _last = data;
           final proofs = ProofsApi.maps(data['proofs']);
           final excuses = ProofsApi.maps(data['excuses']);
           final objections = ProofsApi.maps(data['objections']);

@@ -158,7 +158,7 @@ class _WeekHero extends StatelessWidget {
       decoration: BoxDecoration(color: team, borderRadius: BorderRadius.circular(28)),
       child: Stack(
         children: [
-          PositionedDirectional(top: 18, start: 26, child: bit(10, 10, const Color(0xFFFFE29A), 0)),
+          PositionedDirectional(top: 18, start: 26, child: bit(10, 10, const Color(0xFFF1DCA6), 0)),
           PositionedDirectional(top: 46, end: 30, child: bit(36, 10, const Color(0xFF8FB4FF), 0.42)),
           PositionedDirectional(bottom: 18, start: 56, child: bit(26, 9, const Color(0xFFF57C1F), -0.31)),
           PositionedDirectional(bottom: 30, end: 70, child: bit(8, 8, Colors.white70, 0)),

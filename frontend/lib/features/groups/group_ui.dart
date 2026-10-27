@@ -246,9 +246,42 @@ class _NudgeButtonState extends State<NudgeButton> with SingleTickerProviderStat
   }
 
   @override
+  void didUpdateWidget(NudgeButton old) {
+    super.didUpdateWidget(old);
+    final rest = widget.onPressed == null;
+    if (rest && _ring.isAnimating) {
+      _ring.stop();
+      _ring.value = 0;
+    } else if (!rest && !_ring.isAnimating && !reduceMotion(context)) {
+      _ring.repeat();
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final c = context.colors;
     const edge = Color(0xFFB9560C);
+    // resting after a nudge: a calm grey chip with a check, it can't be pressed
+    if (widget.onPressed == null) {
+      return Semantics(
+        label: 'تنبّه',
+        child: AnimatedContainer(
+          duration: Motion.fast,
+          constraints: const BoxConstraints(minHeight: 36),
+          margin: const EdgeInsets.only(top: 3),
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(color: c.surfaceSunken, borderRadius: BorderRadius.circular(Radii.md)),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.check_rounded, size: 17, color: c.inkMuted),
+              const SizedBox(width: 6),
+              Text('تنبّه', style: Theme.of(context).textTheme.labelMedium!.copyWith(color: c.inkMuted, fontWeight: FontWeight.w700)),
+            ],
+          ),
+        ),
+      );
+    }
     return Semantics(
       button: true,
       label: 'نبّه',

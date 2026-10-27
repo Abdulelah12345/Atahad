@@ -1,4 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
+
+import 'auth/auth_state.dart';
+import 'state/data_refresh.dart';
 
 import '../features/account/account_tab.dart';
 import '../features/proofs/proofs_home_screen.dart';
@@ -16,6 +21,42 @@ class MainShell extends StatefulWidget {
 
 class _MainShellState extends State<MainShell> {
   int _index = 0;
+  GoRouter? _router;
+  bool _onTabs = true;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final router = GoRouter.of(context);
+    if (router != _router) {
+      _router?.routerDelegate.removeListener(_routeChanged);
+      _router = router..routerDelegate.addListener(_routeChanged);
+    }
+  }
+
+  @override
+  void dispose() {
+    _router?.routerDelegate.removeListener(_routeChanged);
+    super.dispose();
+  }
+
+  // back on the tabs from another page (a proof, a group, the donation...): what changed there shows here
+  void _routeChanged() {
+    final onTabs = _router?.routerDelegate.currentConfiguration.uri.path == '/';
+    if (onTabs && !_onTabs) _refresh();
+    _onTabs = onTabs;
+  }
+
+  void _refresh() {
+    DataRefresh.instance.bump();
+    if (_index == 3) context.read<AuthState>().refreshProfile().catchError((_) {}); // points and level on «حسابي»
+  }
+
+  void _select(int i) {
+    if (i == _index) return;
+    setState(() => _index = i);
+    _refresh();
+  }
 
   static const _pages = [
     HomeScreen(),
@@ -30,7 +71,7 @@ class _MainShellState extends State<MainShell> {
     return PopScope(
       canPop: _index == 0,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) setState(() => _index = 0);
+        if (!didPop) _select(0);
       },
       child: _shell(),
     );
@@ -41,7 +82,7 @@ class _MainShellState extends State<MainShell> {
       body: IndexedStack(index: _index, children: _pages),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
-        onDestinationSelected: (i) => setState(() => _index = i),
+        onDestinationSelected: _select,
         destinations: [
           const NavigationDestination(icon: Icon(Icons.today_outlined), selectedIcon: Icon(Icons.today), label: 'اليوم'),
           const NavigationDestination(icon: Icon(Icons.assignment_outlined), selectedIcon: Icon(Icons.assignment), label: 'طلباتي'),

@@ -774,7 +774,7 @@ class _OpenLockPainter extends CustomPainter {
     canvas.translate(70 + 40 * (1 - keyIn), 120 - 30 * (1 - keyIn));
     canvas.rotate(-0.52 * (1 - keyIn) + 1.57 * keyTurn);
     final gold = Paint()
-      ..color = const Color(0xFFF2B33D)
+      ..color = const Color(0xFFDDAE52)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 6
       ..strokeCap = StrokeCap.round;

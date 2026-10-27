@@ -46,6 +46,14 @@ class _BoardTabState extends State<BoardTab> with AutomaticKeepAliveClientMixin 
   String? _error;
   Timer? _timer;
   bool _proving = false;
+  // after a nudge the button rests for a few seconds (kept per group and member, even after leaving the page)
+  static const _nudgeRest = Duration(seconds: 30);
+  static final Map<String, DateTime> _nudgedAt = {};
+  String _nudgeKey(Map<String, dynamic> row) => '$_groupId-${row['memberId']}';
+  bool _resting(Map<String, dynamic> row) {
+    final at = _nudgedAt[_nudgeKey(row)];
+    return at != null && DateTime.now().difference(at) < _nudgeRest;
+  }
   int get _groupId => widget.group['id'] as int;
 
   @override
@@ -188,6 +196,7 @@ class _BoardTabState extends State<BoardTab> with AutomaticKeepAliveClientMixin 
                         place: i + 1,
                         isMe: row['memberId'] == widget.me,
                         title: data.titles[row['memberId']],
+                        nudged: _resting(row),
                         onAlert: () => _alert(row),
                       ),
                     ),
@@ -228,12 +237,22 @@ class _BoardTabState extends State<BoardTab> with AutomaticKeepAliveClientMixin 
   }
 
   Future<void> _alert(Map<String, dynamic> row) async {
+    if (_resting(row)) return;
+    final key = _nudgeKey(row);
+    setState(() => _nudgedAt[key] = DateTime.now());
+    // wake the button up again when the rest ends
+    Future.delayed(_nudgeRest, () {
+      if (mounted) setState(() {});
+    });
     try {
       final res = await widget.api.sendAlert(_groupId, row['memberId'] as int);
       if (!mounted) return;
       showMessage(context, res['isCollective'] == true ? 'انضم تنبيهك لتنبيهات المجموعة' : 'وصل التنبيه لـ ${row['name']}');
     } catch (e) {
-      if (mounted) showGroupError(context, e);
+      _nudgedAt.remove(key); // it did not go out, so it can be tried again now
+      if (!mounted) return;
+      setState(() {});
+      showGroupError(context, e);
     }
   }
 
@@ -420,8 +439,9 @@ class _LeaderRow extends StatelessWidget {
   final bool isMe;
   final String? title; // his title of last week
   final VoidCallback onAlert;
+  final bool nudged; // nudged a moment ago, the button rests
 
-  const _LeaderRow({required this.row, required this.place, required this.isMe, required this.title, required this.onAlert});
+  const _LeaderRow({required this.row, required this.place, required this.isMe, required this.title, required this.onAlert, this.nudged = false});
 
   @override
   Widget build(BuildContext context) {
@@ -439,7 +459,7 @@ class _LeaderRow extends StatelessWidget {
     if (hasExcuse) {
       trailing = Pill('عنده عذر', fg: c.info, bg: c.infoSoft);
     } else if (canAlert) {
-      trailing = NudgeButton(onPressed: onAlert);
+      trailing = NudgeButton(onPressed: nudged ? null : onAlert);
     } else if (remaining == 0) {
       trailing = Pill('كمّل', fg: c.success, bg: c.successSoft);
     } else {

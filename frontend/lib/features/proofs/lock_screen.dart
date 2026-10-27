@@ -21,7 +21,7 @@ class LockScreen extends StatelessWidget {
   static const _line = Color(0xFF22386B);
   static const _ink = Color(0xFFEDF1FA);
   static const _muted = Color(0xFFB7C5E8);
-  static const _goldLight = Color(0xFFFFE29A);
+  static const _goldLight = Color(0xFFF1DCA6);
 
   static String _why(Object? reason) => switch (reason) {
         'LOST_DAY' => 'فاتت مرة',
@@ -221,7 +221,7 @@ class _KeyPainter extends CustomPainter {
       ..color = const Color(0xFF7A869C)
       ..strokeWidth = 2);
     final gold = Paint()
-      ..color = const Color(0xFFFFE29A)
+      ..color = const Color(0xFFF1DCA6)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 6
       ..strokeCap = StrokeCap.round;

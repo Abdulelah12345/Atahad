@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/api/api_client.dart';
+import '../../core/state/data_refresh.dart';
 import '../../core/auth/auth_state.dart';
 import '../../core/theme/at_colors.dart';
 import '../../core/theme/at_tokens.dart';
@@ -256,21 +257,30 @@ class _ActivityHeatmapState extends State<_ActivityHeatmap> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadActivity();
     });
+    DataRefresh.instance.addListener(_quietLoad);
+  }
+
+  // a proof or a task done on another page: the map gets its new square without the spinner
+  void _quietLoad() {
+    if (!_loading && !_error) _loadActivity(silent: true);
   }
 
   @override
   void dispose() {
+    DataRefresh.instance.removeListener(_quietLoad);
     _scrollController.dispose();
     super.dispose();
   }
 
-  Future<void> _loadActivity() async {
+  Future<void> _loadActivity({bool silent = false}) async {
     if (!mounted) return;
 
-    setState(() {
-      _loading = true;
-      _error = false;
-    });
+    if (!silent) {
+      setState(() {
+        _loading = true;
+        _error = false;
+      });
+    }
 
     try {
       final api = context.read<ApiClient>();
@@ -320,7 +330,7 @@ class _ActivityHeatmapState extends State<_ActivityHeatmap> {
         }
       });
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted || silent) return; // a quiet reload keeps the map on screen
 
       setState(() {
         _loading = false;
