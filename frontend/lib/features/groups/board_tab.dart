@@ -263,6 +263,7 @@ class _BoardTabState extends State<BoardTab> with AutomaticKeepAliveClientMixin 
       isScrollControlled: true,
       builder: (_) => SheetBody(
         title: 'أهداف المجموعة',
+      icon: Icons.history_rounded,
         child: FutureBuilder<List<Map<String, dynamic>>>(
           future: widget.api.goalHistory(_groupId),
           builder: (context, snap) {
@@ -884,6 +885,7 @@ class _ProposeSheetState extends State<_ProposeSheet> {
   Widget build(BuildContext context) {
     return SheetBody(
       title: 'اقترح هدف',
+      icon: Icons.lightbulb_rounded,
       error: _error,
       child: Column(
         children: [
@@ -961,7 +963,7 @@ class _SetGoalSheetState extends State<SetGoalSheet> {
     final picked = await showDatePicker(
       context: context,
       initialDate: _endDate,
-      firstDate: now.add(const Duration(days: 1)),
+      firstDate: DateTime(now.year, now.month, now.day), // the goal can end today
       lastDate: now.add(const Duration(days: 364)),
     );
     if (picked != null) setState(() => _endDate = picked);
@@ -1043,6 +1045,7 @@ class _SetGoalSheetState extends State<SetGoalSheet> {
     final plan = _plan;
     return SheetBody(
       title: 'اعتمد هدف المجموعة',
+      icon: Icons.flag_rounded,
       error: _error,
       child: Form(
         key: _form,
@@ -1329,7 +1332,7 @@ class _MyPlaceCardState extends State<_MyPlaceCard> {
     final text = Theme.of(context).textTheme;
     final c = context.colors;
     final name = '${_place?['name'] ?? ''}';
-    return Padding(
+    final card = Padding(
       padding: const EdgeInsets.only(top: Space.s3),
       child: AppCard(
         onTap: _choose,
@@ -1351,6 +1354,18 @@ class _MyPlaceCardState extends State<_MyPlaceCard> {
           ],
         ),
       ),
+    );
+    // my place on a small map under the card
+    final lat = (_place?['latitude'] as num?)?.toDouble();
+    final lng = (_place?['longitude'] as num?)?.toDouble();
+    if (lat == null || lng == null) return card;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        card,
+        const SizedBox(height: Space.s2),
+        PlaceMap(latitude: lat, longitude: lng, height: 150),
+      ],
     );
   }
 }
@@ -1442,6 +1457,7 @@ class _PlaceSearchSheetState extends State<_PlaceSearchSheet> {
     final text = Theme.of(context).textTheme;
     return SheetBody(
       title: 'وين مكانك؟',
+      icon: Icons.place_rounded,
       error: _error,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

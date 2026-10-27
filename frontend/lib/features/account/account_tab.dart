@@ -8,200 +8,308 @@ import '../../core/auth/auth_state.dart';
 import '../../core/theme/at_colors.dart';
 import '../../core/theme/at_tokens.dart';
 import '../../core/theme/theme_state.dart';
+import '../../core/utils/format.dart';
 import '../../core/widgets/app_card.dart';
+import '../../core/widgets/widgets.dart';
+import '../commitments/commitment_widgets.dart' show confirmDialog;
 
-// OWNER: Abdulelah - the "حسابي" tab
+// OWNER: Abdulelah - the "حسابي" tab (design: Account): the blue card with my numbers, my activity, then the settings
 class AccountTab extends StatelessWidget {
   const AccountTab({super.key});
+
+  // my name, email and phone in a sheet, with the edit button
+  void _showProfile(BuildContext context, Map profile) {
+    showAtSheet<void>(
+      context,
+      builder: (sheet) => Padding(
+        padding: const EdgeInsets.fromLTRB(Space.s4, 0, Space.s4, Space.s6),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const SheetHeader(icon: Icons.badge_outlined, title: 'بياناتي'),
+            RowGroup(children: [
+              for (final (icon, label, value) in [
+                (Icons.person_outline_rounded, 'الاسم', profile['name']),
+                (Icons.alternate_email_rounded, 'الإيميل', profile['email']),
+                (Icons.phone_iphone_rounded, 'الجوال', profile['phone']),
+              ])
+                ActionRow(
+                  icon: icon,
+                  title: '${value ?? '-'}',
+                  subtitle: label,
+                ),
+            ]),
+            const SizedBox(height: Space.s4),
+            AtButton('عدّل بياناتي', icon: const Icon(Icons.edit_rounded, size: 18), onPressed: () {
+              Navigator.pop(sheet);
+              context.push('/update-profile');
+            }),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // deactivating ends every running commitment and leaves the groups, so it asks first
+  Future<void> _deactivate(BuildContext context) async {
+    final ok = await confirmDialog(
+      context,
+      title: 'تعطّل حسابك؟',
+      message: 'تنتهي كل تعهّداتك الشغّالة وتطلع من مجموعاتك، وما تقدر ترجع لها. '
+          'لازم تكون مسدّد كل خصوماتك قبل.',
+      confirm: 'عطّل الحساب',
+      danger: true,
+    );
+    if (!ok || !context.mounted) return;
+    try {
+      await context.read<ApiClient>().put('/api/v1/account/deactivate');
+      if (!context.mounted) return;
+      showMessage(context, 'تعطّل حسابك. نتمنى نشوفك مرة ثانية');
+      await context.read<AuthState>().logout();
+    } catch (e) {
+      if (!context.mounted) return;
+      final raw = '$e';
+      showMessage(
+        context,
+        raw.contains('Pay the donations')
+            ? 'سدّد خصوماتك أول، بعدها تقدر تعطّل الحساب.'
+            : raw.contains('already deactivated')
+                ? 'الحساب معطّل من قبل.'
+                : 'ما قدرنا نعطّل الحساب، حاول مرة ثانية.',
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthState>();
     final profile = auth.profile ?? {};
     final c = context.colors;
-    context.watch<ThemeState>();
-    final dark = Theme.of(context).brightness == Brightness.dark; // what is shown now
-
-    final name = profile['name']?.toString() ?? '-';
-    final email = profile['email']?.toString() ?? '-';
-    final phone = profile['phone']?.toString() ?? '-';
-    final level = profile['level']?.toString() ?? '-';
-    final points = (profile['points'] ?? profile['taskPoints'])?.toString() ?? '0';
-    final weeks = profile['consecutiveWeeks']?.toString() ?? '0';
+    final text = Theme.of(context).textTheme;
+    final mode = context.watch<ThemeState>().mode;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('حسابي'),
-        centerTitle: true,
-        actions: [
-          // one tap: light <-> dark (until the first tap it follows the phone, so it flips what is shown now)
-          IconButton(
-            tooltip: dark ? 'المظهر الفاتح' : 'المظهر الداكن',
-            onPressed: () => context.read<ThemeState>().setMode(dark ? ThemeMode.light : ThemeMode.dark),
-            icon: AnimatedSwitcher(
-              duration: Motion.base,
-              transitionBuilder: (child, animation) => RotationTransition(
-                turns: Tween(begin: 0.75, end: 1.0).animate(animation),
-                child: FadeTransition(opacity: animation, child: child),
-              ),
-              child: Icon(
-                dark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
-                key: ValueKey(dark),
-              ),
-            ),
-          ),
-          const SizedBox(width: Space.s2),
-        ],
-      ),
-      body: RefreshIndicator(
-        onRefresh: auth.refreshProfile,
-        child: ListView(
-          padding: const EdgeInsets.all(Space.s4),
-          children: [
-            const SizedBox(height: Space.s4),
-            CircleAvatar(
-              radius: 38,
-              backgroundColor: c.primarySoft,
-              child: Icon(Icons.person_outline, size: 40, color: c.primary),
-            ),
-            const SizedBox(height: Space.s3),
-            Text(
-              name,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: Space.s1),
-            Text(
-              'إدارة حسابك وإنجازاتك',
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: c.inkMuted),
-            ),
-            const SizedBox(height: Space.s6),
-
-            if (auth.isMember) ...[
-              _sectionTitle(context, 'ملخص الإنجازات'),
-              Row(
-                children: [
-                  _summaryCard(context, Icons.stars_outlined, points, 'النقاط'),
-                  const SizedBox(width: Space.s2),
-                  _summaryCard(context, Icons.military_tech_outlined, level, 'المستوى'),
-                  const SizedBox(width: Space.s2),
-                  _summaryCard(context, Icons.local_fire_department_outlined, weeks, 'أسابيع متتالية'),
-                ],
-              ),
-              const SizedBox(height: Space.s4),
-              AppCard(
-                padding: EdgeInsets.zero,
-                child: ExpansionTile(
-                  leading: Icon(Icons.grid_view_rounded, color: c.primary),
-                  title: const Text('خريطة الإنجازات'),
-                  subtitle: const Text('اضغط لاستعراض نشاطك وإحصائياتك'),
-                  childrenPadding: const EdgeInsets.all(Space.s2),
-                  children: const [_ActivityHeatmap()],
-                ),
-              ),
-              const SizedBox(height: Space.s6),
-            ],
-
-            _sectionTitle(context, 'الملف الشخصي'),
-            AppCard(
-              padding: EdgeInsets.zero,
-              child: ExpansionTile(
-                leading: Icon(Icons.person_outline, color: c.primary),
-                title: const Text('معلوماتي الشخصية'),
-                subtitle: const Text('الاسم والبريد الإلكتروني ورقم الجوال'),
-                childrenPadding: const EdgeInsets.symmetric(horizontal: Space.s4, vertical: Space.s2),
-                children: [
-                  _detailRow(context, 'الاسم', name),
-                  _detailRow(context, 'البريد الإلكتروني', email),
-                  _detailRow(context, 'رقم الجوال', phone),
-                ],
-              ),
-            ),
-            const SizedBox(height: Space.s3),
-            _actionTile(context, Icons.edit_outlined, 'تعديل الملف الشخصي', () {
-              context.push('/update-profile');
-            }),
-            const SizedBox(height: Space.s6),
-
-            _sectionTitle(context, 'إعدادات الحساب'),
-            _actionTile(context, Icons.calendar_month_outlined, 'Google Calendar', () {
-              context.push('/google-calendar');
-            }),
-            if (auth.isMember) ...[
+      body: SafeArea(
+        bottom: false,
+        child: RefreshIndicator(
+          onRefresh: () async {
+            DataRefresh.instance.bump();
+            await auth.refreshProfile();
+          },
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(Space.s4, Space.s5, Space.s4, Space.s8),
+            children: [
+              Text('حسابي', style: text.headlineMedium!.copyWith(fontWeight: FontWeight.w800)),
               const SizedBox(height: Space.s3),
-              _actionTile(context, Icons.person_off_outlined, 'تعطيل الحساب', () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('بنضيف تعطيل الحساب قريبًا')),
-                );
-              }),
+              _HeroCard(profile: profile, isMember: auth.isMember),
+              if (auth.isMember) ...[
+                const SizedBox(height: Space.s4),
+                AppCard(
+                  padding: EdgeInsets.zero,
+                  child: Theme(
+                    // no lines above and under the open tile
+                    data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                    child: ExpansionTile(
+                      initiallyExpanded: true,
+                      leading: IconTile(Icons.grid_view_rounded, size: 40, fg: c.success, bg: c.successSoft),
+                      title: const Text('نشاطي'),
+                      subtitle: const Text('أسبوع، شهر أو سنة'),
+                      childrenPadding: const EdgeInsets.all(Space.s2),
+                      children: const [_ActivityHeatmap()],
+                    ),
+                  ),
+                ),
+              ],
+              const SizedBox(height: Space.s4),
+              RowGroup(children: [
+                ActionRow(icon: Icons.badge_outlined, title: 'بياناتي', subtitle: 'الاسم والإيميل والجوال', onTap: () => _showProfile(context, profile)),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(Space.s4, 12, Space.s4, 14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(children: [
+                        IconTile(Icons.dark_mode_outlined, size: 40, fg: c.pardon, bg: c.pardonSoft),
+                        const SizedBox(width: Space.s4),
+                        Text('المظهر', style: text.labelLarge!.copyWith(fontSize: 15)),
+                      ]),
+                      const SizedBox(height: 10),
+                      SegmentedPills<ThemeMode>(
+                        options: const [(ThemeMode.light, 'فاتح'), (ThemeMode.dark, 'داكن'), (ThemeMode.system, 'حسب الجهاز')],
+                        value: mode,
+                        onChanged: (m) => context.read<ThemeState>().setMode(m),
+                      ),
+                    ],
+                  ),
+                ),
+                ActionRow(
+                  icon: Icons.calendar_month_outlined,
+                  title: 'جدولة مهامك',
+                  subtitle: 'Google Calendar يقترح أوقات مهامك',
+                  tone: c.info,
+                  onTap: () => context.push('/google-calendar'),
+                ),
+              ]),
+              const SizedBox(height: Space.s4),
+              RowGroup(children: [
+                if (auth.isMember)
+                  ActionRow(icon: Icons.person_off_outlined, title: 'تعطيل الحساب', danger: true, onTap: () => _deactivate(context)),
+                ActionRow(
+                  icon: Icons.logout_rounded,
+                  title: 'تسجيل الخروج',
+                  danger: true,
+                  trailing: const SizedBox.shrink(),
+                  onTap: () => context.read<AuthState>().logout(),
+                ),
+              ]),
             ],
-            const SizedBox(height: Space.s3),
-            _actionTile(context, Icons.logout, 'تسجيل الخروج', () async {
-              await context.read<AuthState>().logout();
-            }, destructive: true),
-            const SizedBox(height: Space.s8),
-          ],
+          ),
         ),
-      ),
-    );
-  }
-
-  Widget _sectionTitle(BuildContext context, String title) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: Space.s3),
-      child: Text(title, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-    );
-  }
-
-  Widget _summaryCard(BuildContext context, IconData icon, String value, String label) {
-    final c = context.colors;
-    return Expanded(
-      child: AppCard(
-        padding: const EdgeInsets.symmetric(horizontal: Space.s1, vertical: Space.s4),
-        child: Column(
-          children: [
-            Icon(icon, color: c.primary, size: 24),
-            const SizedBox(height: Space.s2),
-            Text(value, maxLines: 1, overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-            const SizedBox(height: Space.s1),
-            Text(label, textAlign: TextAlign.center, maxLines: 2,
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(color: c.inkMuted)),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _detailRow(BuildContext context, String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: Space.s2),
-      child: Row(
-        children: [
-          SizedBox(width: 105, child: Text(label, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: context.colors.inkMuted))),
-          const SizedBox(width: Space.s2),
-          Expanded(child: Text(value, textAlign: TextAlign.end, overflow: TextOverflow.ellipsis)),
-        ],
-      ),
-    );
-  }
-
-  Widget _actionTile(BuildContext context, IconData icon, String title, VoidCallback onTap, {bool destructive = false}) {
-    final c = context.colors;
-    return AppCard(
-      padding: EdgeInsets.zero,
-      child: ListTile(
-        leading: Icon(icon, color: destructive ? Theme.of(context).colorScheme.error : c.primary),
-        title: Text(title),
-        trailing: const Icon(Icons.chevron_left),
-        onTap: onTap,
       ),
     );
   }
 }
 
-// Commitment Heatmap
+// the blue card (design: Account): my letter, name, level, and four numbers. A tap opens «مستواي»
+class _HeroCard extends StatefulWidget {
+  final Map profile;
+  final bool isMember;
+
+  const _HeroCard({required this.profile, required this.isMember});
+
+  @override
+  State<_HeroCard> createState() => _HeroCardState();
+}
+
+class _HeroCardState extends State<_HeroCard> {
+  Map<String, dynamic>? _stats;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+    DataRefresh.instance.addListener(_load);
+  }
+
+  @override
+  void dispose() {
+    DataRefresh.instance.removeListener(_load);
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    if (!widget.isMember) return;
+    try {
+      final data = await context.read<ApiClient>().get('/api/v1/commitment/stats');
+      if (mounted && data is Map) setState(() => _stats = Map<String, dynamic>.from(data));
+    } catch (_) {} // the card shows the profile numbers meanwhile
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final text = Theme.of(context).textTheme;
+    final p = widget.profile;
+    final s = _stats ?? const {};
+    final name = '${p['name'] ?? ''}'.trim();
+    final level = (s['level'] ?? p['level'])?.toString();
+    String n(Object? v) => arabicDigits(v is num ? (v % 1 == 0 ? v.toInt() : v) : (v ?? 0));
+    const soft = Color(0xFFB7C5E8);
+    final card = Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: c.isDark ? c.deepRaised : c.primary,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [BoxShadow(color: c.deep, offset: const Offset(0, 6))],
+      ),
+      child: Stack(
+        children: [
+          // two soft circles, like the design
+          PositionedDirectional(
+            top: -40,
+            end: -40,
+            child: Container(width: 160, height: 160, decoration: BoxDecoration(shape: BoxShape.circle, color: c.accent.withValues(alpha: 0.45))),
+          ),
+          PositionedDirectional(
+            bottom: -50,
+            start: 120,
+            child: Container(
+              width: 120,
+              height: 120,
+              decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Colors.white.withValues(alpha: 0.08), width: 10)),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 70,
+                      height: 70,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: c.pardon,
+                        borderRadius: BorderRadius.circular(22),
+                        boxShadow: const [BoxShadow(color: Color(0xFF8FB4FF), spreadRadius: 3)],
+                      ),
+                      child: Text(name.isEmpty ? '؟' : name.characters.first,
+                          style: text.headlineLarge!.copyWith(color: Colors.white, fontWeight: FontWeight.w800, height: 1.2)),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(name.isEmpty ? '-' : name,
+                              style: text.headlineSmall!.copyWith(color: Colors.white, fontWeight: FontWeight.w800), maxLines: 1, overflow: TextOverflow.ellipsis),
+                          if ('${p['email'] ?? ''}'.isNotEmpty)
+                            Text('${p['email']}', style: text.labelSmall!.copyWith(color: soft), maxLines: 1, overflow: TextOverflow.ellipsis),
+                          if (widget.isMember && level != null) ...[
+                            const SizedBox(height: 6),
+                            TagPill(levelsAr[level] ?? level, fg: Colors.white, bg: c.accent, icon: Icons.military_tech_rounded),
+                          ],
+                        ],
+                      ),
+                    ),
+                    if (widget.isMember) const Icon(Icons.chevron_left_rounded, color: Colors.white70),
+                  ],
+                ),
+                if (widget.isMember) ...[
+                  const SizedBox(height: Space.s4),
+                  Row(
+                    children: [
+                      Expanded(child: StatCell(value: n(s['points'] ?? p['points']), label: 'نقطة')),
+                      const SizedBox(width: 6),
+                      Expanded(child: StatCell(value: n(s['availableGraceDays']), label: 'بطاقة عفو')),
+                      const SizedBox(width: 6),
+                      Expanded(child: StatCell(value: n(s['consecutiveWeeks'] ?? p['consecutiveWeeks']), label: 'أسبوع ورا بعض')),
+                      const SizedBox(width: 6),
+                      Expanded(child: StatCell(value: n(s['totalDonated']), label: 'ريال للخير', valueColor: c.goldLight)),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+    if (!widget.isMember) return card;
+    return Semantics(
+      button: true,
+      label: 'مستواي ونقاطي',
+      child: GestureDetector(onTap: () => context.push('/stats'), child: card),
+    );
+  }
+}
+
+// Commitment Heatmap (Abdulelah): my done tasks per day, as a week, a month or a year that fits the screen
+enum _Period { week, month, year }
+
 class _ActivityHeatmap extends StatefulWidget {
   const _ActivityHeatmap();
 
@@ -210,53 +318,25 @@ class _ActivityHeatmap extends StatefulWidget {
 }
 
 class _ActivityHeatmapState extends State<_ActivityHeatmap> {
+  static const _months = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
+  static const _days = ['ح', 'ن', 'ث', 'ر', 'خ', 'ج', 'س']; // Sunday first
+
   bool _loading = true;
   bool _error = false;
-
-  int _year = DateTime.now().year;
-
   Map<String, int> _activity = {};
+  _Period _period = _Period.week;
+  late DateTime _anchor = _today; // the week / month / year shown
+  DateTime? _selected;
 
-  final ScrollController _scrollController = ScrollController();
-
-  DateTime? _selectedDate;
-
-  static const double _boxSize = 16;
-  static const double _boxGap = 5;
-  static const double _weekWidth = _boxSize + _boxGap;
-
-  final List<String> _months = const [
-    'يناير',
-    'فبراير',
-    'مارس',
-    'أبريل',
-    'مايو',
-    'يونيو',
-    'يوليو',
-    'أغسطس',
-    'سبتمبر',
-    'أكتوبر',
-    'نوفمبر',
-    'ديسمبر',
-  ];
-
-  final List<String> _weekDays = const [
-    'الإثنين',
-    'الثلاثاء',
-    'الأربعاء',
-    'الخميس',
-    'الجمعة',
-    'السبت',
-    'الأحد',
-  ];
+  static DateTime get _today {
+    final n = DateTime.now();
+    return DateTime(n.year, n.month, n.day);
+  }
 
   @override
   void initState() {
     super.initState();
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadActivity();
-    });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadActivity());
     DataRefresh.instance.addListener(_quietLoad);
   }
 
@@ -268,70 +348,34 @@ class _ActivityHeatmapState extends State<_ActivityHeatmap> {
   @override
   void dispose() {
     DataRefresh.instance.removeListener(_quietLoad);
-    _scrollController.dispose();
     super.dispose();
   }
 
   Future<void> _loadActivity({bool silent = false}) async {
     if (!mounted) return;
-
     if (!silent) {
       setState(() {
         _loading = true;
         _error = false;
       });
     }
-
     try {
-      final api = context.read<ApiClient>();
-
-      final result = await api.get('/api/v1/member/activity-map');
-
-      if (result is! List) {
-        throw Exception('Invalid activity map response');
-      }
-
-      final Map<String, int> activity = {};
-      int year = DateTime.now().year;
-
+      final result = await context.read<ApiClient>().get('/api/v1/member/activity-map');
+      if (result is! List) throw Exception('Invalid activity map response');
+      final activity = <String, int>{};
       for (final item in result) {
-        if (item is! Map) continue;
-
-        final date = item['date']?.toString();
-
+        if (item is! Map || item['date'] == null) continue;
+        final date = DateTime.tryParse('${item['date']}');
         if (date == null) continue;
-
-        final parsedDate = DateTime.tryParse(date);
-
-        if (parsedDate == null) continue;
-
-        year = parsedDate.year;
-
-        final completed =
-            int.tryParse(item['completed']?.toString() ?? '0') ?? 0;
-
-        activity[date] = completed;
+        activity[_key(date)] = int.tryParse('${item['completed'] ?? 0}') ?? 0;
       }
-
       if (!mounted) return;
-
       setState(() {
         _activity = activity;
-        _year = year;
-        _selectedDate = null;
         _loading = false;
       });
-
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_scrollController.hasClients) {
-          _scrollController.jumpTo(
-            _scrollController.position.maxScrollExtent,
-          );
-        }
-      });
-    } catch (e) {
+    } catch (_) {
       if (!mounted || silent) return; // a quiet reload keeps the map on screen
-
       setState(() {
         _loading = false;
         _error = true;
@@ -339,678 +383,275 @@ class _ActivityHeatmapState extends State<_ActivityHeatmap> {
     }
   }
 
-  String _dateKey(DateTime date) {
-    final year = date.year.toString();
-    final month = date.month.toString().padLeft(2, '0');
-    final day = date.day.toString().padLeft(2, '0');
+  String _key(DateTime d) => '${d.year}-${'${d.month}'.padLeft(2, '0')}-${'${d.day}'.padLeft(2, '0')}';
+  int _count(DateTime d) => _activity[_key(d)] ?? 0;
+  DateTime _sunday(DateTime d) => DateTime(d.year, d.month, d.day).subtract(Duration(days: d.weekday % 7));
 
-    return '$year-$month-$day';
+  // the days of the period shown
+  (DateTime, DateTime) get _range => switch (_period) {
+        _Period.week => (_sunday(_anchor), _sunday(_anchor).add(const Duration(days: 6))),
+        _Period.month => (DateTime(_anchor.year, _anchor.month, 1), DateTime(_anchor.year, _anchor.month + 1, 0)),
+        _Period.year => (DateTime(_anchor.year, 1, 1), DateTime(_anchor.year, 12, 31)),
+      };
+
+  String get _title {
+    final (from, to) = _range;
+    return switch (_period) {
+      _Period.week => '${arabicDigits(from.day)} ${_months[from.month - 1]} - ${arabicDigits(to.day)} ${_months[to.month - 1]}',
+      _Period.month => '${_months[_anchor.month - 1]} ${arabicDigits(_anchor.year)}',
+      _Period.year => arabicDigits(_anchor.year),
+    };
   }
 
-  Color _activityColor(BuildContext context, int completed) {
-    final primary = context.colors.primary;
+  void _move(int step) => setState(() {
+        _selected = null;
+        _anchor = switch (_period) {
+          _Period.week => _anchor.add(Duration(days: 7 * step)),
+          _Period.month => DateTime(_anchor.year, _anchor.month + step, 1),
+          _Period.year => DateTime(_anchor.year + step, 1, 1),
+        };
+      });
 
-    if (completed >= 4) return primary;
-    if (completed == 3) return primary.withOpacity(0.75);
-    if (completed == 2) return primary.withOpacity(0.50);
-    if (completed == 1) return primary.withOpacity(0.25);
+  bool get _canGoNext => _range.$2.isBefore(_today);
 
-    return Theme.of(context).colorScheme.onSurface.withOpacity(0.09);
+  Color _color(int completed) {
+    final c = context.colors;
+    if (completed <= 0) return c.surfaceSunken;
+    if (completed == 1) return c.accent.withValues(alpha: 0.35);
+    if (completed == 2) return c.accent.withValues(alpha: 0.6);
+    if (completed == 3) return c.accent.withValues(alpha: 0.8);
+    return c.accent;
   }
 
-  // New: calculate the longest achievement streak.
-  int _longestStreak() {
-    int longest = 0;
-    int current = 0;
-
-    final firstDay = DateTime(_year, 1, 1);
-    final lastDay = DateTime(_year, 12, 31);
-
-    for (
-    DateTime date = firstDay;
-    !date.isAfter(lastDay);
-    date = date.add(const Duration(days: 1))
-    ) {
-      final completed = _activity[_dateKey(date)] ?? 0;
-
-      if (completed > 0) {
-        current++;
-
-        if (current > longest) {
-          longest = current;
-        }
-      } else {
-        current = 0;
-      }
-    }
-
-    return longest;
-  }
-
-  // New: improved interactive day square.
-  Widget _dayBox(BuildContext context, DateTime date) {
-    if (date.year != _year) {
-      return const SizedBox(
-        width: _boxSize,
-        height: _boxSize,
-      );
-    }
-
-    final dateString = _dateKey(date);
-    final completed = _activity[dateString] ?? 0;
-
-    final isSelected = _selectedDate != null &&
-        _dateKey(_selectedDate!) == dateString;
-
-    return Tooltip(
-      message: '$dateString\nالإنجازات: $completed',
-      child: InkWell(
-        borderRadius: BorderRadius.circular(4),
-        onTap: () {
-          setState(() {
-            if (isSelected) {
-              _selectedDate = null;
-            } else {
-              _selectedDate = date;
-            }
-          });
-        },
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          width: _boxSize,
-          height: _boxSize,
-          decoration: BoxDecoration(
-            color: _activityColor(context, completed),
-            borderRadius: BorderRadius.circular(4),
-            border: isSelected
-                ? Border.all(
-              color: context.colors.primary,
-              width: 2,
-            )
-                : null,
-          ),
+  // one day: a rounded square, the day number on it when there is room
+  Widget _square(DateTime d, double size, {bool number = true}) {
+    final c = context.colors;
+    final count = _count(d);
+    final future = d.isAfter(_today);
+    final isToday = d == _today;
+    final selected = _selected == d;
+    return GestureDetector(
+      onTap: future ? null : () => setState(() => _selected = selected ? null : d),
+      child: AnimatedContainer(
+        duration: Motion.fast,
+        width: size,
+        height: size,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: future ? Colors.transparent : _color(count),
+          borderRadius: BorderRadius.circular(size * 0.28),
+          border: selected
+              ? Border.all(color: c.primary, width: 2)
+              : isToday
+                  ? Border.all(color: c.ink, width: 1.5)
+                  : future
+                      ? Border.all(color: c.line)
+                      : null,
         ),
+        child: number && size >= 22
+            ? Text(arabicDigits(d.day),
+                style: TextStyle(fontSize: size * 0.36, fontWeight: FontWeight.w700, color: count >= 2 ? Colors.white : c.inkMuted))
+            : null,
       ),
     );
   }
 
-  // New: month labels above the heatmap.
-  Widget _buildMonthLabels(DateTime calendarStart, int totalWeeks) {
-    int previousMonth = 0;
-
-    return SizedBox(
-      height: 28,
-      child: Row(
-        children: [
-          for (int week = 0; week < totalWeeks; week++)
-            Builder(
-              builder: (context) {
-                final weekStart = calendarStart.add(
-                  Duration(days: week * 7),
-                );
-
-                DateTime? monthStart;
-
-                for (int day = 0; day < 7; day++) {
-                  final date = weekStart.add(Duration(days: day));
-
-                  if (date.year == _year && date.day == 1) {
-                    monthStart = date;
-                    break;
-                  }
-                }
-
-                final month = monthStart?.month;
-
-                String label = '';
-
-                if (month != null && month != previousMonth) {
-                  previousMonth = month;
-                  label = _months[month - 1];
-                }
-
-                return SizedBox(
-                  width: _weekWidth,
-                  child: OverflowBox(
-                    alignment: Alignment.centerLeft,
-                    minWidth: 0,
-                    maxWidth: 75,
-                    child: Text(
-                      label,
-                      maxLines: 1,
-                      softWrap: false,
-                      style: TextStyle(
-                        color: Theme.of(context)
-                            .colorScheme
-                            .onSurface
-                            .withOpacity(0.65),
-                        fontSize: 11,
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-        ],
-      ),
-    );
-  }
-
-  // New: weekday labels.
-  Widget _buildWeekDayLabels(BuildContext context) {
+  // a month as a 7 column grid (Sunday first) that fills the given width
+  Widget _monthGrid(DateTime month, double width, {bool numbers = true, bool header = true}) {
+    final text = Theme.of(context).textTheme;
+    const gap = 4.0;
+    final size = (width - gap * 6) / 7;
+    final first = DateTime(month.year, month.month, 1);
+    final days = DateTime(month.year, month.month + 1, 0).day;
+    final lead = first.weekday % 7;
+    final cells = lead + days;
+    final rows = (cells / 7).ceil();
     return Column(
       children: [
-        const SizedBox(height: 28),
-        for (int i = 0; i < 7; i++)
-          Padding(
-            padding: const EdgeInsets.only(bottom: _boxGap),
-            child: SizedBox(
-              height: _boxSize,
-              width: 50,
-              child: Align(
-                alignment: Alignment.centerRight,
-                child: Text(
-                  i == 0 || i == 2 || i == 4 || i == 6
-                      ? _weekDays[i]
-                      : '',
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: Theme.of(context)
-                        .colorScheme
-                        .onSurface
-                        .withOpacity(0.6),
-                  ),
-                ),
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-
-  Widget _buildHeatmap(BuildContext context) {
-    final firstDay = DateTime(_year, 1, 1);
-    final lastDay = DateTime(_year, 12, 31);
-
-    final calendarStart = firstDay.subtract(
-      Duration(days: firstDay.weekday - 1),
-    );
-
-    final totalWeeks =
-        (lastDay.difference(calendarStart).inDays ~/ 7) + 1;
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: SingleChildScrollView(
-            controller: _scrollController,
-            scrollDirection: Axis.horizontal,
-            child: Directionality(
-              textDirection: TextDirection.ltr,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildMonthLabels(calendarStart, totalWeeks),
-
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      for (int week = 0; week < totalWeeks; week++)
-                        Padding(
-                          padding: const EdgeInsets.only(
-                            right: _boxGap,
-                          ),
-                          child: Column(
-                            children: [
-                              for (int day = 0; day < 7; day++)
-                                Padding(
-                                  padding: const EdgeInsets.only(
-                                    bottom: _boxGap,
-                                  ),
-                                  child: _dayBox(
-                                    context,
-                                    calendarStart.add(
-                                      Duration(
-                                        days: week * 7 + day,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-
-        const SizedBox(width: 10),
-
-        _buildWeekDayLabels(context),
-      ],
-    );
-  }
-
-  Widget _legendBox(BuildContext context, int completed) {
-    return Container(
-      width: 14,
-      height: 14,
-      decoration: BoxDecoration(
-        color: _activityColor(context, completed),
-        borderRadius: BorderRadius.circular(4),
-      ),
-    );
-  }
-
-  // New: statistics cards.
-  Widget _statCard(
-      BuildContext context,
-      IconData icon,
-      String value,
-      String title,
-      String subtitle,
-      Color iconColor,
-      ) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: Theme.of(context)
-              .dividerColor
-              .withOpacity(0.4),
-        ),
-      ),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 24,
-            backgroundColor: iconColor.withOpacity(0.12),
-            child: Icon(
-              icon,
-              color: iconColor,
-            ),
-          ),
-
-          const SizedBox(width: 12),
-
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  value,
-                  style: Theme.of(context)
-                      .textTheme
-                      .headlineSmall
-                      ?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-
-                const SizedBox(height: 3),
-
-                Text(
-                  title,
-                  style: Theme.of(context)
-                      .textTheme
-                      .bodyMedium
-                      ?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-
-                const SizedBox(height: 3),
-
-                Text(
-                  subtitle,
-                  style: Theme.of(context)
-                      .textTheme
-                      .bodySmall
-                      ?.copyWith(
-                    color: context.colors.inkMuted,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // New: selected day details.
-  Widget _selectedDayCard(BuildContext context) {
-    if (_selectedDate == null) {
-      return const SizedBox.shrink();
-    }
-
-    final date = _selectedDate!;
-    final dateString = _dateKey(date);
-    final completed = _activity[dateString] ?? 0;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: context.colors.primary.withOpacity(0.06),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: context.colors.primary.withOpacity(0.18),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              CircleAvatar(
-                backgroundColor:
-                context.colors.primary.withOpacity(0.12),
-                child: Icon(
-                  Icons.calendar_today_outlined,
-                  color: context.colors.primary,
-                ),
-              ),
-
-              const SizedBox(width: 10),
-
-              Expanded(
-                child: Text(
-                  '${date.day} ${_months[date.month - 1]} ${date.year}',
-                  style: Theme.of(context)
-                      .textTheme
-                      .titleMedium
-                      ?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-
-              IconButton(
-                tooltip: 'إغلاق',
-                onPressed: () {
-                  setState(() {
-                    _selectedDate = null;
-                  });
-                },
-                icon: const Icon(Icons.close),
-              ),
+        if (header)
+          Row(children: [
+            for (var i = 0; i < 7; i++) ...[
+              if (i > 0) const SizedBox(width: gap),
+              SizedBox(width: size, child: Text(_days[i], textAlign: TextAlign.center, style: text.labelSmall!.copyWith(fontSize: 11))),
             ],
-          ),
-
-          const SizedBox(height: 12),
-
-          Row(
-            children: [
-              Icon(
-                completed > 0
-                    ? Icons.check_circle
-                    : Icons.info_outline,
-                color: completed > 0
-                    ? context.colors.primary
-                    : context.colors.inkMuted,
-              ),
-
-              const SizedBox(width: 8),
-
-              Text(
-                completed > 0
-                    ? 'إنجازات هذا اليوم: $completed'
-                    : 'لا توجد إنجازات مسجلة في هذا اليوم',
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
+          ]),
+        if (header) const SizedBox(height: 6),
+        for (var r = 0; r < rows; r++) ...[
+          if (r > 0) const SizedBox(height: gap),
+          Row(children: [
+            for (var col = 0; col < 7; col++) ...[
+              if (col > 0) const SizedBox(width: gap),
+              Builder(builder: (_) {
+                final index = r * 7 + col - lead;
+                if (index < 0 || index >= days) return SizedBox(width: size, height: size);
+                return _square(DateTime(month.year, month.month, index + 1), size, number: numbers);
+              }),
             ],
-          ),
+          ]),
         ],
-      ),
+      ],
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.colors;
-
-    final activeDays =
-        _activity.values.where((completed) => completed > 0).length;
-
-    final totalCompleted = _activity.values.fold<int>(
-      0,
-          (sum, completed) => sum + completed,
-    );
-
-    final longestStreak = _longestStreak();
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(
-                  Icons.grid_view_rounded,
-                  color: colors.primary,
-                  size: 26,
-                ),
-
+    final c = context.colors;
+    final text = Theme.of(context).textTheme;
+    if (_loading) return const Padding(padding: EdgeInsets.all(Space.s5), child: Center(child: CircularProgressIndicator()));
+    if (_error) {
+      return Padding(
+        padding: const EdgeInsets.all(Space.s4),
+        child: Column(children: [
+          Text('ما قدرنا نجيب نشاطك', style: text.labelLarge),
+          TextButton.icon(onPressed: _loadActivity, icon: const Icon(Icons.refresh_rounded), label: const Text('حاول مرة ثانية')),
+        ]),
+      );
+    }
+    final (from, to) = _range;
+    var active = 0, total = 0, streak = 0, best = 0;
+    for (var d = from; !d.isAfter(to); d = d.add(const Duration(days: 1))) {
+      final n = _count(d);
+      total += n;
+      if (n > 0) {
+        active++;
+        streak++;
+        if (streak > best) best = streak;
+      } else if (!d.isAfter(_today)) {
+        streak = 0;
+      }
+    }
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(Space.s2, 0, Space.s2, Space.s2),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SegmentedPills<_Period>(
+            options: const [(_Period.week, 'أسبوع'), (_Period.month, 'شهر'), (_Period.year, 'سنة')],
+            value: _period,
+            onChanged: (p) => setState(() {
+              _period = p;
+              _anchor = _today;
+              _selected = null;
+            }),
+          ),
+          const SizedBox(height: Space.s3),
+          // ‹ the period ›
+          Row(
+            children: [
+              IconButton(tooltip: 'اللي قبل', onPressed: () => _move(-1), icon: const Icon(Icons.chevron_right_rounded)),
+              Expanded(child: Text(_title, textAlign: TextAlign.center, style: text.titleSmall)),
+              IconButton(tooltip: 'اللي بعد', onPressed: _canGoNext ? () => _move(1) : null, icon: const Icon(Icons.chevron_left_rounded)),
+            ],
+          ),
+          const SizedBox(height: Space.s2),
+          LayoutBuilder(builder: (context, box) {
+            final width = box.maxWidth;
+            switch (_period) {
+              case _Period.week:
+                const gap = 6.0;
+                final size = (width - gap * 6) / 7;
+                return Row(children: [
+                  for (var i = 0; i < 7; i++) ...[
+                    if (i > 0) const SizedBox(width: gap),
+                    Column(children: [
+                      Text(_days[i], style: text.labelSmall!.copyWith(fontSize: 11)),
+                      const SizedBox(height: 6),
+                      _square(from.add(Duration(days: i)), size),
+                    ]),
+                  ],
+                ]);
+              case _Period.month:
+                return _monthGrid(DateTime(_anchor.year, _anchor.month), width);
+              case _Period.year:
+                // 12 small months, 3 in a row, every square in sight
+                const gap = 12.0;
+                final cell = (width - gap * 2) / 3;
+                return Wrap(
+                  spacing: gap,
+                  runSpacing: gap,
+                  children: [
+                    for (var m = 1; m <= 12; m++)
+                      SizedBox(
+                        width: cell,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(_months[m - 1], style: text.labelSmall!.copyWith(fontWeight: FontWeight.w700)),
+                            const SizedBox(height: 4),
+                            _monthGrid(DateTime(_anchor.year, m), cell, numbers: false, header: false),
+                          ],
+                        ),
+                      ),
+                  ],
+                );
+            }
+          }),
+          const SizedBox(height: Space.s3),
+          // less -> more
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text('أقل', style: text.labelSmall),
+              const SizedBox(width: 6),
+              for (final n in const [0, 1, 2, 3, 4]) ...[
+                Container(width: 14, height: 14, decoration: BoxDecoration(color: _color(n), borderRadius: BorderRadius.circular(4))),
+                const SizedBox(width: 4),
+              ],
+              const SizedBox(width: 2),
+              Text('أكثر', style: text.labelSmall),
+            ],
+          ),
+          if (_selected != null) ...[
+            const SizedBox(height: Space.s3),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: c.primarySoft, borderRadius: BorderRadius.circular(Radii.md)),
+              child: Row(children: [
+                Icon(_count(_selected!) > 0 ? Icons.check_circle_rounded : Icons.remove_circle_outline_rounded, color: c.primary, size: 20),
                 const SizedBox(width: 8),
-
                 Expanded(
                   child: Text(
-                    'خريطة الإنجازات',
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleLarge
-                        ?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+                    '${arabicDigits(_selected!.day)} ${_months[_selected!.month - 1]} · '
+                    '${_count(_selected!) > 0 ? '${arabicDigits(_count(_selected!))} إنجاز' : 'ما فيه إنجاز'}',
+                    style: text.labelLarge,
                   ),
                 ),
-
-                IconButton(
-                  onPressed: _loading ? null : _loadActivity,
-                  icon: const Icon(Icons.refresh),
-                  tooltip: 'تحديث النشاط',
-                ),
-              ],
+              ]),
             ),
-
-            Text(
-              'نشاطك اليومي خلال سنة $_year',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: colors.inkMuted,
-              ),
-            ),
-
-            const SizedBox(height: 22),
-
-            if (_loading)
-              const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(20),
-                  child: CircularProgressIndicator(),
-                ),
-              )
-            else if (_error)
-              Center(
-                child: Column(
-                  children: [
-                    const Text('تعذر تحميل خريطة الإنجازات'),
-
-                    const SizedBox(height: 8),
-
-                    TextButton(
-                      onPressed: _loadActivity,
-                      child: const Text('إعادة المحاولة'),
-                    ),
-                  ],
-                ),
-              )
-            else ...[
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    final isWide = constraints.maxWidth >= 680;
-
-                    final cardWidth = isWide
-                        ? (constraints.maxWidth - 24) / 3
-                        : constraints.maxWidth;
-
-                    return Wrap(
-                      spacing: 12,
-                      runSpacing: 12,
-                      children: [
-                        SizedBox(
-                          width: cardWidth,
-                          child: _statCard(
-                            context,
-                            Icons.bar_chart_rounded,
-                            '$activeDays',
-                            'أيام نشطة',
-                            'خلال السنة',
-                            colors.primary,
-                          ),
-                        ),
-
-                        SizedBox(
-                          width: cardWidth,
-                          child: _statCard(
-                            context,
-                            Icons.check_circle_outline,
-                            '$totalCompleted',
-                            'إنجازات مسجلة',
-                            'إجمالي الإنجازات',
-                            colors.primary,
-                          ),
-                        ),
-
-                        SizedBox(
-                          width: cardWidth,
-                          child: _statCard(
-                            context,
-                            Icons.local_fire_department_outlined,
-                            '$longestStreak',
-                            'أطول سلسلة إنجاز',
-                            'يوم متتالي',
-                            Colors.deepOrange,
-                          ),
-                        ),
-                      ],
-                    );
-                  },
-                ),
-
-                const SizedBox(height: 22),
-
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    border: Border.all(
-                      color: Theme.of(context)
-                          .dividerColor
-                          .withOpacity(0.4),
-                    ),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildHeatmap(context),
-
-                      const SizedBox(height: 16),
-
-                      Wrap(
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        spacing: 5,
-                        runSpacing: 6,
-                        children: [
-                          const Text('أقل'),
-
-                          _legendBox(context, 0),
-                          _legendBox(context, 1),
-                          _legendBox(context, 2),
-                          _legendBox(context, 3),
-                          _legendBox(context, 4),
-
-                          const Text('أكثر'),
-                        ],
-                      ),
-
-                      const SizedBox(height: 12),
-
-                      Text(
-                        'اضغط على أي يوم لمعرفة إنجازاته، واسحب لاستعراض السنة',
-                        style: Theme.of(context)
-                            .textTheme
-                            .bodySmall
-                            ?.copyWith(
-                          color: colors.inkMuted,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                if (_selectedDate != null) ...[
-                  const SizedBox(height: 16),
-                  _selectedDayCard(context),
-                ],
-
-                const SizedBox(height: 16),
-
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(18),
-                  decoration: BoxDecoration(
-                    color: colors.primary.withOpacity(0.07),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Column(
-                    children: [
-                      Icon(
-                        Icons.eco_outlined,
-                        color: colors.primary,
-                        size: 36,
-                      ),
-
-                      const SizedBox(height: 8),
-
-                      Text(
-                        'استمر على هذا المنوال!',
-                        style: Theme.of(context)
-                            .textTheme
-                            .titleMedium
-                            ?.copyWith(
-                          color: colors.primary,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-
-                      const SizedBox(height: 6),
-
-                      Text(
-                        'كل يوم إنجاز يقربك أكثر من أهدافك.',
-                        textAlign: TextAlign.center,
-                        style: Theme.of(context)
-                            .textTheme
-                            .bodyMedium
-                            ?.copyWith(
-                          color: colors.inkMuted,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
           ],
-        ),
+          const SizedBox(height: Space.s3),
+          Row(
+            children: [
+              _Stat(icon: Icons.event_available_rounded, value: arabicDigits(active), label: 'يوم نشيط', color: c.accent),
+              _Stat(icon: Icons.task_alt_rounded, value: arabicDigits(total), label: 'إنجاز', color: c.success),
+              _Stat(icon: Icons.local_fire_department_rounded, value: arabicDigits(best), label: 'أطول سلسلة', color: c.urgent),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Stat extends StatelessWidget {
+  final IconData icon;
+  final String value;
+  final String label;
+  final Color color;
+
+  const _Stat({required this.icon, required this.value, required this.label, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    return Expanded(
+      child: Column(
+        children: [
+          Icon(icon, color: color, size: 22),
+          const SizedBox(height: 2),
+          Text(value, style: text.titleMedium!.copyWith(fontWeight: FontWeight.w800)),
+          Text(label, style: text.labelSmall!.copyWith(fontSize: 11), maxLines: 1, overflow: TextOverflow.ellipsis),
+        ],
       ),
     );
   }

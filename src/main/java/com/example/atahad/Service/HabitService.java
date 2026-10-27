@@ -48,7 +48,8 @@ public class HabitService {
         }
         habit.setMember(member);
         habit.setStatus("ACTIVE");
-        habit.setEffectiveFrom(LocalDate.now());
+        CommitmentService.checkStartDate(habit);
+        habit.setEffectiveFrom(habit.getStartDate() == null ? LocalDate.now() : habit.getStartDate());
         habit.setPendingTimesPerWeek(null);
         habit.setPendingBaseAmount(null);
         CommitmentService.checkTargets(habit);

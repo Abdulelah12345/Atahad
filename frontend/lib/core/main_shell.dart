@@ -80,12 +80,15 @@ class _MainShellState extends State<MainShell> {
   Widget _shell() {
     return Scaffold(
       body: IndexedStack(index: _index, children: _pages),
-      bottomNavigationBar: NavigationBar(
+      bottomNavigationBar: DecoratedBox(
+        // a thin line on top instead of a shadow (the design's tab bar)
+        decoration: BoxDecoration(border: Border(top: BorderSide(color: Theme.of(context).dividerColor))),
+        child: NavigationBar(
         selectedIndex: _index,
         onDestinationSelected: _select,
         destinations: [
-          const NavigationDestination(icon: Icon(Icons.today_outlined), selectedIcon: Icon(Icons.today), label: 'اليوم'),
-          const NavigationDestination(icon: Icon(Icons.assignment_outlined), selectedIcon: Icon(Icons.assignment), label: 'طلباتي'),
+          const NavigationDestination(icon: Icon(Icons.event_available_outlined), selectedIcon: Icon(Icons.event_available_rounded), label: 'اليوم'),
+          const NavigationDestination(icon: Icon(Icons.mail_outline_rounded), selectedIcon: Icon(Icons.mail_rounded), label: 'طلباتي'),
           NavigationDestination(
             // a red dot when something is new in one of my groups
             icon: ListenableBuilder(
@@ -98,8 +101,9 @@ class _MainShellState extends State<MainShell> {
             ),
             label: 'المجموعات',
           ),
-          const NavigationDestination(icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person), label: 'حسابي'),
+          const NavigationDestination(icon: Icon(Icons.person_outline_rounded), selectedIcon: Icon(Icons.person_rounded), label: 'حسابي'),
         ],
+      ),
       ),
     );
   }

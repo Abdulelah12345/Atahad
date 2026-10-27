@@ -46,17 +46,8 @@ class _StatsScreenState extends State<StatsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('مستواي ونقاطي'),
-        actions: [
-          IconButton(
-            tooltip: 'ملخص الشهر',
-            icon: const Icon(Icons.auto_awesome_outlined),
-            onPressed: () => context.push('/wrapped'),
-          ),
-        ],
-      ),
       body: AsyncView<JsonMap>(
         key: ValueKey(_version),
         load: _load,
@@ -64,30 +55,99 @@ class _StatsScreenState extends State<StatsScreen> {
           final s = data['stats'] as JsonMap;
           final grace = data['grace'] as List<JsonMap>;
           final points = data['points'] as List<JsonMap>;
+          final p = (s['points'] ?? 0) as int;
+          final toGrace = (s['pointsToGraceDay'] ?? 150) as int;
+          final available = (s['availableGraceDays'] ?? 0) as int;
+          final capacity = (s['graceDayCapacity'] ?? 0) as int;
           return RefreshIndicator(
             onRefresh: reload,
             child: ListView(
-              padding: const EdgeInsets.all(Space.s4),
+              padding: EdgeInsets.zero,
               children: [
-                _LevelCard(stats: s),
-                const SizedBox(height: Space.s3),
-                _PointsCard(stats: s, earning: _earning, onEarn: _earn),
-                SectionTitle('بطاقات العفو (${arabicDigits(s['availableGraceDays'] ?? 0)} من ${arabicDigits(s['graceDayCapacity'] ?? 0)})'),
-                Text('تنصرف تلقائياً أول ما تضيع مرة، وكل بطاقة تنتهي بعد ٤ أسابيع. بطاقة وحدة بالأسبوع.',
-                    style: Theme.of(context).textTheme.bodySmall),
-                const SizedBox(height: Space.s2),
-                if (grace.isEmpty)
-                  const AppCard(child: Text('ما عندك بطاقات عفو للحين.'))
-                else
-                  ...grace.map((g) => Padding(padding: const EdgeInsets.only(bottom: Space.s2), child: _GraceDayTile(day: g))),
-                const SectionTitle('سجل النقاط'),
-                if (points.isEmpty)
-                  const AppCard(child: Text('كل مرة ينقبل إثباتها = +١٠ نقاط.'))
-                else
-                  AppCard(
-                    padding: const EdgeInsets.symmetric(horizontal: Space.s4, vertical: Space.s2),
-                    child: Column(children: points.map((p) => _PointRow(log: p)).toList()),
+                _LevelHeader(stats: s),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(Space.s4, Space.s4, Space.s4, Space.s8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: _Tile(
+                              label: 'النقاط',
+                              value: Text(arabicDigits(p), style: _big(context, c.success)),
+                              footer: '${arabicDigits(toGrace.clamp(0, 150))} على بطاقة العفو الجاية',
+                              bar: (150 - toGrace).clamp(0, 150) / 150,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: _Tile(
+                              label: 'بطاقات العفو',
+                              value: Wrap(spacing: 4, runSpacing: 4, children: [
+                                for (var i = 0; i < (capacity < available ? available : capacity).clamp(1, 6); i++)
+                                  Icon(i < available ? Icons.confirmation_number_rounded : Icons.confirmation_number_outlined,
+                                      size: 26, color: i < available ? c.pardon : c.pardonSoft),
+                              ]),
+                              footer: '${arabicDigits(available)} من ${arabicDigits(capacity)} · بطاقة بالأسبوع',
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: _Tile(
+                              label: 'أسابيع كاملة',
+                              value: Text(arabicDigits(s['fullWeeks'] ?? 0), style: _big(context, c.ink)),
+                              footer: '${arabicDigits(s['activeCommitments'] ?? 0)} تعهّدات شغّالة',
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: _Tile(
+                              label: 'تبرّعت للخير',
+                              value: RiyalAmount(s['totalDonated'] as num?, style: _big(context, c.goldText)),
+                              footer: 'لإحسان وجمعيات الخير',
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (p >= 150) ...[
+                        const SizedBox(height: Space.s3),
+                        AtButton('بدّل ١٥٠ نقطة ببطاقة عفو',
+                            kind: AtButtonKind.outline,
+                            icon: const Icon(Icons.swap_horiz_rounded, size: 20),
+                            loading: _earning,
+                            onPressed: _earn),
+                      ],
+                      const SizedBox(height: Space.s4),
+                      FeatureBanner(
+                        icon: Icons.auto_awesome_rounded,
+                        title: 'ملخص الشهر',
+                        subtitle: 'شهرك في قصص',
+                        colors: [c.pardon, const Color(0xFF3A2A8F)],
+                        onTap: () => context.push('/wrapped'),
+                      ),
+                      SectionHeader('بطاقات العفو', count: arabicDigits(grace.length)),
+                      if (grace.isEmpty)
+                        _Quiet(icon: Icons.confirmation_number_outlined, line: 'كل ١٥٠ نقطة = بطاقة عفو')
+                      else
+                        ...grace.map((g) => Padding(padding: const EdgeInsets.only(bottom: Space.s2), child: _GraceDayTile(day: g))),
+                      SectionHeader('سجل النقاط', count: arabicDigits(points.length)),
+                      if (points.isEmpty)
+                        _Quiet(icon: Icons.stars_outlined, line: 'كل إثبات مقبول = +١٠')
+                      else
+                        AppCard(
+                          padding: const EdgeInsets.symmetric(horizontal: Space.s4, vertical: Space.s2),
+                          child: Column(children: points.map((p) => _PointRow(log: p)).toList()),
+                        ),
+                    ],
                   ),
+                ),
               ],
             ),
           );
@@ -97,93 +157,192 @@ class _StatsScreenState extends State<StatsScreen> {
   }
 }
 
-class _LevelCard extends StatelessWidget {
+TextStyle _big(BuildContext context, Color color) =>
+    Theme.of(context).textTheme.headlineMedium!.copyWith(color: color, fontWeight: FontWeight.w800, fontSize: 26, height: 1.3);
+
+// the navy top (design: Profile): back, my level big, the weeks to the next one, the four levels
+class _LevelHeader extends StatelessWidget {
   final JsonMap stats;
 
-  const _LevelCard({required this.stats});
+  const _LevelHeader({required this.stats});
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     final text = Theme.of(context).textTheme;
-    final s = stats;
-    final next = s['nextLevel'] as String?;
-    final toNext = (s['weeksToNextLevel'] ?? 0) as int;
-    final streak = (s['consecutiveWeeks'] ?? 0) as int;
-    return AppCard(
+    const ink = Color(0xFFEDF1FA);
+    const soft = Color(0xFFB7C5E8);
+    final level = stats['level'] as String?;
+    final next = stats['nextLevel'] as String?;
+    final toNext = (stats['weeksToNextLevel'] ?? 0) as int;
+    final streak = (stats['consecutiveWeeks'] ?? 0) as int;
+    final reached = levelOrder.indexOf(level ?? '');
+    final progress = next == null ? 1.0 : (streak / (streak + toNext).clamp(1, 999)).clamp(0, 1).toDouble();
+    return Container(
+      decoration: BoxDecoration(color: c.deep, borderRadius: const BorderRadius.vertical(bottom: Radius.circular(28))),
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(Space.s4, Space.s3, Space.s4, 22),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Material(
+                    color: c.deepRaised,
+                    borderRadius: BorderRadius.circular(14),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(14),
+                      onTap: () => Navigator.maybePop(context),
+                      child: const SizedBox(width: 44, height: 44, child: Icon(Icons.arrow_back_rounded, color: ink)),
+                    ),
+                  ),
+                  const SizedBox(width: Space.s3),
+                  Text('مستواي', style: text.headlineSmall!.copyWith(color: ink, fontWeight: FontWeight.w800)),
+                ],
+              ),
+              const SizedBox(height: Space.s5),
+              Row(
+                children: [
+                  Container(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      boxShadow: [BoxShadow(color: c.deep, spreadRadius: 5), const BoxShadow(color: Color(0xFF8FB4FF), spreadRadius: 9)],
+                    ),
+                    child: LevelBadge(level, size: 84, showName: false),
+                  ),
+                  const SizedBox(width: Space.s5),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(levelsAr[level] ?? '${level ?? '-'}', style: text.headlineMedium!.copyWith(color: ink, fontWeight: FontWeight.w800)),
+                        Text(streak > 0 ? '${arabicDigits(streak)} أسابيع كاملة ورا بعض' : 'أول أسبوع كامل يبدأ عدّادك',
+                            style: text.labelSmall!.copyWith(color: soft)),
+                        const SizedBox(height: 8),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(Radii.full),
+                          child: TweenAnimationBuilder<double>(
+                            tween: Tween(begin: 0, end: progress),
+                            duration: Motion.reward,
+                            curve: Motion.easeOut,
+                            builder: (context, v, _) => LinearProgressIndicator(
+                              value: v,
+                              minHeight: 8,
+                              backgroundColor: c.deepRaised,
+                              valueColor: const AlwaysStoppedAnimation(Color(0xFF8FB4FF)),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          next == null ? 'أعلى مستوى، كفو' : '${arabicDigits(toNext)} أسابيع وتصير «${levelsAr[next] ?? next}»',
+                          style: text.labelSmall!.copyWith(color: const Color(0xFFE3EAFB)),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: Space.s5),
+              // the ladder
+              Row(
+                children: [
+                  for (final (i, l) in levelOrder.indexed)
+                    Expanded(
+                      child: Column(
+                        children: [
+                          Opacity(
+                            opacity: i > reached ? 0.55 : 1,
+                            child: Container(
+                              decoration: i == reached
+                                  ? const BoxDecoration(shape: BoxShape.circle, boxShadow: [BoxShadow(color: Color(0xFF8FB4FF), spreadRadius: 3)])
+                                  : null,
+                              child: LevelBadge(l, size: 34, showName: false, dimmed: i > reached),
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(levelsAr[l] ?? l,
+                              style: text.labelSmall!.copyWith(
+                                fontSize: 11,
+                                color: i == reached ? Colors.white : soft,
+                                fontWeight: i == reached ? FontWeight.w700 : FontWeight.w500,
+                              )),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// a white stat card: a small label, a big value, one short line, maybe a bar
+class _Tile extends StatelessWidget {
+  final String label;
+  final Widget value;
+  final String footer;
+  final double? bar;
+
+  const _Tile({required this.label, required this.value, required this.footer, this.bar});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final text = Theme.of(context).textTheme;
+    return Container(
+      constraints: const BoxConstraints(minHeight: 128),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: c.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: c.line),
+        boxShadow: [BoxShadow(color: c.line, offset: const Offset(0, 3))],
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Expanded(child: Text(levelsAr[s['level']] ?? '${s['level']}', style: text.headlineMedium)),
-              StatusBadge('${arabicDigits(streak)} أسابيع متتالية', kind: BadgeKind.brand),
-            ],
-          ),
-          const SizedBox(height: Space.s4),
-          // the whole ladder, the current level highlighted
-          LevelLadder(current: s['level'] as String?),
-          const SizedBox(height: Space.s4),
-          if (next != null) ...[
-            RewardProgress(
-              label: 'المستوى الجاي: ${levelsAr[next] ?? next}',
-              current: streak,
-              target: streak + toNext,
-              pardon: false,
+          Text(label, style: text.labelSmall),
+          const SizedBox(height: 4),
+          value,
+          if (bar != null) ...[
+            const SizedBox(height: 6),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(Radii.full),
+              child: LinearProgressIndicator(value: bar, minHeight: 6, backgroundColor: c.surfaceSunken, valueColor: AlwaysStoppedAnimation(c.accent)),
             ),
-            const SizedBox(height: Space.s2),
           ],
-          Text(
-            next == null
-                ? 'وصلت أعلى مستوى 💪 لك تعهد واحد بدون حجز.'
-                : 'باقي ${arabicDigits(toNext)} أسابيع كاملة وتصير ${levelsAr[next] ?? next}. أسبوع فيه تقصير ينزّلك مستوى.',
-            style: text.bodySmall,
-          ),
-          const SizedBox(height: Space.s3),
-          InfoRow('أسابيع كاملة', Text(arabicDigits(s['fullWeeks'] ?? 0), style: text.labelLarge)),
-          InfoRow('تعهّدات شغّالة', Text(arabicDigits(s['activeCommitments'] ?? 0), style: text.labelLarge)),
-          InfoRow('تبرعت لإحسان', RiyalAmount(s['totalDonated'] as num?, style: text.titleSmall)),
+          const SizedBox(height: 6),
+          Text(footer, style: text.labelSmall!.copyWith(fontSize: 11)),
         ],
       ),
     );
   }
 }
 
-class _PointsCard extends StatelessWidget {
-  final JsonMap stats;
-  final bool earning;
-  final VoidCallback onEarn;
+// an empty list: an icon and one line
+class _Quiet extends StatelessWidget {
+  final IconData icon;
+  final String line;
 
-  const _PointsCard({required this.stats, required this.earning, required this.onEarn});
+  const _Quiet({required this.icon, required this.line});
 
   @override
   Widget build(BuildContext context) {
-    final text = Theme.of(context).textTheme;
     final c = context.colors;
-    final points = (stats['points'] ?? 0) as int;
-    final toGrace = (stats['pointsToGraceDay'] ?? 150) as int;
-    // the automatic switch stops when the member is full, then he can switch by himself
-    final canSwitch = points >= 150;
-    return AppCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return Container(
+      padding: const EdgeInsets.all(Space.s4),
+      decoration: BoxDecoration(color: c.surface, borderRadius: BorderRadius.circular(Radii.card), border: Border.all(color: c.line)),
+      child: Row(
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(arabicDigits(points), style: text.titleLarge!.copyWith(color: c.primary)),
-              const SizedBox(width: Space.s2),
-              Padding(padding: const EdgeInsets.only(bottom: Space.s2), child: Text('نقطة', style: text.bodySmall)),
-            ],
-          ),
-          const SizedBox(height: Space.s2),
-          // points are not money: the pardon purple, never gold
-          RewardProgress(label: 'بطاقة العفو الجاية', current: (150 - toGrace).clamp(0, 150), target: 150),
-          const SizedBox(height: Space.s1),
-          Text('كل إثبات مقبول +١٠، وكل ١٥٠ نقطة بطاقة عفو.', style: text.labelSmall),
-          if (canSwitch) ...[
-            const SizedBox(height: Space.s3),
-            AtButton('بدّل ١٥٠ نقطة ببطاقة عفو', kind: AtButtonKind.outline, loading: earning, onPressed: onEarn),
-          ],
+          IconTile(icon, size: 40, fg: c.inkSubtle, bg: c.surfaceSunken),
+          const SizedBox(width: Space.s3),
+          Expanded(child: Text(line, style: Theme.of(context).textTheme.labelLarge!.copyWith(color: c.inkMuted))),
         ],
       ),
     );

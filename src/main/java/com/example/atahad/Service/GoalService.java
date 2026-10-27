@@ -62,10 +62,11 @@ public class GoalService {
         }
         goal.setMember(member);
         goal.setStatus("ACTIVE");
-        goal.setEffectiveFrom(LocalDate.now());
+        CommitmentService.checkStartDate(goal);
+        goal.setEffectiveFrom(startOf(goal));
         goal.setBaseAmount(null); // goals use the amount of each task
         goal.setPendingBaseAmount(null);
-        goal.setEndDate(calculateEndDate(goal.getTotalWeeks()));
+        goal.setEndDate(calculateEndDate(goal.getTotalWeeks(), startOf(goal)));
         CommitmentService.checkTargets(goal);
         goalRepository.save(goal);
     }
@@ -83,8 +84,8 @@ public class GoalService {
         if(goalTaskRepository.findGoalTasksByGoalAndWeekNumber(goal, 1).isEmpty()){
             throw new ApiException("Add the tasks of week 1 first");
         }
-        goal.setEffectiveFrom(LocalDate.now());
-        goal.setEndDate(calculateEndDate(goal.getTotalWeeks()));
+        goal.setEffectiveFrom(startOf(goal));
+        goal.setEndDate(calculateEndDate(goal.getTotalWeeks(), startOf(goal)));
         goalRepository.save(goal);
 
         commitmentWeekService.startFirstWeek(goal);
@@ -95,7 +96,14 @@ public class GoalService {
         if(memberRepository.findMemberById(memberId) == null){
             throw new ApiException("Member not found");
         }
-        LocalDate today = LocalDate.now();
+        // the plan counts its weeks from the start day (today, or a later day the member chose)
+        LocalDate today = dto.getStartDate() != null && dto.getStartDate().isAfter(LocalDate.now()) ? dto.getStartDate() : LocalDate.now();
+        if(dto.getStartDate() != null && dto.getStartDate().isBefore(LocalDate.now())){
+            throw new ApiException("Start date cannot be in the past");
+        }
+        if(dto.getEndDate().isBefore(today)){
+            throw new ApiException("End date must be on or after the start date");
+        }
         LocalDate firstSaturday = today.with(TemporalAdjusters.nextOrSame(DayOfWeek.SATURDAY));
         LocalDate lastSaturday = dto.getEndDate().with(TemporalAdjusters.nextOrSame(DayOfWeek.SATURDAY));
         int totalWeeks = (int) ChronoUnit.WEEKS.between(firstSaturday, lastSaturday) + 1;
@@ -165,6 +173,7 @@ public class GoalService {
         goal.setTargetPlaceName(dto.getTargetPlaceName());
         goal.setTargetMinutes(dto.getTargetMinutes());
         goal.setTotalWeeks(dto.getWeeks().size());
+        goal.setStartDate(dto.getStartDate());
         addGoal(memberId, goal);
 
         int weekNumber = 1;
@@ -200,7 +209,7 @@ public class GoalService {
         if(!hasStarted(oldGoal)){
             oldGoal.setProofMethod(goal.getProofMethod());
             oldGoal.setTotalWeeks(goal.getTotalWeeks());
-            oldGoal.setEndDate(calculateEndDate(goal.getTotalWeeks()));
+            oldGoal.setEndDate(calculateEndDate(goal.getTotalWeeks(), startOf(oldGoal)));
         }else{
             if(!oldGoal.getProofMethod().equals(goal.getProofMethod())){
                 throw new ApiException("Proof method cannot change after the goal starts");
@@ -260,9 +269,14 @@ public class GoalService {
     }
 
     // the first week ends this saturday, the last week ends after the rest of the weeks
-    private LocalDate calculateEndDate(Integer totalWeeks){
-        LocalDate firstSaturday = LocalDate.now().with(TemporalAdjusters.nextOrSame(DayOfWeek.SATURDAY));
+    private LocalDate calculateEndDate(Integer totalWeeks, LocalDate start){
+        LocalDate firstSaturday = start.with(TemporalAdjusters.nextOrSame(DayOfWeek.SATURDAY));
         return firstSaturday.plusWeeks(totalWeeks - 1);
+    }
+
+    // the day week 1 starts (today when no later day was chosen)
+    private LocalDate startOf(Goal goal){
+        return goal.getStartDate() == null ? LocalDate.now() : goal.getStartDate();
     }
 
     // true when week 1 was started

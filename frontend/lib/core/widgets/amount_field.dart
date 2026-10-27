@@ -32,8 +32,7 @@ class AmountField extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(label, style: text.labelLarge),
-        const SizedBox(height: 8),
+        if (label.isNotEmpty) ...[Text(label, style: text.labelLarge), const SizedBox(height: 8)],
         TextFormField(
           controller: controller,
           enabled: enabled,

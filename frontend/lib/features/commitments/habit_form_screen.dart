@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/api/api_client.dart';
+import '../../core/theme/at_colors.dart';
 import '../../core/theme/at_tokens.dart';
 import '../../core/utils/format.dart';
 import '../../core/widgets/widgets.dart';
@@ -30,6 +31,7 @@ class _HabitFormScreenState extends State<HabitFormScreen> {
   late final WalkingDraft _walking;
   String _proofMethod = 'PHOTO';
   int _times = 3;
+  DateTime _start = dateOnly(DateTime.now()); // a new habit starts today or later
   Set<String> _days = {};
   bool _busy = false;
 
@@ -120,6 +122,7 @@ class _HabitFormScreenState extends State<HabitFormScreen> {
       'timesPerWeek': _times,
       'baseAmount': double.parse(normalizeWalkingNumber(_amount.text)),
       'plannedDays': _days.toList(),
+      if (!_editing && _start.isAfter(dateOnly(DateTime.now()))) 'startDate': isoDate(_start),
       ..._target.toCommitmentJson(_proofMethod),
       if (_proofMethod == 'STEPS') ..._walking.toJson(),
     };
@@ -136,7 +139,8 @@ class _HabitFormScreenState extends State<HabitFormScreen> {
             _proofMethod == 'LOCATION' &&
             (t['targetLatitude'] != h['targetLatitude'] ||
                 t['targetLongitude'] != h['targetLongitude'] ||
-                (t['targetPlaceName'] ?? '') != (h['targetPlaceName'] ?? ''));
+                (t['targetPlaceName'] ?? '') != (h['targetPlaceName'] ?? '') ||
+                t['targetRadiusMeters'] != h['targetRadiusMeters']);
         final minutesChanged =
             _proofMethod == 'TIMER' && t['targetMinutes'] != h['targetMinutes'];
         if (placeChanged) {
@@ -144,6 +148,7 @@ class _HabitFormScreenState extends State<HabitFormScreen> {
             'latitude': t['targetLatitude'],
             'longitude': t['targetLongitude'],
             'placeName': t['targetPlaceName'],
+            if (t['targetRadiusMeters'] != null) 'radiusMeters': t['targetRadiusMeters'],
           });
         } else if (minutesChanged) {
           await _api.setTarget(id, {'minutes': t['targetMinutes']});
@@ -155,7 +160,9 @@ class _HabitFormScreenState extends State<HabitFormScreen> {
       showMessage(
         context,
         !_editing
-            ? 'بدأت العادة، الأسبوع يبدأ من اليوم. تقدر تعدّلها أو تحذفها خلال ساعة.'
+            ? (_start.isAfter(dateOnly(DateTime.now()))
+                ? 'تمام، العادة تبدأ ${weekDaysAr[_start.weekday % 7]} ${arabicDigits(isoDate(_start))}.'
+                : 'بدأت العادة من اليوم. تقدر تعدّلها أو تحذفها خلال ساعة.')
             : _firstHour
                 ? 'تم الحفظ، والتغيير يبدأ من هالأسبوع.'
                 : 'تم الحفظ. تغيير المرات والمبلغ يبدأ من الأسبوع الجاي.',
@@ -233,58 +240,91 @@ class _HabitFormScreenState extends State<HabitFormScreen> {
   }
 
   Widget _formStep(BuildContext context, TextTheme text, double amount) {
+    final c = context.colors;
+    // the steps only for a walking habit (a reading habit never sees it), and they cannot be added or removed after it starts
+    final methods = [
+      'PHOTO',
+      'TIMER',
+      'QUIZ',
+      'LOCATION',
+      if (_proofMethod == 'STEPS' || (!_editing && isWalkingTitle(_title.text))) 'STEPS',
+    ];
+    Widget label(String title, {String? hint}) => Padding(
+          padding: const EdgeInsets.only(top: Space.s5, bottom: Space.s2),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(title, style: text.labelLarge),
+              if (hint != null) ...[
+                const SizedBox(width: 6),
+                Expanded(child: Text(hint, style: text.labelSmall, maxLines: 1, overflow: TextOverflow.ellipsis)),
+              ],
+            ],
+          ),
+        );
     return Scaffold(
-      appBar: AppBar(title: Text(_editing ? 'تعديل العادة' : 'عادة جديدة')),
+      appBar: AppBar(
+        title: Text(_editing ? 'تعديل العادة' : 'عادة جديدة'),
+        leading: IconButton(
+          tooltip: 'إغلاق',
+          icon: const Icon(Icons.close_rounded),
+          onPressed: () => Navigator.of(context).maybePop(),
+        ),
+      ),
       body: Form(
         key: _form,
         child: ListView(
-          padding: const EdgeInsets.all(Space.s4),
+          padding: const EdgeInsets.fromLTRB(Space.s4, 0, Space.s4, Space.s6),
           children: [
+            label('وش العادة؟'),
             TextFormField(
               controller: _title,
               maxLength: 100,
-              decoration: const InputDecoration(
-                labelText: 'وش العادة؟',
-                hintText: 'النادي',
-              ),
+              decoration: const InputDecoration(hintText: 'النادي', counterText: ''),
               onChanged: _editing ? null : _suggestMethod,
-              validator: (v) =>
-                  (v == null || v.trim().isEmpty) ? 'اكتب اسم العادة' : null,
+              validator: (v) => (v == null || v.trim().isEmpty) ? 'اكتب اسم العادة' : null,
             ),
-            const SizedBox(height: Space.s3),
-            DropdownButtonFormField<String>(
-              key: ValueKey(_proofMethod),
-              initialValue: _proofMethod,
-              decoration: InputDecoration(
-                labelText: 'طريقة الإثبات',
-                helperText: !_editing
-                    ? null
-                    : _methodLocked
-                        ? 'ما تتغير بعد أول ساعة من إنشاء العادة'
-                        : 'تقدر تغيّرها أول ساعة (باقي ${arabicDigits(_minutesLeft)} دقيقة)',
-              ),
-              // the steps only for a walking habit (a reading habit never sees it), and they cannot be added or removed after it starts
-              items: {
-                ...proofMethodsAr,
-                if (_proofMethod == 'STEPS' || (!_editing && isWalkingTitle(_title.text))) 'STEPS': 'مجموع خطوات اليوم',
-              }.entries
-                  .map(
-                    (e) => DropdownMenuItem(value: e.key, child: Text(e.value)),
-                  )
-                  .toList(),
+            if (!_editing) ...[
+              label('متى تبدأ؟'),
+              StartDatePicker(value: _start, onChanged: (d) => setState(() => _start = d)),
+            ],
+            label('كم مرة بالأسبوع؟'),
+            NumberRow(
+              value: _times,
+              // any number of times, walking too (it starts at 7, every day, and stays editable)
+              onChanged: (v) => setState(() => _times = v),
+            ),
+            label('أيام التذكير', hint: 'اختياري'),
+            PlannedDaysPicker(selected: _days, onChanged: (v) => setState(() => _days = v)),
+            label('كم تتعهّد لكل مرة؟', hint: 'أقل شي ٥'),
+            AmountChips(controller: _amount, onChanged: () => setState(() {})),
+            label(
+              'كيف تثبت؟',
+              hint: !_editing
+                  ? null
+                  : _methodLocked
+                      ? 'ثابتة بعد أول ساعة'
+                      : 'تتغير خلال ${arabicDigits(_minutesLeft)} دقيقة',
+            ),
+            ProofMethodGrid(
+              methods: methods,
+              value: _proofMethod,
               onChanged: _methodLocked
                   ? null
                   : (v) => setState(() {
-                      _methodPicked = true;
-                      _proofMethod = v ?? _proofMethod;
-                      if (v == 'STEPS') {
-                        _times = 7;
-                        if (_title.text.isEmpty) _title.text = 'المشي اليومي';
-                      }
-                    }),
+                        _methodPicked = true;
+                        _proofMethod = v;
+                        if (v == 'STEPS') {
+                          _times = 7;
+                          if (_title.text.isEmpty) _title.text = 'المشي اليومي';
+                        }
+                        if (v == 'TIMER' && _target.minutes.text.isEmpty) _target.minutes.text = '30';
+                      }),
             ),
-            const SizedBox(height: Space.s3),
-            TargetFields(proofMethod: _proofMethod, draft: _target),
+            if (_proofMethod == 'LOCATION' || _proofMethod == 'TIMER') ...[
+              const SizedBox(height: Space.s3),
+              TargetFields(proofMethod: _proofMethod, draft: _target),
+            ],
             if (_proofMethod == 'STEPS')
               WalkingSetup(
                 draft: _walking,
@@ -295,52 +335,29 @@ class _HabitFormScreenState extends State<HabitFormScreen> {
                   _target.minutes.text = '30';
                 }),
               ),
-            const SizedBox(height: Space.s4),
+          ],
+        ),
+      ),
+      // the cost of the week and the promise, always at hand
+      bottomNavigationBar: Container(
+        padding: EdgeInsets.fromLTRB(Space.s4, 14, Space.s4, 14 + MediaQuery.of(context).padding.bottom),
+        decoration: BoxDecoration(
+          color: c.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(Radii.xl)),
+          boxShadow: const [BoxShadow(color: Color(0x1410245E), blurRadius: 20, offset: Offset(0, -6))],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
             Row(
               children: [
-                Expanded(
-                  child: Text('كم مرة بالأسبوع؟', style: text.titleSmall),
-                ),
-                TimesStepper(
-                  value: _times,
-                  onChanged: (v) => setState(() => _times = v),
-                ),
+                Expanded(child: Text('أقصى خصم بالأسبوع', style: text.labelMedium!.copyWith(color: c.inkMuted))),
+                RiyalAmount(_times * amount, style: text.titleMedium!.copyWith(color: c.goldText, fontWeight: FontWeight.w800)),
               ],
             ),
-            const SizedBox(height: Space.s4),
-            AmountField(
-              controller: _amount,
-              label: 'المبلغ لكل مرة تفوتك',
-              hint: 'لو فاتتك كلها: ${money(amount * _times)} ريال صدقة بالأسبوع. أقل مبلغ ٥ ريال.',
-              onChanged: (_) => setState(() {}),
-              validator: (v) {
-                final value = double.tryParse(normalizeWalkingNumber(v ?? ''));
-                if (value == null) return 'اكتب المبلغ';
-                if (value < 5) return 'أقل مبلغ ٥ ريال';
-                return null;
-              },
-            ),
-            const SizedBox(height: Space.s4),
-            Text('أيام التخطيط (للتذكير بس، اختياري)', style: text.titleSmall),
-            const SizedBox(height: Space.s2),
-            PlannedDaysPicker(
-              selected: _days,
-              onChanged: (v) => setState(() => _days = v),
-            ),
-            const SizedBox(height: Space.s5),
-            AppCard(
-              child: InfoRow(
-                'أقصى خسارة بالأسبوع = ${arabicDigits(_times)} × ${money(amount)}',
-                RiyalAmount(_times * amount),
-              ),
-            ),
-            const SizedBox(height: Space.s5),
-            AtButton(
-              _editing ? 'احفظ' : 'التزم',
-              kind: AtButtonKind.gold,
-              loading: _busy,
-              onPressed: _save,
-            ),
+            const SizedBox(height: 10),
+            AtButton(_editing ? 'احفظ' : 'أتعهّد بهالعادة', loading: _busy, onPressed: _save),
           ],
         ),
       ),

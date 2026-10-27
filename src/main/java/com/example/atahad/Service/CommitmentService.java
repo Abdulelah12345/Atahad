@@ -111,6 +111,24 @@ public class CommitmentService {
         );
     }
 
+    // the start day: today (null) or a later day, within a year
+    public static void checkStartDate(Commitment commitment){
+        LocalDate start = commitment.getStartDate();
+        LocalDate today = LocalDate.now();
+        if(start == null){
+            return;
+        }
+        if(start.isBefore(today)){
+            throw new ApiException("Start date cannot be in the past");
+        }
+        if(start.isAfter(today.plusYears(1))){
+            throw new ApiException("Start date must be within a year");
+        }
+        if(!start.isAfter(today)){
+            commitment.setStartDate(null); // today is the same as now
+        }
+    }
+
     // LOCATION needs its place and TIMER its minutes, the proof is checked against them
     public static void checkTargets(Commitment commitment){
         if("STEPS".equals(commitment.getProofMethod())) {

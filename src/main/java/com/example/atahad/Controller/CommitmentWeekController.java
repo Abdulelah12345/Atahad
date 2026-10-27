@@ -41,10 +41,11 @@ public class CommitmentWeekController {
         return ResponseEntity.status(200).body(commitmentWeekService.getToday(user.getId()));
     }
 
-    // postpone inside this week (habits), it only moves the reminders
+    // postpone inside this week (a habit, or one task of a goal with ?goalTaskId=), it only moves the reminders
     @PutMapping("/changePlan/{weekId}")
-    public ResponseEntity<?> changeThisWeekPlan(@AuthenticationPrincipal User user, @PathVariable Integer weekId, @RequestBody Set<String> plannedDays){
-        commitmentWeekService.changeThisWeekPlan(user.getId(), weekId, plannedDays);
+    public ResponseEntity<?> changeThisWeekPlan(@AuthenticationPrincipal User user, @PathVariable Integer weekId,
+                                                @RequestParam(required = false) Integer goalTaskId, @RequestBody Set<String> plannedDays){
+        commitmentWeekService.changeThisWeekPlan(user.getId(), weekId, goalTaskId, plannedDays);
         return ResponseEntity.status(200).body(new ApiResponse("This week plan updated"));
     }
 

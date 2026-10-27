@@ -5,6 +5,8 @@ export 'app_logo.dart';
 export 'at_button.dart';
 export 'commitment_card.dart';
 export 'game.dart';
+export 'kit.dart';
+export 'place_map.dart';
 export 'quest_card.dart';
 export 'riyal.dart';
 export 'splash_gate.dart';

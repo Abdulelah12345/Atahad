@@ -67,9 +67,9 @@ class _GoalScreenState extends State<GoalScreen> {
         actions: [
           PopupMenuButton<String>(
             onSelected: (v) => v == 'withdraw' ? _withdraw() : _delete(),
-            itemBuilder: (context) => const [
-              PopupMenuItem(value: 'withdraw', child: Text('انسحب')),
-              PopupMenuItem(value: 'delete', child: Text('احذف')),
+            itemBuilder: (context) => [
+              menuItem(context, 'withdraw', Icons.directions_walk_rounded, 'انسحب'),
+              menuItem(context, 'delete', Icons.delete_outline_rounded, 'احذف', danger: true),
             ],
           ),
         ],
@@ -85,7 +85,8 @@ class _GoalScreenState extends State<GoalScreen> {
             child: ListView(
               padding: const EdgeInsets.all(Space.s4),
               children: [
-                _ProgressCard(progress: p),
+                _JourneyHeader(progress: p),
+                const SizedBox(height: Space.s4),
                 ..._weeks(context, tasks, (p['currentWeek'] ?? 0) as int),
               ],
             ),
@@ -95,55 +96,31 @@ class _GoalScreenState extends State<GoalScreen> {
     );
   }
 
+  // the journey (design: GoalJourney): one stage per week on a line, done ones checked, this week raised
   List<Widget> _weeks(BuildContext context, List<JsonMap> tasks, int currentWeek) {
-    final text = Theme.of(context).textTheme;
     final byWeek = <int, List<JsonMap>>{};
     for (final t in tasks) {
       byWeek.putIfAbsent((t['weekNumber'] ?? 0) as int, () => []).add(t);
     }
     final weeks = byWeek.keys.toList()..sort();
     return [
-      for (final week in weeks) ...[
-        SectionTitle(
-          'الأسبوع ${arabicDigits(week)}',
-          trailing: week == currentWeek
-              ? const StatusBadge('هالأسبوع', kind: BadgeKind.info)
-              : week < currentWeek
-                  ? const StatusBadge('خلص')
-                  : null,
+      for (final (i, week) in weeks.indexed)
+        _Stage(
+          week: week,
+          tasks: byWeek[week]!,
+          state: week < currentWeek ? _StageState.done : (week == currentWeek ? _StageState.now : _StageState.later),
+          last: i == weeks.length - 1,
         ),
-        for (final t in byWeek[week]!)
-          Padding(
-            padding: const EdgeInsets.only(bottom: Space.s2),
-            child: AppCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(child: Text('${t['title']}', style: text.titleSmall)),
-                      if (week == currentWeek && t['trackStatus'] != null) StatusBadge.track(t['trackStatus'] as String?),
-                    ],
-                  ),
-                  const SizedBox(height: Space.s1),
-                  InfoRow(
-                    'سوّيت ${arabicDigits(t['completedCount'] ?? 0)} من ${arabicDigits(t['timesPerWeek'])}'
-                    '${(t['excusedCount'] ?? 0) > 0 ? ' (معذور ${arabicDigits(t['excusedCount'])})' : ''}',
-                    RiyalAmount(t['amountPerTime'] as num?, style: text.titleSmall),
-                  ),
-                ],
-              ),
-            ),
-          ),
-      ],
     ];
   }
 }
 
-class _ProgressCard extends StatelessWidget {
+enum _StageState { done, now, later }
+
+class _JourneyHeader extends StatelessWidget {
   final JsonMap progress;
 
-  const _ProgressCard({required this.progress});
+  const _JourneyHeader({required this.progress});
 
   @override
   Widget build(BuildContext context) {
@@ -152,44 +129,213 @@ class _ProgressCard extends StatelessWidget {
     final p = progress;
     final percent = ((p['percent'] ?? 0) as num).toDouble().clamp(0, 100);
     final currentWeek = (p['currentWeek'] ?? 0) as int;
-    return AppCard(
+    final total = (p['totalWeeks'] ?? 0) as int;
+    return Container(
+      padding: const EdgeInsets.all(Space.s4),
+      decoration: BoxDecoration(
+        color: c.surface,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: c.line),
+        boxShadow: [BoxShadow(color: c.line, offset: const Offset(0, 3))],
+      ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
             children: [
-              Expanded(child: Text('${p['title'] ?? ''}', style: text.headlineSmall)),
-              commitmentStatusBadge(p['status'] as String?),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (p['endDate'] != null)
+                      Row(children: [
+                        Icon(Icons.flag_rounded, size: 15, color: c.accent),
+                        const SizedBox(width: 4),
+                        Text('ينتهي ${arabicDigits(p['endDate'])}', style: text.labelSmall),
+                      ]),
+                    const SizedBox(height: 2),
+                    Text('${p['title'] ?? ''}', style: text.headlineSmall!.copyWith(fontWeight: FontWeight.w800)),
+                    const SizedBox(height: 2),
+                    commitmentStatusBadge(p['status'] as String?),
+                  ],
+                ),
+              ),
+              const SizedBox(width: Space.s3),
+              // the ring: this week out of all of them
+              SizedBox(
+                width: 64,
+                height: 64,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    TweenAnimationBuilder<double>(
+                      tween: Tween(begin: 0, end: percent / 100),
+                      duration: Motion.reward,
+                      curve: Motion.easeOut,
+                      builder: (context, v, _) => CircularProgressIndicator(
+                        value: v,
+                        strokeWidth: 6,
+                        strokeCap: StrokeCap.round,
+                        backgroundColor: c.surfaceSunken,
+                        valueColor: AlwaysStoppedAnimation(c.accent),
+                      ),
+                    ),
+                    Center(
+                      child: Text(
+                        currentWeek == 0 ? '٠/${arabicDigits(total)}' : '${arabicDigits(currentWeek)}/${arabicDigits(total)}',
+                        style: text.titleSmall!.copyWith(fontWeight: FontWeight.w800),
+                        textDirection: TextDirection.ltr,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
           const SizedBox(height: Space.s3),
           Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text('${arabicDigits(percent.round())}٪', style: text.titleLarge!.copyWith(color: c.primary)),
-              const SizedBox(width: Space.s2),
-              Padding(
-                padding: const EdgeInsets.only(bottom: Space.s2),
-                child: Text('من المطلوب لين الحين', style: text.bodySmall),
-              ),
+              _Mini(icon: Icons.task_alt_rounded, value: '${arabicDigits(p['totalCompleted'] ?? 0)}/${arabicDigits(p['totalRequired'] ?? 0)}', label: 'مرة'),
+              _Mini(icon: Icons.workspace_premium_rounded, value: arabicDigits(p['fullWeeks'] ?? 0), label: 'أسبوع كامل'),
+              _Mini(icon: Icons.hourglass_bottom_rounded, value: arabicDigits(p['weeksLeft'] ?? 0), label: 'أسابيع باقية'),
             ],
           ),
-          const SizedBox(height: Space.s2),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(Radii.full),
-            child: LinearProgressIndicator(
-              value: percent / 100,
-              minHeight: 8,
-              backgroundColor: c.surfaceSunken,
-              color: c.shadda,
+        ],
+      ),
+    );
+  }
+}
+
+class _Mini extends StatelessWidget {
+  final IconData icon;
+  final String value;
+  final String label;
+
+  const _Mini({required this.icon, required this.value, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final text = Theme.of(context).textTheme;
+    return Expanded(
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: c.inkSubtle),
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text.rich(
+              TextSpan(children: [
+                TextSpan(text: '$value ', style: text.labelLarge!.copyWith(fontWeight: FontWeight.w800)),
+                TextSpan(text: label, style: text.labelSmall),
+              ]),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
-          const SizedBox(height: Space.s3),
-          InfoRow('الأسبوع', Text(currentWeek == 0 ? 'ما بدأ' : '${arabicDigits(currentWeek)} من ${arabicDigits(p['totalWeeks'])}', style: text.labelLarge)),
-          InfoRow('باقي', Text('${arabicDigits(p['weeksLeft'] ?? 0)} أسابيع', style: text.labelLarge)),
-          InfoRow('أسابيع كاملة', Text(arabicDigits(p['fullWeeks'] ?? 0), style: text.labelLarge)),
-          InfoRow('المرات', Text('${arabicDigits(p['totalCompleted'] ?? 0)} من ${arabicDigits(p['totalRequired'] ?? 0)}', style: text.labelLarge)),
-          if (p['endDate'] != null) InfoRow('ينتهي', Text(arabicDigits(p['endDate']), style: text.labelLarge)),
+        ],
+      ),
+    );
+  }
+}
+
+// one stage: a node on the line, and the card of its task(s)
+class _Stage extends StatelessWidget {
+  final int week;
+  final List<JsonMap> tasks;
+  final _StageState state;
+  final bool last;
+
+  const _Stage({required this.week, required this.tasks, required this.state, required this.last});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final text = Theme.of(context).textTheme;
+    final now = state == _StageState.now;
+    final done = state == _StageState.done;
+    final node = Container(
+      width: 36,
+      height: 36,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: done ? c.accent : (now ? c.surface : c.surfaceSunken),
+        border: now ? Border.all(color: c.urgent, width: 3) : null,
+      ),
+      child: done
+          ? const Icon(Icons.check_rounded, size: 20, color: Colors.white)
+          : state == _StageState.later
+              ? Icon(Icons.lock_outline_rounded, size: 16, color: c.inkSubtle)
+              : Text(arabicDigits(week), style: text.labelLarge!.copyWith(fontWeight: FontWeight.w800, color: c.urgentText)),
+    );
+    final status = switch (state) {
+      _StageState.done => 'خلصت',
+      _StageState.now => 'هالأسبوع',
+      _StageState.later => 'جاية',
+    };
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SizedBox(
+            width: 36,
+            child: Column(
+              children: [
+                node,
+                if (!last)
+                  Expanded(
+                    child: Container(
+                      width: 3,
+                      margin: const EdgeInsets.symmetric(vertical: 4),
+                      decoration: BoxDecoration(color: done ? c.accent : c.line, borderRadius: BorderRadius.circular(Radii.full)),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(width: Space.s3),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: Space.s3),
+              child: Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: now ? c.surface : c.surface.withValues(alpha: done ? 1 : 0.7),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: now ? c.urgent : c.line, width: now ? 2 : 1),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('المرحلة ${arabicDigits(week)} · $status',
+                        style: text.labelSmall!.copyWith(color: now ? c.urgentText : null, fontWeight: now ? FontWeight.w700 : null)),
+                    for (final t in tasks) ...[
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text('${t['title']} × ${arabicDigits(t['timesPerWeek'])}',
+                                style: text.titleSmall!.copyWith(color: state == _StageState.later ? c.inkMuted : c.ink)),
+                          ),
+                          RiyalAmount(t['amountPerTime'] as num?, style: text.labelMedium!.copyWith(color: c.goldText)),
+                        ],
+                      ),
+                      if (now) ...[
+                        const SizedBox(height: 8),
+                        Pips(
+                          done: ((t['completedCount'] ?? 0) as int) + ((t['excusedCount'] ?? 0) as int),
+                          total: (t['timesPerWeek'] ?? 0) as int,
+                          width: 0,
+                          height: 8,
+                        ),
+                      ],
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );

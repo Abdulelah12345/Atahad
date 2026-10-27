@@ -599,6 +599,7 @@ class _CreateGroupSheetState extends State<_CreateGroupSheet> {
   Widget build(BuildContext context) {
     return SheetBody(
       title: 'مجموعة جديدة',
+      icon: Icons.group_add_rounded,
       error: _error,
       child: Form(
         key: _form,
@@ -674,6 +675,7 @@ class _JoinSheetState extends State<_JoinSheet> {
   Widget build(BuildContext context) {
     return SheetBody(
       title: 'انضم لمجموعة',
+      icon: Icons.login_rounded,
       error: _error,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

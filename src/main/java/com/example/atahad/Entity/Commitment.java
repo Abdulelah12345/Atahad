@@ -50,6 +50,9 @@ public abstract class Commitment {
     @Column(columnDefinition = "DATE")
     private LocalDate effectiveFrom; // Edits start from the next week
 
+    @Column(columnDefinition = "DATE")
+    private LocalDate startDate; // The day week 1 starts: today or later (null = today)
+
     // LOCATION only: the place of the commitment (the gym, the mosque ...), a proof counts inside the radius
     @DecimalMin(value = "-90.0", message = "Latitude must be between -90 and 90")
     @DecimalMax(value = "90.0", message = "Latitude must be between -90 and 90")

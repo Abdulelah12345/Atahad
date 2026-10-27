@@ -195,7 +195,7 @@ class _CreateCommitmentScreenState extends State<CreateCommitmentScreen> {
                     final date = await showDatePicker(
                       context: context,
                       initialDate: _end,
-                      firstDate: today.add(const Duration(days: 1)),
+                      firstDate: DateTime(today.year, today.month, today.day), // today is allowed
                       lastDate: today.add(const Duration(days: 350)),
                     );
                     if (date != null && mounted) {

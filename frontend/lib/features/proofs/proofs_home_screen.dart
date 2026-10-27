@@ -36,7 +36,15 @@ class _ProofsHomeScreenState extends State<ProofsHomeScreen> {
       _api.workspace(),
       _api.activities(),
     ]);
-    return {...values[0] as Json, 'activities': values[1]};
+    // what is still owed, for the donation card on top of «طلباتي»
+    num owed = 0;
+    if (widget.requestsOnly) {
+      try {
+        final lock = await context.read<ApiClient>().get('/api/v1/commitment/lockStatus');
+        owed = (lock is Map ? lock['totalToDonate'] as num? : null) ?? 0;
+      } catch (_) {}
+    }
+    return {...values[0] as Json, 'activities': values[1], 'owed': owed};
   }
 
   Json? _last; // kept on screen while a quiet reload runs
@@ -94,12 +102,9 @@ class _ProofsHomeScreenState extends State<ProofsHomeScreen> {
             onSelected: (value) => context.push(
               value == 'donations' ? '/proofs/donations' : '/proofs',
             ),
-            itemBuilder: (_) => const [
-              PopupMenuItem(
-                value: 'donations',
-                child: Text('التبرعات والمبالغ'),
-              ),
-              PopupMenuItem(value: 'proofs', child: Text('سجل إثباتاتي')),
+            itemBuilder: (context) => [
+              menuItem(context, 'donations', Icons.volunteer_activism_rounded, 'التبرعات والمبالغ'),
+              menuItem(context, 'proofs', Icons.fact_check_outlined, 'سجل إثباتاتي'),
             ],
           ),
         IconButton(
@@ -165,6 +170,8 @@ class _ProofsHomeScreenState extends State<ProofsHomeScreen> {
               excuses: excuses,
               objections: objections,
               shown: shown,
+              owed: data['owed'] as num? ?? 0,
+              onDonate: () => context.push('/proofs/donations'),
               tab: _tab,
               filter: _filter,
               onRefresh: _reload,

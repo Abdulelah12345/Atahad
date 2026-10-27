@@ -165,24 +165,20 @@ class _GroupScreenState extends State<GroupScreen> with SingleTickerProviderStat
                 labels: _tabLabels,
                 kinds: _tabKinds,
                 onPoints: () => _onMenu('points', data),
-                menu: PopupMenuButton<String>(
-                  tooltip: 'خيارات المجموعة',
-                  onSelected: (a) => _onMenu(a, data),
-                  itemBuilder: (_) => [
-                    const PopupMenuItem(value: 'invite', child: Text('كود الدعوة')),
-                    const PopupMenuItem(value: 'members', child: Text('الأعضاء')),
-                    const PopupMenuItem(value: 'points', child: Text('نقاط المجموعة')),
-                    const PopupMenuItem(value: 'matching', child: Text('تحديات المجموعات')),
-                    if (data.isOwner) const PopupMenuItem(value: 'edit', child: Text('تعديل المجموعة')),
-                    if (data.isOwner) const PopupMenuItem(value: 'add', child: Text('أضف عضو')),
-                    if (!data.isOwner) const PopupMenuItem(value: 'leave', child: Text('اطلع من المجموعة')),
-                    if (data.isOwner) const PopupMenuItem(value: 'archive', child: Text('احذف المجموعة')),
-                  ],
+                menu: Semantics(
+                  button: true,
+                  label: 'خيارات المجموعة',
+                  child: GestureDetector(
+                  onTap: () async {
+                    final action = await showAtSheet<String>(context, builder: (_) => _GroupMenuSheet(data: data, groupId: widget.groupId));
+                    if (action != null && mounted) await _onMenu(action, data);
+                  },
                   child: Container(
                     width: 44,
                     height: 44,
                     decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.18), borderRadius: BorderRadius.circular(14)),
                     child: const Icon(Icons.more_horiz_rounded, color: Colors.white),
+                  ),
                   ),
                 ),
               ),
@@ -315,6 +311,92 @@ class _TeamHeader extends StatelessWidget {
   }
 }
 
+// ---------- the group menu ----------
+// the group's things as icon tiles (3 in a row), the way out at the bottom in red
+class _GroupMenuSheet extends StatelessWidget {
+  final _GroupData data;
+  final int groupId;
+
+  const _GroupMenuSheet({required this.data, required this.groupId});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final text = Theme.of(context).textTheme;
+    final team = teamColor(groupId);
+    final items = <(String, IconData, String, Color)>[
+      ('invite', Icons.qr_code_2_rounded, 'كود الدعوة', team),
+      ('members', Icons.groups_rounded, 'الأعضاء', c.primary),
+      ('points', Icons.stars_rounded, 'النقاط', c.pardon),
+      ('matching', Icons.sports_kabaddi_rounded, 'التحديات', c.urgent),
+      if (data.isOwner) ('add', Icons.person_add_alt_1_rounded, 'أضف عضو', c.success),
+      if (data.isOwner) ('edit', Icons.edit_rounded, 'تعديل', c.info),
+    ];
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(Space.s4, 0, Space.s4, Space.s5),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              TeamAvatar(name: '${data.group['name'] ?? ''}', color: team, size: 44),
+              const SizedBox(width: Space.s3),
+              Expanded(
+                child: Text('${data.group['name'] ?? ''}', style: text.headlineSmall, maxLines: 1, overflow: TextOverflow.ellipsis),
+              ),
+            ],
+          ),
+          const SizedBox(height: Space.s4),
+          GridView.count(
+            crossAxisCount: 3,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            mainAxisSpacing: 10,
+            crossAxisSpacing: 10,
+            childAspectRatio: 1.05,
+            children: [
+              for (final (i, (action, icon, label, color)) in items.indexed)
+                Appear(
+                  index: i,
+                  child: Material(
+                    color: c.surfaceSunken,
+                    borderRadius: BorderRadius.circular(Radii.card),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(Radii.card),
+                      onTap: () => Navigator.pop(context, action),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          IconTile(icon, size: 46, fg: Colors.white, bg: color),
+                          const SizedBox(height: 8),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(label, style: text.labelMedium!.copyWith(fontWeight: FontWeight.w700, color: c.ink)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: Space.s3),
+          TextButton.icon(
+            onPressed: () => Navigator.pop(context, data.isOwner ? 'archive' : 'leave'),
+            style: TextButton.styleFrom(foregroundColor: c.danger, minimumSize: const Size.fromHeight(48)),
+            icon: Icon(data.isOwner ? Icons.delete_outline_rounded : Icons.logout_rounded, size: 20),
+            label: Text(data.isOwner ? 'احذف المجموعة' : 'اطلع من المجموعة'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 // ---------- invite ----------
 class _InviteSheet extends StatefulWidget {
   final GroupApi api;
@@ -335,51 +417,91 @@ class _InviteSheetState extends State<_InviteSheet> {
     setState(() => _invite = widget.api.resetInvite(widget.groupId));
   }
 
+  void _copy(String code) {
+    Clipboard.setData(ClipboardData(text: code));
+    HapticFeedback.lightImpact();
+    showMessage(context, 'تم نسخ الكود');
+  }
+
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
     final text = Theme.of(context).textTheme;
+    final team = teamColor(widget.groupId);
     return SheetBody(
       title: 'ادعُ أصحابك',
+      icon: Icons.qr_code_2_rounded,
       child: FutureBuilder<Map<String, dynamic>>(
         future: _invite,
         builder: (context, snap) {
-          if (snap.connectionState != ConnectionState.done) return const SizedBox(height: 200, child: LoadingView());
+          if (snap.connectionState != ConnectionState.done) return const SizedBox(height: 260, child: LoadingView());
           if (snap.hasError) return ErrorView(message: errorText(snap.error!));
           final code = '${snap.data!['inviteCode'] ?? ''}';
           final qr = '${snap.data!['qrContent'] ?? code}';
           return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // a ticket in the team color: the QR on white, the code under it
               Container(
-                padding: const EdgeInsets.all(Space.s3),
-                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(Radii.lg)),
-                child: QrImageView(data: qr, size: 180, eyeStyle: QrEyeStyle(eyeShape: QrEyeShape.square, color: c.deep), dataModuleStyle: QrDataModuleStyle(dataModuleShape: QrDataModuleShape.square, color: c.deep)),
-              ),
-              const SizedBox(height: Space.s4),
-              Text('أو شارك الكود', style: text.bodySmall),
-              const SizedBox(height: Space.s2),
-              InkWell(
-                borderRadius: BorderRadius.circular(Radii.md),
-                onTap: () {
-                  Clipboard.setData(ClipboardData(text: code));
-                  showMessage(context, 'تم نسخ الكود');
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: Space.s5, vertical: Space.s3),
-                  decoration: BoxDecoration(color: c.surfaceSunken, borderRadius: BorderRadius.circular(Radii.md)),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(code, style: text.headlineMedium!.copyWith(letterSpacing: 2), textDirection: TextDirection.ltr),
-                      const SizedBox(width: Space.s3),
-                      Icon(Icons.copy_rounded, size: 20, color: c.inkSubtle),
-                    ],
-                  ),
+                clipBehavior: Clip.antiAlias,
+                decoration: BoxDecoration(color: team, borderRadius: BorderRadius.circular(24)),
+                child: Stack(
+                  children: [
+                    PositionedDirectional(
+                      top: -30,
+                      end: -30,
+                      child: Container(width: 120, height: 120, decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withValues(alpha: 0.1))),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(Space.s4, Space.s5, Space.s4, Space.s4),
+                      child: Column(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
+                            child: QrImageView(
+                              data: qr,
+                              size: 170,
+                              eyeStyle: QrEyeStyle(eyeShape: QrEyeShape.circle, color: c.deep),
+                              dataModuleStyle: QrDataModuleStyle(dataModuleShape: QrDataModuleShape.circle, color: c.deep),
+                            ),
+                          ),
+                          const SizedBox(height: Space.s4),
+                          // every letter of the code in its own white box
+                          Directionality(
+                            textDirection: TextDirection.ltr,
+                            child: Wrap(
+                              alignment: WrapAlignment.center,
+                              spacing: 5,
+                              runSpacing: 5,
+                              children: [
+                                for (final ch in code.characters)
+                                  Container(
+                                    width: 32,
+                                    height: 40,
+                                    alignment: Alignment.center,
+                                    decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.18), borderRadius: BorderRadius.circular(10)),
+                                    child: Text(ch, style: text.headlineSmall!.copyWith(color: Colors.white, fontWeight: FontWeight.w800)),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
+              const SizedBox(height: Space.s4),
+              AtButton('انسخ الكود', icon: const Icon(Icons.copy_rounded, size: 18), onPressed: () => _copy(code)),
               if (widget.isOwner) ...[
-                const SizedBox(height: Space.s4),
-                AtButton('غيّر الكود', onPressed: _reset, kind: AtButtonKind.text),
+                const SizedBox(height: Space.s2),
+                TextButton.icon(
+                  onPressed: _reset,
+                  icon: const Icon(Icons.refresh_rounded, size: 18),
+                  label: const Text('كود جديد'),
+                  style: TextButton.styleFrom(foregroundColor: c.inkMuted),
+                ),
               ],
             ],
           );
@@ -407,6 +529,7 @@ class _MembersSheet extends StatelessWidget {
     final sorted = [...members]..sort((a, b) => ((b['points'] as int?) ?? 0).compareTo((a['points'] as int?) ?? 0));
     return SheetBody(
       title: 'الأعضاء',
+      icon: Icons.groups_rounded,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -598,6 +721,7 @@ class _PointsSheet extends StatelessWidget {
         );
     return SheetBody(
       title: 'نقاط المجموعة',
+      icon: Icons.stars_rounded,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -751,6 +875,7 @@ class _EditSheetState extends State<_EditSheet> {
   Widget build(BuildContext context) {
     return SheetBody(
       title: 'تعديل المجموعة',
+      icon: Icons.edit_rounded,
       error: _error,
       child: Column(
         children: [
@@ -855,6 +980,7 @@ class _AddMemberSheetState extends State<_AddMemberSheet> {
     final c = context.colors;
     return SheetBody(
         title: 'أضف عضو',
+      icon: Icons.person_add_alt_1_rounded,
         error: _error,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,

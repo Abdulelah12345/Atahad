@@ -22,4 +22,7 @@ public class GoalSuggestRequest {
     @NotNull(message = "End date cannot be empty")
     @FutureOrPresent(message = "End date cannot be in the past")
     private LocalDate endDate;
+
+    // the day week 1 starts: today or later (empty = today)
+    private java.time.LocalDate startDate;
 }
