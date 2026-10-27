@@ -34,7 +34,7 @@ class _GoalPlanScreenState extends State<GoalPlanScreen> {
   // step 2
   JsonMap? _plan;
   final _title = TextEditingController();
-  final _amount = TextEditingController(text: '10');
+  final _amount = TextEditingController(text: '5'); // the least Ehsan takes
   final _target = TargetDraft();
   String _proofMethod = 'PHOTO';
   List<_WeekDraft> _weeks = [];

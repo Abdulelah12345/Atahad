@@ -26,6 +26,17 @@ class _MainShellState extends State<MainShell> {
 
   @override
   Widget build(BuildContext context) {
+    // back on another tab returns to «اليوم» first, it does not close the app
+    return PopScope(
+      canPop: _index == 0,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) setState(() => _index = 0);
+      },
+      child: _shell(),
+    );
+  }
+
+  Widget _shell() {
     return Scaffold(
       body: IndexedStack(index: _index, children: _pages),
       bottomNavigationBar: NavigationBar(
