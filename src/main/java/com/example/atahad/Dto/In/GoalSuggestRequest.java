@@ -1,6 +1,6 @@
 package com.example.atahad.Dto.In;
 
-import jakarta.validation.constraints.Future;
+import jakarta.validation.constraints.FutureOrPresent;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -20,6 +20,6 @@ public class GoalSuggestRequest {
     private String goal;
 
     @NotNull(message = "End date cannot be empty")
-    @Future(message = "End date must be in the future")
+    @FutureOrPresent(message = "End date cannot be in the past")
     private LocalDate endDate;
 }

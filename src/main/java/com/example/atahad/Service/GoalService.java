@@ -215,8 +215,12 @@ public class GoalService {
     // only a goal that did not start yet can be deleted, after that it is withdrawn
     public void deleteGoal(Integer memberId, Integer id){
         Goal goal = getMyGoal(memberId, id);
-        if(hasStarted(goal)){
-            throw new ApiException("Goal already started, withdraw from it instead");
+        // the first hour after creating it and before any proof, after that it is withdrawn
+        if(hasStarted(goal) && !goal.inEditWindow()){
+            throw new ApiException("A goal can only be deleted in the first hour, withdraw from it instead");
+        }
+        if(commitmentWeekService.hasProgress(goal) || commitmentWeekService.hasProofs(goal)){
+            throw new ApiException("Goal already has progress, withdraw from it instead");
         }
         goalRepository.delete(goal);
     }

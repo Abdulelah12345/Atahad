@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 
+import '../../core/api/api_exception.dart';
 import '../../core/theme/at_colors.dart';
 import '../../core/theme/at_tokens.dart';
 import '../../core/utils/format.dart';
@@ -303,4 +304,26 @@ String suggestedProofMethod(String title) {
   if (has(r'نادي|جيم|صالة|سباح|مكتبة|مسجد|gym|club')) return 'LOCATION';
   if (has(r'مذاكر|ذاكر|دراس|تعلّ?م|كورس|حفظ|تأمل|study|learn')) return 'TIMER';
   return 'PHOTO';
+}
+
+// the first hour after creating a habit or a goal: it changes this week too, or can be deleted
+// null = not started yet (free to change), 0 = the hour is over, else the minutes left
+int? editMinutesLeft(Map<String, dynamic> commitment) {
+  final until = DateTime.tryParse('${commitment['editableUntil'] ?? ''}');
+  if (until == null) return commitment['editableUntil'] == null ? null : 0;
+  final left = until.difference(DateTime.now());
+  return left.isNegative ? 0 : left.inMinutes + 1;
+}
+
+// the backend answers the edit and delete rules in English, the known ones in Arabic
+void showCommitmentError(BuildContext context, Object error) {
+  const known = {
+    'A habit can only be deleted in the first hour, withdraw from it instead': 'الحذف متاح أول ساعة بس، تقدر تنسحب من العادة.',
+    'A goal can only be deleted in the first hour, withdraw from it instead': 'الحذف متاح أول ساعة بس، تقدر تنسحب من الهدف.',
+    'Habit already has progress, withdraw from it instead': 'رفعت إثبات فيها، تقدر تنسحب بدل الحذف.',
+    'Goal already has progress, withdraw from it instead': 'رفعت إثبات فيه، تقدر تنسحب بدل الحذف.',
+    'Proof method cannot change after the habit starts': 'طريقة الإثبات ما تتغير بعد أول ساعة أو بعد أول إثبات.',
+  };
+  final message = error is ApiException ? known[error.message] : null;
+  message != null ? showMessage(context, message) : showError(context, error);
 }
