@@ -22,7 +22,7 @@ const pointReasonsAr = {
   'MATCH_ALL_DONE': 'كل القروب خلّص المنافسة',
   'MATCH_WIN': 'الفوز بمنافسة',
   'LEAST_PROCRASTINATION': 'الأقل تسويف',
-  'GRACE_DAY_REDEEMED': 'بدّلتها بيوم سماح',
+  'GRACE_DAY_REDEEMED': 'بدّلتها ببطاقة عفو',
 };
 
 const graceSourcesAr = {
@@ -287,5 +287,5 @@ Future<bool> confirmDialog(BuildContext context,
   return answer ?? false;
 }
 
-const withdrawWarning = 'لو انسحبت الحين، كل مرة باقية هالأسبوع تصير عقوبة ويتقفل التطبيق لين تتبرع. '
+const withdrawWarning = 'لو انسحبت الحين، كل مرة باقية هالأسبوع تصير خصم ويتقفل التطبيق لين تتبرع. '
     'التعهد ينتهي، ولو تبي ترجع تنشئ تعهد جديد.';

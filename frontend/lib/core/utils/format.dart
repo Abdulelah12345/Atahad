@@ -29,3 +29,16 @@ const levelsAr = {
   'PERSEVERING': 'مثابر',
   'IRON': 'حديدي',
 };
+
+// ١٢٫٥ -> 12.5: the fields accept Arabic and Latin digits
+String latinDigits(String value) {
+  final out = StringBuffer();
+  for (final ch in value.trim().split('')) {
+    final i = _digits.indexOf(ch);
+    out.write(i >= 0 ? '$i' : (ch == '٫' ? '.' : ch));
+  }
+  return out.toString();
+}
+
+// the amount in a field, null when it is not a number
+double? parseAmount(String value) => double.tryParse(latinDigits(value));

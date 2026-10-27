@@ -332,14 +332,11 @@ class _CreateCommitmentScreenState extends State<CreateCommitmentScreen> {
               decoration: const InputDecoration(labelText: 'خط الطول'),
             ),
           ],
-          TextField(
+          AmountField(
             controller: _amount,
             enabled: !_busy,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: const InputDecoration(
-              labelText: 'مبلغ الالتزام لكل مرة غير منجزة',
-              helperText: '٥ ريالات على الأقل. لا يتم دفع المبلغ عند الإضافة.',
-            ),
+            label: 'المبلغ لكل مرة تفوتك',
+            hint: 'أقل مبلغ ٥ ريال، وما ينخصم شي وقت الإضافة.',
           ),
           const SizedBox(height: 24),
           AtButton(

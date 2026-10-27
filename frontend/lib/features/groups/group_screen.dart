@@ -229,7 +229,7 @@ class _TeamHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
     final team = teamColor(groupId);
-    const soft = Color(0xFFDCEAF0);
+    const soft = Color(0xE6FFFFFF); // white text on the team colors (90%)
     final name = '${data.group['name'] ?? ''}';
     return Container(
       decoration: BoxDecoration(color: team, borderRadius: const BorderRadius.vertical(bottom: Radius.circular(26))),
@@ -619,7 +619,7 @@ class _PointsSheet extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text('${arabicDigits(points)} من ${arabicDigits(target)}', style: text.titleMedium!.copyWith(color: c.pardonText, fontWeight: FontWeight.w800)),
-                      Text('لما توصلون ${arabicDigits(target)} كل عضو ياخذ يوم عفو.', style: text.bodySmall!.copyWith(color: c.pardonText)),
+                      Text('لما توصلون ${arabicDigits(target)} كل عضو ياخذ بطاقة عفو.', style: text.bodySmall!.copyWith(color: c.pardonText)),
                     ],
                   ),
                 ),
