@@ -208,6 +208,50 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+
+  // Learn Quest - Abdulelah
+  Widget _learnQuestCard() {
+    return AppCard(
+      onTap: () => context.push('/learn-quest'),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: context.colors.primary.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(Radii.md),
+            ),
+            child: Icon(
+              Icons.auto_stories_rounded,
+              color: context.colors.primary,
+              size: 28,
+            ),
+          ),
+          const SizedBox(width: Space.s3),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'رحلة التعلّم 📚',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: Space.s1),
+                Text(
+                  'اكتشف كتب وبودكاست ودورات تساعدك تحقق أهدافك',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: Space.s2),
+          const Icon(Icons.chevron_left_rounded),
+        ],
+      ),
+    );
+  }
+
+
   @override
   Widget build(BuildContext context) {
     final name = context.watch<AuthState>().profile?['name'] ?? '';
@@ -258,12 +302,16 @@ class _HomeScreenState extends State<HomeScreen> {
             onRefresh: reload,
             child: ListView.separated(
               padding: const EdgeInsets.all(Space.s4),
-              itemCount: tasks.length + 1,
+              itemCount: tasks.length + 2,
               separatorBuilder: (context, i) =>
               const SizedBox(height: Space.s3),
               itemBuilder: (context, i) {
                 if (i == tasks.length) {
                   return _luckyChallengeCard();
+                }
+
+                if (i == tasks.length + 1) {
+                  return _learnQuestCard();
                 }
                 final t = tasks[i] as Map;
 
