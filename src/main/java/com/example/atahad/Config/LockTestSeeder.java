@@ -42,20 +42,28 @@ public class LockTestSeeder implements ApplicationRunner {
     private String friendEmail;
     @Value("${seed.lock-test.second-email:}")
     private String secondEmail; // optional, the other member to lock (else the friend, else sara)
+    @Value("${seed.lock-test.main-since:}")
+    private String mainSince; // optional, like 2026-10-26T21:00: the main user owes from this time, even if he paid before (the demo)
 
     @Override
     @Transactional
     public void run(ApplicationArguments args) {
         String second = !secondEmail.isBlank() ? secondEmail : !friendEmail.isBlank() ? friendEmail : "sara@atahad.test";
-        // the main user: the donation counts from this run (to test the bank email of a new transfer)
-        lock(mainEmail, 1, LocalDateTime.now(), true);
+        // the main user: the donation counts from this run (to test the bank email of a new transfer),
+        // or from seed.lock-test.main-since (the demo: an email that came after that time unlocks it)
+        if (mainSince.isBlank()) {
+            lock(mainEmail, 1, LocalDateTime.now(), true, false);
+        } else {
+            lock(mainEmail, 1, LocalDateTime.parse(mainSince.trim()), true, true);
+        }
         // the other member: an old donation (3 days ago), so a transfer made before today proves it
-        lock(second, 1, LocalDateTime.now().minusDays(3), true);
+        lock(second, 1, LocalDateTime.now().minusDays(3), true, false);
     }
 
     // times x 5 SAR, on his first active commitment that has a week now
     // since: the time of the donation (a transfer must be after it), moveOld: an unpaid donation from a run before gets this time too
-    private void lock(String email, int times, LocalDateTime since, boolean moveOld) {
+    // always: locked even if he paid in the last days
+    private void lock(String email, int times, LocalDateTime since, boolean moveOld, boolean always) {
         User user = userRepository.findUserByEmail(email);
         Member member = user == null ? null : memberRepository.findMemberById(user.getId());
         if (member == null) {
@@ -73,7 +81,7 @@ public class LockTestSeeder implements ApplicationRunner {
         }
         List<Penalty> owed = penaltyRepository.findPenaltiesByMemberAndStatus(member, "PENDING");
         // the test is done once: a donation paid in the last 7 days (after the lock) and nothing owed -> not locked again
-        if (owed.isEmpty()) {
+        if (owed.isEmpty() && !always) {
             for (Penalty paid : penaltyRepository.findPenaltiesByMemberAndStatus(member, "PAID")) {
                 if (paid.getPaidAt() != null && paid.getPaidAt().isAfter(LocalDateTime.now().minusDays(7))) {
                     log.info("Lock test: {} paid already, not locked again (seed.lock-test=false turns the test off)", email);

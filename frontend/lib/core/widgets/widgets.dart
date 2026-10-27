@@ -1,7 +1,11 @@
 // one import for all the shared widgets: import 'package:atahad/core/widgets/widgets.dart';
+export 'amount_field.dart';
 export 'app_card.dart';
 export 'app_logo.dart';
 export 'at_button.dart';
+export 'commitment_card.dart';
+export 'game.dart';
+export 'quest_card.dart';
 export 'riyal.dart';
 export 'splash_gate.dart';
 export 'states.dart';

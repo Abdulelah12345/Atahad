@@ -97,6 +97,15 @@ class _GroupScreenState extends State<GroupScreen> with SingleTickerProviderStat
           builder: (_) => _MembersSheet(api: _api, groupId: id, members: data.members, me: _me, isOwner: data.isOwner),
         );
         if (changed == true) _refresh();
+      case 'matching': // AI Group Matching - Abdulelah
+        final memberId = _me;
+        if (memberId == null) {
+          showMessage(context, 'سجّل الدخول أولاً');
+          return;
+        }
+        await Navigator.of(context).push(
+          MaterialPageRoute<void>(builder: (_) => GroupMatchingScreen(groupId: id, memberId: memberId)),
+        );
       case 'points':
         await showModalBottomSheet(context: context, showDragHandle: true, isScrollControlled: true, builder: (_) => _PointsSheet(api: _api, group: data.group));
       case 'edit':
@@ -136,59 +145,6 @@ class _GroupScreenState extends State<GroupScreen> with SingleTickerProviderStat
       load: () => inArabic(_load()),
       builder: (context, data, reload) {
         final name = '${data.group['name'] ?? ''}';
-        return Scaffold(
-          appBar: AppBar(
-            title: Text(name),
-            actions: [
-
-              // AI Group Matching - Abdulelah
-              IconButton(
-                tooltip: 'تحديات المجموعات',
-                icon: const Icon(Icons.auto_awesome),
-                onPressed: () {
-                  final memberId = _me;
-
-                  if (memberId == null) {
-                    showMessage(context, 'سجّل الدخول أولاً');
-                    return;
-                  }
-
-                  Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => GroupMatchingScreen(
-                        groupId: widget.groupId,
-                        memberId: memberId,
-                      ),
-                    ),
-                  );
-                },
-              ),
-
-              PopupMenuButton<String>(
-                onSelected: (a) => _onMenu(a, data),
-                itemBuilder: (_) => [
-                  const PopupMenuItem(value: 'invite', child: Text('كود الدعوة')),
-                  const PopupMenuItem(value: 'members', child: Text('الأعضاء')),
-                  if (data.isOwner) const PopupMenuItem(value: 'edit', child: Text('تعديل المجموعة')),
-                  if (data.isOwner) const PopupMenuItem(value: 'add', child: Text('أضف عضو')),
-                  if (!data.isOwner) const PopupMenuItem(value: 'leave', child: Text('اطلع من المجموعة')),
-                  if (data.isOwner) const PopupMenuItem(value: 'archive', child: Text('احذف المجموعة')),
-                ],
-              ),
-            ],
-            bottom: TabBar(
-              controller: _tabs,
-              tabs: [_tab('اللوحة', _tabKinds[0]), _tab('الشات', _tabKinds[1]), _tab('اللحظات', _tabKinds[2]), _tab('الأسبوع', null)],
-            ),
-          ),
-          body: TabBarView(
-            controller: _tabs,
-            children: [
-              BoardTab(api: _api, group: data.group, isOwner: data.isOwner, me: _me, onChanged: _refresh, onInvite: () => _onMenu('invite', data)),
-              ChatTab(api: _api, groupId: widget.groupId, me: _me),
-              MomentsTab(api: _api, groupId: widget.groupId, me: _me),
-              WeekTab(api: _api, groupId: widget.groupId, groupName: name, members: data.members),
-            ],
         final c = context.colors;
         // the page color of every tab: the round corners of the header sit on it
         final pages = [c.bg, c.bg, paperColor(c), c.bg, const Color(0xFF0A1A3A)];
@@ -216,6 +172,7 @@ class _GroupScreenState extends State<GroupScreen> with SingleTickerProviderStat
                     const PopupMenuItem(value: 'invite', child: Text('كود الدعوة')),
                     const PopupMenuItem(value: 'members', child: Text('الأعضاء')),
                     const PopupMenuItem(value: 'points', child: Text('نقاط المجموعة')),
+                    const PopupMenuItem(value: 'matching', child: Text('تحديات المجموعات')),
                     if (data.isOwner) const PopupMenuItem(value: 'edit', child: Text('تعديل المجموعة')),
                     if (data.isOwner) const PopupMenuItem(value: 'add', child: Text('أضف عضو')),
                     if (!data.isOwner) const PopupMenuItem(value: 'leave', child: Text('اطلع من المجموعة')),
@@ -283,7 +240,7 @@ class _TeamHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
     final team = teamColor(groupId);
-    const soft = Color(0xFFDCEAF0);
+    const soft = Color(0xE6FFFFFF); // white text on the team colors (90%)
     final name = '${data.group['name'] ?? ''}';
     return Container(
       decoration: BoxDecoration(color: team, borderRadius: const BorderRadius.vertical(bottom: Radius.circular(26))),
@@ -673,7 +630,7 @@ class _PointsSheet extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text('${arabicDigits(points)} من ${arabicDigits(target)}', style: text.titleMedium!.copyWith(color: c.pardonText, fontWeight: FontWeight.w800)),
-                      Text('لما توصلون ${arabicDigits(target)} كل عضو ياخذ يوم عفو.', style: text.bodySmall!.copyWith(color: c.pardonText)),
+                      Text('لما توصلون ${arabicDigits(target)} كل عضو ياخذ بطاقة عفو.', style: text.bodySmall!.copyWith(color: c.pardonText)),
                     ],
                   ),
                 ),

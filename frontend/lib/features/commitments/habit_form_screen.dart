@@ -25,7 +25,7 @@ class _HabitFormScreenState extends State<HabitFormScreen> {
   late final _api = CommitmentsApi(context.read<ApiClient>());
   final _form = GlobalKey<FormState>();
   final _title = TextEditingController();
-  final _amount = TextEditingController(text: '10');
+  final _amount = TextEditingController(text: '5'); // the least Ehsan takes
   late final TargetDraft _target;
   late final WalkingDraft _walking;
   String _proofMethod = 'PHOTO';
@@ -33,7 +33,45 @@ class _HabitFormScreenState extends State<HabitFormScreen> {
   Set<String> _days = {};
   bool _busy = false;
 
+  bool _methodPicked = false; // the member chose the method by hand, the title stops changing it
+  late bool _askingTitle = widget.habit == null; // a new habit starts with «وش العادة؟» alone
+
   bool get _editing => widget.habit != null;
+
+  // «وش العادة؟» answered: fill the form from the title (all of it stays editable)
+  void _fillFromTitle() {
+    final title = _title.text.trim();
+    if (title.isEmpty) {
+      showMessage(context, 'اكتب اسم العادة');
+      return;
+    }
+    final method = suggestedProofMethod(title);
+    setState(() {
+      _proofMethod = method;
+      _methodPicked = false;
+      _times = method == 'STEPS' ? 7 : 3;
+      if (method == 'TIMER' && _target.minutes.text.isEmpty) _target.minutes.text = '30';
+      _askingTitle = false;
+    });
+  }
+
+  // a walking habit gets «مجموع خطوات اليوم» by itself (still editable); the steps go away when the title is not about walking
+  void _suggestMethod(String title) {
+    final walking = isWalkingTitle(title);
+    if (walking && !_methodPicked && _proofMethod != 'STEPS') {
+      setState(() {
+        _proofMethod = 'STEPS';
+        _times = 7;
+      });
+    } else if (!walking && _proofMethod == 'STEPS') {
+      setState(() {
+        _proofMethod = 'PHOTO';
+        _methodPicked = false;
+      });
+    } else {
+      setState(() {}); // the list of methods follows the title
+    }
+  }
 
   @override
   void initState() {
@@ -128,10 +166,66 @@ class _HabitFormScreenState extends State<HabitFormScreen> {
     }
   }
 
+  // the first page of a new habit: one question, a few quick answers, then the filled form
+  Widget _titleStep(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    const examples = ['المشي اليومي', 'قراءة ٢٠ صفحة', 'النادي', 'المذاكرة ساعة'];
+    return Scaffold(
+      appBar: AppBar(title: const Text('عادة جديدة')),
+      body: ListView(
+        padding: const EdgeInsets.all(Space.s4),
+        children: [
+          const SizedBox(height: Space.s6),
+          Text('وش العادة؟', style: text.headlineLarge),
+          const SizedBox(height: Space.s2),
+          Text('اكتبها بكلماتك، ونجهّز لك الباقي وتقدر تعدّله.', style: text.bodyMedium),
+          const SizedBox(height: Space.s6),
+          TextField(
+            controller: _title,
+            autofocus: true,
+            maxLength: 100,
+            textInputAction: TextInputAction.next,
+            onSubmitted: (_) => _fillFromTitle(),
+            decoration: const InputDecoration(hintText: 'مثلًا: المشي ٣٠ دقيقة'),
+          ),
+          const SizedBox(height: Space.s2),
+          Wrap(
+            spacing: Space.s2,
+            runSpacing: Space.s2,
+            children: [
+              for (final e in examples)
+                ActionChip(
+                  label: Text(e),
+                  onPressed: () {
+                    _title.text = e;
+                    _fillFromTitle();
+                  },
+                ),
+            ],
+          ),
+          const SizedBox(height: Space.s8),
+          AtButton('التالي', onPressed: _fillFromTitle),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (_askingTitle) return _titleStep(context);
     final text = Theme.of(context).textTheme;
     final amount = double.tryParse(normalizeWalkingNumber(_amount.text)) ?? 0;
+    // back on the form of a new habit returns to «وش العادة؟», not out of it
+    return PopScope(
+      canPop: _editing,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) setState(() => _askingTitle = true);
+      },
+      child: _formStep(context, text, amount),
+    );
+  }
+
+  Widget _formStep(BuildContext context, TextTheme text, double amount) {
     return Scaffold(
       appBar: AppBar(title: Text(_editing ? 'تعديل العادة' : 'عادة جديدة')),
       body: Form(
@@ -146,6 +240,7 @@ class _HabitFormScreenState extends State<HabitFormScreen> {
                 labelText: 'وش العادة؟',
                 hintText: 'النادي',
               ),
+              onChanged: _editing ? null : _suggestMethod,
               validator: (v) =>
                   (v == null || v.trim().isEmpty) ? 'اكتب اسم العادة' : null,
             ),
@@ -157,7 +252,11 @@ class _HabitFormScreenState extends State<HabitFormScreen> {
                 labelText: 'طريقة الإثبات',
                 helperText: _editing ? 'ما تتغير بعد ما تبدأ العادة' : null,
               ),
-              items: {...proofMethodsAr, 'STEPS': 'مجموع خطوات اليوم'}.entries
+              // the steps only for a walking habit (a reading habit never sees it)
+              items: {
+                ...proofMethodsAr,
+                if (_proofMethod == 'STEPS' || isWalkingTitle(_title.text)) 'STEPS': 'مجموع خطوات اليوم',
+              }.entries
                   .map(
                     (e) => DropdownMenuItem(value: e.key, child: Text(e.value)),
                   )
@@ -165,6 +264,7 @@ class _HabitFormScreenState extends State<HabitFormScreen> {
               onChanged: _editing
                   ? null
                   : (v) => setState(() {
+                      _methodPicked = true;
                       _proofMethod = v ?? _proofMethod;
                       if (v == 'STEPS') {
                         _times = 7;
@@ -197,14 +297,10 @@ class _HabitFormScreenState extends State<HabitFormScreen> {
               ],
             ),
             const SizedBox(height: Space.s4),
-            TextFormField(
+            AmountField(
               controller: _amount,
-              keyboardType: const TextInputType.numberWithOptions(
-                decimal: true,
-              ),
-              decoration: const InputDecoration(
-                labelText: 'المبلغ لكل مرة تفوتك (٥ ريال أقل شي)',
-              ),
+              label: 'المبلغ لكل مرة تفوتك',
+              hint: 'لو فاتتك كلها: ${money(amount * _times)} ريال صدقة بالأسبوع. أقل مبلغ ٥ ريال.',
               onChanged: (_) => setState(() {}),
               validator: (v) {
                 final value = double.tryParse(normalizeWalkingNumber(v ?? ''));
