@@ -90,24 +90,29 @@ public class CommitmentWeekService {
             }
             int daysLeft = daysLeft(week, today);
             Object real = Hibernate.unproxy(commitment);
+            List<Proof> proofsToday = proofsOn(week, today);
 
             if(real instanceof Goal goal){
                 for(GoalTask task : goalTaskRepository.findGoalTasksByGoalAndWeekNumber(goal, week.getWeekNumber())){
                     int required = taskRequired(task, week);
                     int remaining = Math.max(0, required - task.getCompletedCount() - task.getExcusedCount() - lostPenalties(week, task).size());
-                    boolean planned = task.getPlannedDays() != null && task.getPlannedDays().contains(todayName);
+                    boolean hasPlan = task.getPlannedDays() != null && !task.getPlannedDays().isEmpty();
+                    boolean planned = hasPlan && task.getPlannedDays().contains(todayName);
+                    boolean doneToday = proofsToday.stream().anyMatch(p -> p.getGoalTask() != null && p.getGoalTask().getId().equals(task.getId()));
                     list.add(new TodayTaskResponse(goal.getId(), week.getId(), task.getId(), "GOAL",
                             (goal.getTitle().trim().equals(task.getTitle().trim()) ? task.getTitle() : goal.getTitle() + " - " + task.getTitle()), task.getProofMethod(), required,
                             task.getCompletedCount(), task.getExcusedCount(), remaining, daysLeft,
-                            task.getTrackStatus(), task.getAmountPerTime(), goal.getTitle(), task.getTitle(), planned));
+                            task.getTrackStatus(), task.getAmountPerTime(), goal.getTitle(), task.getTitle(), planned, hasPlan, doneToday));
                 }
             }else{
                 int remaining = Math.max(0, week.getRequired() - week.getCompleted() - week.getExcusedDays() - lostPenalties(week, null).size());
-                boolean planned = week.getPlannedDays() != null && week.getPlannedDays().contains(todayName);
+                boolean hasPlan = week.getPlannedDays() != null && !week.getPlannedDays().isEmpty();
+                boolean planned = hasPlan && week.getPlannedDays().contains(todayName);
+                boolean doneToday = proofsToday.stream().anyMatch(p -> p.getGoalTask() == null);
                 list.add(new TodayTaskResponse(commitment.getId(), week.getId(), null, "HABIT",
                         commitment.getTitle(), commitment.getProofMethod(), week.getRequired(),
                         week.getCompleted(), week.getExcusedDays(), remaining, daysLeft,
-                        week.getTrackStatus(), week.getAmountPerDay(), null, null, planned));
+                        week.getTrackStatus(), week.getAmountPerDay(), null, null, planned, hasPlan, doneToday));
             }
         }
         return list;
@@ -784,6 +789,20 @@ public class CommitmentWeekService {
         log.setCreatedAt(LocalDateTime.now());
         log.setMember(member);
         pointLogRepository.save(log);
+    }
+
+    // the proofs of this week whose activity was on that day and were not rejected (accepted or still in review)
+    private List<Proof> proofsOn(CommitmentWeek week, LocalDate day){
+        LocalDateTime start = day.atStartOfDay();
+        LocalDateTime end = start.plusDays(1);
+        List<Proof> proofs = new ArrayList<>();
+        for(Proof proof : proofRepository.findProofsByCommitmentWeekId(week.getId())){
+            LocalDateTime time = proof.getActivityTime();
+            if(time != null && !time.isBefore(start) && time.isBefore(end) && !"REJECTED".equals(proof.getResult())){
+                proofs.add(proof);
+            }
+        }
+        return proofs;
     }
 
     private boolean isRunning(CommitmentWeek week, LocalDate day){

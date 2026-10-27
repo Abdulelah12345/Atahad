@@ -8,6 +8,7 @@ import '../proofs/activity_proof_entry.dart';
 import '../proofs/proof_widgets.dart';
 import '../proofs/request_forms.dart';
 import '../../core/auth/auth_state.dart';
+import '../../core/theme/at_colors.dart';
 import '../../core/theme/at_tokens.dart';
 import '../../core/utils/format.dart';
 import '../../core/widgets/widgets.dart';
@@ -172,7 +173,7 @@ class _HomeScreenState extends State<HomeScreen> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: context.colors.primary.withOpacity(0.12),
+              color: context.colors.primarySoft,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
@@ -192,16 +193,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'فاجئني بتحدي اليوم واكسب 20 نقطة!',
+                  'فاجئني بتحدي اليوم واكسب ٢٠ نقطة!',
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '3 فرص يوميًا',
-                  style: TextStyle(
-                    color: context.colors.primary,
-                    fontSize: 12,
-                  ),
+                  '٣ فرص يوميًا',
+                  style: Theme.of(context).textTheme.labelSmall!.copyWith(color: context.colors.primary),
                 ),
               ],
             ),
@@ -215,106 +213,10 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final name = context.watch<AuthState>().profile?['name'] ?? '';
-
-    final text = Theme.of(context).textTheme;
-
     return Scaffold(
       appBar: AppBar(
         title: Text('هلا $name'),
         actions: [
-          IconButton(
-            tooltip: 'إضافة نشاط',
-            icon: const Icon(Icons.add),
-            onPressed: () => context.push('/commitments/new'),
-          ),
-        ],
-      ),
-      body: AsyncView<List<dynamic>>(
-        load: () async => await context.read<ApiClient>().get(
-          '/api/v1/commitment-week/today',
-        ) as List<dynamic>,
-        builder: (context, tasks, reload) {
-          if (tasks.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const EmptyView(
-                    message: 'ما عندك تعهّدات للحين. ابدأ بعادة وحدة.',
-                    icon: Icons.flag_outlined,
-                  ),
-                  AtButton(
-                    'إضافة نشاط',
-                    expand: false,
-                    onPressed: () => context.push('/commitments/new'),
-                  ),
-                  const SizedBox(height: Space.s3),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: Space.s4),
-                    child: _luckyChallengeCard(),
-                  ),
-                ],
-              ),
-            );
-          }
-
-          return RefreshIndicator(
-            onRefresh: reload,
-            child: ListView.separated(
-              padding: const EdgeInsets.all(Space.s4),
-              itemCount: tasks.length + 1,
-              separatorBuilder: (context, i) =>
-              const SizedBox(height: Space.s3),
-              itemBuilder: (context, i) {
-                if (i == tasks.length) {
-                  return _luckyChallengeCard();
-                }
-                final t = tasks[i] as Map;
-
-                return AppCard(
-                  onTap: () async {
-                    await openActivityProof(
-                      context,
-                      Map<String, dynamic>.from(t),
-                    );
-
-                    if (context.mounted) {
-                      await reload();
-                    }
-                  },
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                              child: ActivityHeading(
-                                  title: '${t['title']}',
-                                  goalTitle: t['goalTitle'] as String?,
-                                  taskTitle: t['taskTitle'] as String?,
-                                  style: text.headlineSmall)),
-                          StatusBadge.track(t['trackStatus'] as String?),
-                        ],
-                      ),
-                      const SizedBox(height: Space.s1),
-                      Text(
-                        'باقي ${arabicDigits(t['remaining'])} من ${arabicDigits(t['required'])} هالأسبوع',
-                        style: text.bodySmall,
-                      ),
-                      const SizedBox(height: Space.s3),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: Space.s3, vertical: Space.s2),
-                        decoration: BoxDecoration(
-                            color: context.colors.surfaceSunken,
-                            borderRadius: BorderRadius.circular(Radii.md)),
-                        child: Row(
-                          children: [
-                            Expanded(
-                                child: Text('لكل مرة تفوتك',
-                                    style: text.bodySmall)),
-                            RiyalAmount(t['amountPerTime'] as num?),
-                          ],
           IconButton(tooltip: 'تعهّداتي', icon: const Icon(Icons.list_alt_rounded), onPressed: () => _open('/commitments')),
           IconButton(tooltip: 'مستواي ونقاطي', icon: const Icon(Icons.insights_rounded), onPressed: () => _open('/stats')),
         ],
@@ -328,8 +230,20 @@ class _HomeScreenState extends State<HomeScreen> {
         key: ValueKey(_version),
         load: _load,
         builder: (context, data, reload) {
-          final tasks = data['tasks'] as List<JsonMap>;
+          final all = data['tasks'] as List<JsonMap>;
           final stats = data['stats'] as JsonMap?;
+          // «اليوم» is what is left for today: done today, done for the week and postponed ones move to «تعهّداتي»
+          final weekDone = all.where((t) => t['trackStatus'] == 'SETTLED' || (t['remaining'] ?? 1) == 0).toList();
+          final doneToday = all.where((t) => !weekDone.contains(t) && t['doneToday'] == true).toList();
+          final postponed = all
+              .where((t) =>
+                  !weekDone.contains(t) &&
+                  !doneToday.contains(t) &&
+                  questStateOf(t['trackStatus'] as String?) == QuestState.safe &&
+                  t['hasPlan'] == true &&
+                  t['plannedToday'] != true)
+              .toList();
+          final tasks = all.where((t) => !weekDone.contains(t) && !doneToday.contains(t) && !postponed.contains(t)).toList();
           // by the state, never by the creation date: what to do now first
           final urgent = tasks.where((t) => questStateOf(t['trackStatus'] as String?) == QuestState.urgent).toList();
           final missed = tasks.where((t) => questStateOf(t['trackStatus'] as String?) == QuestState.missed).toList();
@@ -363,18 +277,74 @@ class _HomeScreenState extends State<HomeScreen> {
                     onTap: () => _open('/stats'),
                   ),
                 ],
-                if (tasks.isEmpty)
+                if (all.isEmpty)
                   const Padding(
                     padding: EdgeInsets.only(top: Space.s8),
                     child: EmptyView(message: 'ما عندك تعهّدات للحين. ابدأ بعادة وحدة.', icon: Icons.flag_outlined),
+                  )
+                else if (tasks.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.only(top: Space.s8),
+                    child: EmptyView(message: 'خلّصت كل اللي عليك اليوم 💪', icon: Icons.task_alt_rounded),
                   ),
                 if (urgent.isNotEmpty) ...[_SectionHead('لازم اليوم', urgent.length), ...urgent.map(quest)],
                 if (missed.isNotEmpty) ...[_SectionHead('يحتاج قرار', missed.length), ...missed.map(quest)],
                 if (fine.isNotEmpty) ...[_SectionHead('ماشية تمام', fine.length), ...fine.map(quest)],
+                if (doneToday.isNotEmpty || postponed.isNotEmpty || weekDone.isNotEmpty) ...[
+                  const SizedBox(height: Space.s3),
+                  _ElsewhereRow(
+                    doneToday: doneToday.length,
+                    postponed: postponed.length,
+                    weekDone: weekDone.length,
+                    onTap: () => _open('/commitments'),
+                  ),
+                ],
+                const SizedBox(height: Space.s3),
+                _luckyChallengeCard(),
               ],
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+// «خلّصتها اليوم ٢ · مؤجلة ١» → «تعهّداتي»
+class _ElsewhereRow extends StatelessWidget {
+  final int doneToday;
+  final int postponed;
+  final int weekDone;
+  final VoidCallback onTap;
+
+  const _ElsewhereRow({required this.doneToday, required this.postponed, required this.weekDone, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final text = Theme.of(context).textTheme;
+    final parts = [
+      if (doneToday > 0) 'خلّصتها اليوم ${arabicDigits(doneToday)}',
+      if (postponed > 0) 'مؤجلة ${arabicDigits(postponed)}',
+      if (weekDone > 0) 'خلصت الأسبوع ${arabicDigits(weekDone)}',
+    ];
+    return AppCard(
+      onTap: onTap,
+      child: Row(
+        children: [
+          Icon(Icons.task_alt_rounded, color: c.success),
+          const SizedBox(width: Space.s3),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(parts.join(' · '), style: text.labelLarge),
+                Text('تلقاها في تعهّداتي', style: text.labelSmall),
+              ],
+            ),
+          ),
+          Icon(Icons.chevron_left_rounded, color: c.inkSubtle),
+        ],
       ),
     );
   }

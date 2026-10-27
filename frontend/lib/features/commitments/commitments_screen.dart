@@ -24,6 +24,21 @@ class _CommitmentsScreenState extends State<CommitmentsScreen> {
 
   void _reload() => setState(() => _version++);
 
+  // the habits, and which of them got a proof today (from the home list) for the ✓ on today
+  Set<int> _doneToday = {};
+
+  Future<List<JsonMap>> _loadHabits() async {
+    final habits = await _api.habits();
+    try {
+      final today = await _api.today();
+      _doneToday = {
+        for (final t in today)
+          if (t['type'] == 'HABIT' && t['doneToday'] == true) (t['commitmentId'] as num).toInt(),
+      };
+    } catch (_) {} // the list works without it
+    return habits;
+  }
+
   Future<void> _open(String location, {Object? extra}) async {
     final changed = await context.push<bool>(location, extra: extra);
     if (changed == true && mounted) _reload();
@@ -103,7 +118,7 @@ class _CommitmentsScreenState extends State<CommitmentsScreen> {
           children: [
             AsyncView<List<JsonMap>>(
               key: ValueKey('habits$_version'),
-              load: _api.habits,
+              load: _loadHabits,
               builder: (context, habits, reload) => _list(
                 context,
                 habits,
@@ -195,7 +210,7 @@ class _CommitmentsScreenState extends State<CommitmentsScreen> {
     final week = List.generate(
       7,
       (i) => i == today
-          ? DayState.today
+          ? (_doneToday.contains((h['id'] as num?)?.toInt()) ? DayState.done : DayState.today)
           : days.contains(i)
               ? DayState.planned
               : DayState.empty,

@@ -289,3 +289,18 @@ Future<bool> confirmDialog(BuildContext context,
 
 const withdrawWarning = 'لو انسحبت الحين، كل مرة باقية هالأسبوع تصير خصم ويتقفل التطبيق لين تتبرع. '
     'التعهد ينتهي، ولو تبي ترجع تنشئ تعهد جديد.';
+
+// «المشي ٣٠ دقيقة»، «تمشية»، «١٠ آلاف خطوة»، «walk» -> a walking habit (it can use the steps of the day)
+bool isWalkingTitle(String title) =>
+    RegExp(r'مش[يى]|ممشى|خطو|walk|step', caseSensitive: false).hasMatch(title);
+
+// the proof method that fits a habit title (the member can still change it):
+// walking -> the steps of the day, reading -> a quiz, a place -> the location, studying -> a timer, else a photo
+String suggestedProofMethod(String title) {
+  bool has(String pattern) => RegExp(pattern, caseSensitive: false).hasMatch(title);
+  if (isWalkingTitle(title)) return 'STEPS';
+  if (has(r'قراء|أقرأ|اقرأ|اقرا|كتاب|صفح|رواية|read|book')) return 'QUIZ';
+  if (has(r'نادي|جيم|صالة|سباح|مكتبة|مسجد|gym|club')) return 'LOCATION';
+  if (has(r'مذاكر|ذاكر|دراس|تعلّ?م|كورس|حفظ|تأمل|study|learn')) return 'TIMER';
+  return 'PHOTO';
+}
