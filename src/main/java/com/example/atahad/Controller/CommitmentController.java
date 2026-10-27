@@ -54,4 +54,8 @@ public class CommitmentController {
     public ResponseEntity<?> getStats(@AuthenticationPrincipal User user){
         return ResponseEntity.status(200).body(commitmentService.getStats(user.getId()));
     }
+    @GetMapping("/learning-goal")
+    public ResponseEntity<?> hasLearningGoal(@AuthenticationPrincipal User user){
+        return ResponseEntity.status(200).body(commitmentService.hasLearningGoal(user.getId()));
+    }
 }

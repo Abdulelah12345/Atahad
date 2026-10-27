@@ -1,3 +1,4 @@
+
 import '../../core/api/api_client.dart';
 
 class LearnResource {
@@ -21,9 +22,12 @@ class LearnResource {
 
   factory LearnResource.fromJson(Map<String, dynamic> json) {
     String str(String key) => (json[key] ?? '').toString();
+
     String? optional(String key) {
       final value = str(key).trim();
-      return value.isEmpty || value.toLowerCase() == 'null' ? null : value;
+      return value.isEmpty || value.toLowerCase() == 'null'
+          ? null
+          : value;
     }
 
     return LearnResource(
@@ -40,24 +44,47 @@ class LearnResource {
 
 class LearnQuestApi {
   final ApiClient api;
+
   LearnQuestApi(this.api);
 
-  Future<List<LearnResource>> search(String query, {String type = 'all'}) async {
+  Future<bool> hasLearningGoal() async {
+    final result = await api.get('/api/v1/commitment/learning-goal');
+
+    if (result is bool) {
+      return result;
+    }
+
+    throw const FormatException('Unexpected learning goal response');
+  }
+
+  Future<List<LearnResource>> search(
+      String query, {
+        String type = 'all',
+      }) async {
     final endpoint = switch (type) {
       'books' => 'books',
       'podcasts' => 'podcasts',
       'courses' => 'courses',
       _ => 'search',
     };
+
     final result = await api.get(
       '/api/v1/learn-quest/$endpoint',
       query: {'query': query.trim()},
     );
+
     if (result is! List) {
-      throw const FormatException('Unexpected learning resources response');
+      throw const FormatException(
+        'Unexpected learning resources response',
+      );
     }
+
     return result
-        .map((item) => LearnResource.fromJson(Map<String, dynamic>.from(item as Map)))
+        .map(
+          (item) => LearnResource.fromJson(
+        Map<String, dynamic>.from(item as Map),
+      ),
+    )
         .where((item) => item.title.trim().isNotEmpty)
         .toList();
   }
