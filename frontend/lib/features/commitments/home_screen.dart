@@ -155,11 +155,104 @@ class _HomeScreenState extends State<HomeScreen> {
       'Grace day has expired': 'بطاقة العفو هذي انتهت.',
       'Grace day already used': 'بطاقة العفو هذي مستخدمة.',
       'This week is not running': 'هالأسبوع خلص.',
-      'You planned more days than the times of this week': 'اخترت أيام أكثر من مرات هالأسبوع.',
+      'You planned more days than the times of this week':
+      'اخترت أيام أكثر من مرات هالأسبوع.',
     };
+
     final message = error is ApiException ? known[error.message] : null;
+
     message != null ? showMessage(context, message) : showError(context, error);
   }
+
+  // Lucky Challenge card
+  Widget _luckyChallengeCard() {
+    return AppCard(
+      onTap: () => context.push('/lucky-challenge'),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: context.colors.primarySoft,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              Icons.casino_outlined,
+              color: context.colors.primary,
+              size: 28,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'تحدي الحظ 🎲',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'فاجئني بتحدي اليوم واكسب ٢٠ نقطة!',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '٣ فرص يوميًا',
+                  style: Theme.of(context).textTheme.labelSmall!.copyWith(color: context.colors.primary),
+                ),
+              ],
+            ),
+          ),
+          const Icon(Icons.chevron_left),
+        ],
+      ),
+    );
+  }
+
+
+  // Learn Quest - Abdulelah
+  Widget _learnQuestCard() {
+    return AppCard(
+      onTap: () => context.push('/learn-quest'),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: context.colors.primary.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(Radii.md),
+            ),
+            child: Icon(
+              Icons.auto_stories_rounded,
+              color: context.colors.primary,
+              size: 28,
+            ),
+          ),
+          const SizedBox(width: Space.s3),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'رحلة التعلّم 📚',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: Space.s1),
+                Text(
+                  'اكتشف كتب وبودكاست ودورات تساعدك تحقق أهدافك',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: Space.s2),
+          const Icon(Icons.chevron_left_rounded),
+        ],
+      ),
+    );
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -181,8 +274,20 @@ class _HomeScreenState extends State<HomeScreen> {
         key: ValueKey(_version),
         load: _load,
         builder: (context, data, reload) {
-          final tasks = data['tasks'] as List<JsonMap>;
+          final all = data['tasks'] as List<JsonMap>;
           final stats = data['stats'] as JsonMap?;
+          // «اليوم» is what is left for today: done today, done for the week and postponed ones move to «تعهّداتي»
+          final weekDone = all.where((t) => t['trackStatus'] == 'SETTLED' || (t['remaining'] ?? 1) == 0).toList();
+          final doneToday = all.where((t) => !weekDone.contains(t) && t['doneToday'] == true).toList();
+          final postponed = all
+              .where((t) =>
+                  !weekDone.contains(t) &&
+                  !doneToday.contains(t) &&
+                  questStateOf(t['trackStatus'] as String?) == QuestState.safe &&
+                  t['hasPlan'] == true &&
+                  t['plannedToday'] != true)
+              .toList();
+          final tasks = all.where((t) => !weekDone.contains(t) && !doneToday.contains(t) && !postponed.contains(t)).toList();
           // by the state, never by the creation date: what to do now first
           final urgent = tasks.where((t) => questStateOf(t['trackStatus'] as String?) == QuestState.urgent).toList();
           final missed = tasks.where((t) => questStateOf(t['trackStatus'] as String?) == QuestState.missed).toList();
@@ -216,24 +321,76 @@ class _HomeScreenState extends State<HomeScreen> {
                     onTap: () => _open('/stats'),
                   ),
                 ],
-                // Lucky Challenge - Abdulelah
-                const SizedBox(height: Space.s3),
-                _LuckyChallengeCard(onTap: () => context.push('/lucky-challenge')),
-                // Learn Quest - Abdulelah
-                const SizedBox(height: Space.s3),
-                _LearnQuestCard(onTap: () => context.push('/learn-quest')),
-                if (tasks.isEmpty)
+                if (all.isEmpty)
                   const Padding(
                     padding: EdgeInsets.only(top: Space.s8),
                     child: EmptyView(message: 'ما عندك تعهّدات للحين. ابدأ بعادة وحدة.', icon: Icons.flag_outlined),
+                  )
+                else if (tasks.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.only(top: Space.s8),
+                    child: EmptyView(message: 'خلّصت كل اللي عليك اليوم 💪', icon: Icons.task_alt_rounded),
                   ),
                 if (urgent.isNotEmpty) ...[_SectionHead('لازم اليوم', urgent.length), ...urgent.map(quest)],
                 if (missed.isNotEmpty) ...[_SectionHead('يحتاج قرار', missed.length), ...missed.map(quest)],
                 if (fine.isNotEmpty) ...[_SectionHead('ماشية تمام', fine.length), ...fine.map(quest)],
+                if (doneToday.isNotEmpty || postponed.isNotEmpty || weekDone.isNotEmpty) ...[
+                  const SizedBox(height: Space.s3),
+                  _ElsewhereRow(
+                    doneToday: doneToday.length,
+                    postponed: postponed.length,
+                    weekDone: weekDone.length,
+                    onTap: () => _open('/commitments'),
+                  ),
+                ],
+                const SizedBox(height: Space.s3),
+                _luckyChallengeCard(),
+                const SizedBox(height: Space.s3),
+                _learnQuestCard(),
               ],
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+// «خلّصتها اليوم ٢ · مؤجلة ١» → «تعهّداتي»
+class _ElsewhereRow extends StatelessWidget {
+  final int doneToday;
+  final int postponed;
+  final int weekDone;
+  final VoidCallback onTap;
+
+  const _ElsewhereRow({required this.doneToday, required this.postponed, required this.weekDone, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final text = Theme.of(context).textTheme;
+    final parts = [
+      if (doneToday > 0) 'خلّصتها اليوم ${arabicDigits(doneToday)}',
+      if (postponed > 0) 'مؤجلة ${arabicDigits(postponed)}',
+      if (weekDone > 0) 'خلصت الأسبوع ${arabicDigits(weekDone)}',
+    ];
+    return AppCard(
+      onTap: onTap,
+      child: Row(
+        children: [
+          Icon(Icons.task_alt_rounded, color: c.success),
+          const SizedBox(width: Space.s3),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(parts.join(' · '), style: text.labelLarge),
+                Text('تلقاها في تعهّداتي', style: text.labelSmall),
+              ],
+            ),
+          ),
+          Icon(Icons.chevron_left_rounded, color: c.inkSubtle),
+        ],
       ),
     );
   }
@@ -373,83 +530,6 @@ class _PostponeSheetState extends State<_PostponeSheet> {
             AtButton('احفظ أيام هالأسبوع', onPressed: () => Navigator.pop(context, _days)),
           ],
         ),
-      ),
-    );
-  }
-}
-
-// Lucky Challenge (Abdulelah): a surprise challenge of the day, 3 tries a day
-class _LuckyChallengeCard extends StatelessWidget {
-  final VoidCallback onTap;
-
-  const _LuckyChallengeCard({required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-    final text = Theme.of(context).textTheme;
-    return AppCard(
-      onTap: onTap,
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: c.primary.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(Radii.md)),
-            child: Icon(Icons.casino_outlined, color: c.primary, size: 28),
-          ),
-          const SizedBox(width: Space.s3),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('تحدي الحظ 🎲', style: text.titleMedium),
-                const SizedBox(height: 4),
-                Text('فاجئني بتحدي اليوم واكسب ${arabicDigits(20)} نقطة!', style: text.bodySmall),
-                const SizedBox(height: 4),
-                Text('${arabicDigits(3)} فرص يوميًا', style: text.labelSmall!.copyWith(color: c.primary)),
-              ],
-            ),
-          ),
-          Icon(Icons.chevron_left_rounded, color: c.inkSubtle),
-        ],
-      ),
-    );
-  }
-}
-
-// Learn Quest (Abdulelah): books, podcasts and courses that help with the goals
-class _LearnQuestCard extends StatelessWidget {
-  final VoidCallback onTap;
-
-  const _LearnQuestCard({required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-    final text = Theme.of(context).textTheme;
-    return AppCard(
-      onTap: onTap,
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: c.primary.withValues(alpha: 0.10), borderRadius: BorderRadius.circular(Radii.md)),
-            child: Icon(Icons.auto_stories_rounded, color: c.primary, size: 28),
-          ),
-          const SizedBox(width: Space.s3),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('رحلة التعلّم 📚', style: text.titleMedium),
-                const SizedBox(height: Space.s1),
-                Text('اكتشف كتب وبودكاست ودورات تساعدك تحقق أهدافك', style: text.bodySmall),
-              ],
-            ),
-          ),
-          const SizedBox(width: Space.s2),
-          Icon(Icons.chevron_left_rounded, color: c.inkSubtle),
-        ],
       ),
     );
   }
