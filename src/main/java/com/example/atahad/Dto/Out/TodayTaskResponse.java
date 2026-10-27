@@ -27,6 +27,6 @@ public class TodayTaskResponse {
     private String goalTitle;
     private String taskTitle;
     private Boolean plannedToday; // only a reminder, never a deduction
-    private Boolean hasPlan; // the member picked days for this week (no plan = any day)
+    private Boolean postponedToday; // the member moved this week off today (habits only)
     private Boolean doneToday; // a proof of today was sent (accepted or still in review)
 }
