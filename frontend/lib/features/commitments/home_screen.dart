@@ -311,6 +311,44 @@ class _HomeScreenState extends State<HomeScreen> {
                                     style: text.bodySmall)),
                             RiyalAmount(t['amountPerTime'] as num?),
                           ],
+          IconButton(tooltip: 'تعهّداتي', icon: const Icon(Icons.list_alt_rounded), onPressed: () => _open('/commitments')),
+          IconButton(tooltip: 'مستواي ونقاطي', icon: const Icon(Icons.insights_rounded), onPressed: () => _open('/stats')),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        icon: const Icon(Icons.add_rounded),
+        label: const Text('تعهّد جديد'),
+        onPressed: _newCommitment,
+      ),
+      body: AsyncView<JsonMap>(
+        key: ValueKey(_version),
+        load: _load,
+        builder: (context, data, reload) {
+          final tasks = data['tasks'] as List<JsonMap>;
+          final stats = data['stats'] as JsonMap?;
+          return RefreshIndicator(
+            onRefresh: reload,
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(Space.s4, Space.s4, Space.s4, Space.s16 + Space.s4),
+              children: [
+                if (stats != null) _StatsStrip(stats: stats, onTap: () => _open('/stats')),
+                SectionTitle('هالأسبوع', trailing: tasks.isEmpty ? null : Text(_todayLine(tasks), style: Theme.of(context).textTheme.labelSmall)),
+                if (tasks.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.only(top: Space.s8),
+                    child: EmptyView(message: 'ما عندك تعهّدات للحين. ابدأ بعادة وحدة.', icon: Icons.flag_outlined),
+                  )
+                else
+                  ...tasks.map((t) => Padding(
+                        padding: const EdgeInsets.only(bottom: Space.s3),
+                        child: _TaskCard(
+                          task: t,
+                          onTap: () async {
+                            await openActivityProof(context, Map<String, dynamic>.from(t));
+                            if (context.mounted) await reload();
+                          },
+                          onPostpone: () => _postpone(t, reload),
+                          onGraceDay: () => _useGraceDay(t, reload),
                         ),
                       )),
               ],
@@ -386,7 +424,12 @@ class _TaskCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Expanded(child: Text('${t['title']}', style: text.headlineSmall)),
+              Expanded(
+                  child: ActivityHeading(
+                      title: '${t['title']}',
+                      goalTitle: t['goalTitle'] as String?,
+                      taskTitle: t['taskTitle'] as String?,
+                      style: text.headlineSmall)),
               StatusBadge.track(t['trackStatus'] as String?),
             ],
           ),

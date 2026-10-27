@@ -62,8 +62,9 @@ public class DonationProofService {
         proof.setEhsanMessageImageUrl(dto.getEhsanMessageImageUrl());
 
         String answer = aiService.askWithImages(
-                "You read donation receipts. The first image is the SMS of the bank transfer, the second is the thank you SMS of Ehsan "
-                        + "(the Saudi national platform for charity). Read the transfer details. Both images must be about the same transfer. "
+                "You read donation receipts. The first image is the SMS of the bank transfer, the second is the thank you message or the receipt "
+                        + "of Ehsan (the Saudi national platform for charity) or of a charity (جمعية خيرية, often chosen from the bank app). "
+                        + "Read the transfer details. Both images must be about the same transfer. "
                         + EXTRACT_FORMAT,
                 "Read the two images.",
                 List.of(proofAttachmentService.resolve(memberId, dto.getBankMessageImageUrl()),
@@ -87,7 +88,8 @@ public class DonationProofService {
         DonationProof last = null;
         for(BankEmail email : emails){
             String answer = aiService.ask(
-                    "You read Saudi bank emails about money transfers. Read the transfer details. " + EXTRACT_FORMAT,
+                    "You read Saudi bank emails about money transfers and card or Apple Pay purchases. Read the details of the transfer "
+                            + "or the purchase (RECIPIENT = who received the money, the merchant of a purchase). " + EXTRACT_FORMAT,
                     "Subject: " + email.subject() + "\nReceived: " + email.receivedAt() + "\n\n" + email.text(),
                     "SUSPICIOUS: YES\nNOTE: الذكاء الاصطناعي غير متاح الحين، بيراجعه الأدمن");
             String recipient = aiService.field(answer, "RECIPIENT");
@@ -96,6 +98,7 @@ public class DonationProofService {
             }
             DonationProof proof = newProof(member, "EMAIL");
             proof.setDkimDomain(email.domain());
+            proof.setTransactionTime(email.receivedAt()); // when the email has no time of its own
             last = evaluate(proof, answer, pending);
             if("ACCEPTED".equals(last.getStatus())){
                 return last;
@@ -113,16 +116,29 @@ public class DonationProofService {
         proof.setBankName(cut(aiService.field(answer, "BANK"), 50));
         proof.setRecipient(cut(aiService.field(answer, "RECIPIENT"), 100));
         proof.setAmount(parseAmount(aiService.field(answer, "AMOUNT")));
-        proof.setTransactionTime(parseTime(aiService.field(answer, "TIME")));
+        LocalDateTime time = parseTime(aiService.field(answer, "TIME"));
+        if(time != null || proof.getTransactionTime() == null){
+            proof.setTransactionTime(time);
+        }
         String reference = cut(aiService.field(answer, "REFERENCE"), 100);
         String note = aiService.field(answer, "NOTE");
         boolean suspicious = !"NO".equalsIgnoreCase(String.valueOf(aiService.field(answer, "SUSPICIOUS")));
+        boolean email = "EMAIL".equals(proof.getMethod());
+        if(email){
+            // the email is signed by the bank (DKIM), so it is real: no need for the AI's doubt.
+            // An Apple Pay / card purchase email often has no transaction number: the bank + the time + the amount
+            // make one, so the same email can not be used twice
+            suspicious = false;
+            if(reference == null && proof.getAmount() != null && proof.getTransactionTime() != null){
+                reference = cut("EMAIL-" + proof.getDkimDomain() + "-" + proof.getTransactionTime() + "-" + proof.getAmount().toPlainString(), 100);
+            }
+        }
 
         String rejection = null;
         if(reference != null && donationProofRepository.findDonationProofByTransactionReference(reference) != null){
             rejection = "رقم العملية مستخدم قبل";
         }else if(proof.getRecipient() != null && !isEhsan(proof.getRecipient())){
-            rejection = "المستلم مو منصة إحسان";
+            rejection = "المستلم مو منصة إحسان ولا جمعية خيرية";
         }else if(proof.getTransactionTime() != null && proof.getTransactionTime().isBefore(pending.get(0).getCreatedAt())){
             rejection = "التحويل قبل وقت العقوبة";
         }else if(proof.getAmount() != null && proof.getAmount().compareTo(smallest(pending)) < 0){
@@ -252,9 +268,13 @@ public class DonationProofService {
         return min;
     }
 
+    // Ehsan, or a charity (the charities the banks list in their apps): جمعية خيرية، مؤسسة خيرية، وقف ...
     private boolean isEhsan(String recipient){
         String text = recipient.toLowerCase();
-        return text.contains("احسان") || text.contains("إحسان") || text.contains("ehsan") || text.contains("ehsan.sa");
+        return text.contains("احسان") || text.contains("إحسان") || text.contains("ehsan")
+                || text.contains("جمعية") || text.contains("جمعيه") || text.contains("خيري")
+                || text.contains("وقف") || text.contains("أوقاف") || text.contains("اوقاف")
+                || text.contains("charity") || text.contains("charitable");
     }
 
     private BigDecimal parseAmount(String value){

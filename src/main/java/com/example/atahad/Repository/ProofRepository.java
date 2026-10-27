@@ -14,6 +14,9 @@ import java.util.List;
 public interface ProofRepository extends JpaRepository<Proof, Integer> {
     Proof findProofById(Integer id);
 
+    @Query("select count(p) from Proof p where p.commitmentWeek.id=:weekId and p.type='STEPS' and p.result='ESCALATED' and p.activityTime<:before")
+    int countPendingStepReviews(@Param("weekId") Integer weekId,@Param("before") LocalDateTime before);
+
     /*
      تبحث عن بروف لنفس المهمة والأسبوع وفي نفس يوم النشاط وبالحالة المطلوبة.
      بداية اليوم داخلة في البحث وبداية اليوم التالي غير داخلة.

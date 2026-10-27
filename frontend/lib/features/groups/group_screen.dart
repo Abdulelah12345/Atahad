@@ -14,12 +14,15 @@ import 'board_tab.dart';
 import 'chat_tab.dart';
 import 'group_activity.dart';
 import 'group_api.dart';
+import 'group_labels.dart';
+import 'group_ui.dart';
 import 'group_widgets.dart';
 import 'group_matching_screen.dart';
+import 'match_tab.dart';
 import 'moments_tab.dart';
 import 'week_tab.dart';
 
-// OWNER: Fai - one group: the board (goal, proposals, alerts), the chat, the moments, the week (settlement and titles)
+// OWNER: Fai - one group (design: GroupBoard header): the board (goal, proposals, alerts), the chat, the moments, the week (settlement and titles)
 class GroupScreen extends StatefulWidget {
   final int groupId;
 
@@ -32,19 +35,21 @@ class GroupScreen extends StatefulWidget {
 class _GroupData {
   final Map<String, dynamic> group;
   final List<Map<String, dynamic>> members;
+  final Map<String, dynamic>? goal;
   final bool isOwner;
 
-  _GroupData(this.group, this.members, this.isOwner);
+  _GroupData(this.group, this.members, this.goal, this.isOwner);
 }
 
 class _GroupScreenState extends State<GroupScreen> with SingleTickerProviderStateMixin {
   late final GroupApi _api = GroupApi(context.read<ApiClient>());
-  late final int? _me = context.read<AuthState>().userId;
+  int? _me;
   Key _key = UniqueKey();
-  late final TabController _tabs = TabController(length: 4, vsync: this);
+  late final TabController _tabs = TabController(length: 5, vsync: this);
 
-  // the place of every tab where something can be new (the week has none)
-  static const _tabKinds = [GroupActivity.alert, GroupActivity.chat, GroupActivity.moments, null];
+  static const _tabLabels = ['اللوحة', 'الشات', 'اللحظات', 'الأسبوع', 'المنافسة'];
+  // the place of every tab where something can be new (the week and the competition have none)
+  static const _tabKinds = [GroupActivity.alert, GroupActivity.chat, GroupActivity.moments, null, null];
 
   // the open tab is seen: its red dot goes away, also when something new comes while I am on it
   void _seeOpenTab() {
@@ -55,6 +60,7 @@ class _GroupScreenState extends State<GroupScreen> with SingleTickerProviderStat
   @override
   void initState() {
     super.initState();
+    _me = context.read<AuthState>().userId;
     _tabs.addListener(_seeOpenTab);
     GroupActivity.instance.addListener(_seeOpenTab);
     _seeOpenTab();
@@ -68,27 +74,12 @@ class _GroupScreenState extends State<GroupScreen> with SingleTickerProviderStat
     super.dispose();
   }
 
-  Widget _tab(String label, String? kind) {
-    if (kind == null) return Tab(text: label);
-    return Tab(
-      child: ListenableBuilder(
-        listenable: GroupActivity.instance,
-        builder: (context, _) => Badge(
-          isLabelVisible: GroupActivity.instance.hasNewIn(widget.groupId, kind),
-          smallSize: 8,
-          offset: const Offset(10, -4),
-          child: Text(label),
-        ),
-      ),
-    );
-  }
-
   Future<_GroupData> _load() async {
-    final results = await Future.wait([_api.group(widget.groupId), _api.members(widget.groupId)]);
+    final results = await Future.wait<Object?>([_api.group(widget.groupId), _api.members(widget.groupId), _api.activeGoal(widget.groupId)]);
     final group = results[0] as Map<String, dynamic>;
     final members = results[1] as List<Map<String, dynamic>>;
     final isOwner = members.any((m) => m['memberId'] == _me && m['role'] == 'OWNER');
-    return _GroupData(group, members, isOwner);
+    return _GroupData(group, members, results[2] as Map<String, dynamic>?, isOwner);
   }
 
   void _refresh() => setState(() => _key = UniqueKey());
@@ -99,13 +90,21 @@ class _GroupScreenState extends State<GroupScreen> with SingleTickerProviderStat
       case 'invite':
         await showModalBottomSheet(context: context, showDragHandle: true, isScrollControlled: true, builder: (_) => _InviteSheet(api: _api, groupId: id, isOwner: data.isOwner));
       case 'members':
-        await showModalBottomSheet(context: context, showDragHandle: true, isScrollControlled: true, builder: (_) => _MembersSheet(members: data.members, me: _me));
+        final changed = await showModalBottomSheet<bool>(
+          context: context,
+          showDragHandle: true,
+          isScrollControlled: true,
+          builder: (_) => _MembersSheet(api: _api, groupId: id, members: data.members, me: _me, isOwner: data.isOwner),
+        );
+        if (changed == true) _refresh();
+      case 'points':
+        await showModalBottomSheet(context: context, showDragHandle: true, isScrollControlled: true, builder: (_) => _PointsSheet(api: _api, group: data.group));
       case 'edit':
         final saved = await showModalBottomSheet<bool>(context: context, showDragHandle: true, isScrollControlled: true, builder: (_) => _EditSheet(api: _api, group: data.group));
         if (saved == true) _refresh();
       case 'add':
-        final added = await showModalBottomSheet<bool>(context: context, showDragHandle: true, isScrollControlled: true, builder: (_) => _AddMemberSheet(api: _api, groupId: id));
-        if (added == true) _refresh();
+        await showModalBottomSheet<bool>(context: context, showDragHandle: true, isScrollControlled: true, builder: (_) => _AddMemberSheet(api: _api, groupId: id, members: data.members));
+        _refresh(); // friends may be added from the list
       case 'leave':
         if (!await confirm(context, 'تطلع من المجموعة؟', 'المرات اللي باقية لك هالأسبوع في هدف المجموعة تنحسب عليك.', yes: 'اطلع')) return;
         await _run(() => _api.leave(id), done: 'طلعت من المجموعة', pop: true);
@@ -126,7 +125,7 @@ class _GroupScreenState extends State<GroupScreen> with SingleTickerProviderStat
       showMessage(context, done);
       if (pop) context.pop();
     } catch (e) {
-      if (mounted) showError(context, e);
+      if (mounted) showGroupError(context, e);
     }
   }
 
@@ -134,7 +133,7 @@ class _GroupScreenState extends State<GroupScreen> with SingleTickerProviderStat
   Widget build(BuildContext context) {
     return AsyncView<_GroupData>(
       key: _key,
-      load: _load,
+      load: () => inArabic(_load()),
       builder: (context, data, reload) {
         final name = '${data.group['name'] ?? ''}';
         return Scaffold(
@@ -190,9 +189,171 @@ class _GroupScreenState extends State<GroupScreen> with SingleTickerProviderStat
               MomentsTab(api: _api, groupId: widget.groupId, me: _me),
               WeekTab(api: _api, groupId: widget.groupId, groupName: name, members: data.members),
             ],
+        final c = context.colors;
+        // the page color of every tab: the round corners of the header sit on it
+        final pages = [c.bg, c.bg, paperColor(c), c.bg, const Color(0xFF0A1A3A)];
+        return AnimatedBuilder(
+          animation: _tabs.animation!,
+          builder: (context, child) {
+            final t = _tabs.animation!.value.clamp(0.0, pages.length - 1.0);
+            final i = t.floor();
+            final color = i >= pages.length - 1 ? pages.last : Color.lerp(pages[i], pages[i + 1], t - i)!;
+            return Scaffold(backgroundColor: color, body: child);
+          },
+          child: Column(
+            children: [
+              _TeamHeader(
+                data: data,
+                groupId: widget.groupId,
+                tabs: _tabs,
+                labels: _tabLabels,
+                kinds: _tabKinds,
+                onPoints: () => _onMenu('points', data),
+                menu: PopupMenuButton<String>(
+                  tooltip: 'خيارات المجموعة',
+                  onSelected: (a) => _onMenu(a, data),
+                  itemBuilder: (_) => [
+                    const PopupMenuItem(value: 'invite', child: Text('كود الدعوة')),
+                    const PopupMenuItem(value: 'members', child: Text('الأعضاء')),
+                    const PopupMenuItem(value: 'points', child: Text('نقاط المجموعة')),
+                    if (data.isOwner) const PopupMenuItem(value: 'edit', child: Text('تعديل المجموعة')),
+                    if (data.isOwner) const PopupMenuItem(value: 'add', child: Text('أضف عضو')),
+                    if (!data.isOwner) const PopupMenuItem(value: 'leave', child: Text('اطلع من المجموعة')),
+                    if (data.isOwner) const PopupMenuItem(value: 'archive', child: Text('احذف المجموعة')),
+                  ],
+                  child: Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.18), borderRadius: BorderRadius.circular(14)),
+                    child: const Icon(Icons.more_horiz_rounded, color: Colors.white),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: TabBarView(
+                  controller: _tabs,
+                  children: [
+                    BoardTab(api: _api, group: data.group, isOwner: data.isOwner, me: _me, onChanged: _refresh, onInvite: () => _onMenu('invite', data)),
+                    ChatTab(api: _api, groupId: widget.groupId, me: _me),
+                    MomentsTab(api: _api, groupId: widget.groupId, me: _me),
+                    WeekTab(api: _api, groupId: widget.groupId, groupName: name, members: data.members, me: _me),
+                    MatchTab(api: _api, groupId: widget.groupId, isOwner: data.isOwner, me: _me, onChanged: _refresh),
+                  ],
+                ),
+              ),
+            ],
           ),
         );
       },
+    );
+  }
+}
+
+// ---------- the team colored header: back, name, the goal and the week, the points, and the pill tabs ----------
+class _TeamHeader extends StatelessWidget {
+  final _GroupData data;
+  final int groupId;
+  final TabController tabs;
+  final List<String> labels;
+  final List<String?> kinds;
+  final Widget menu;
+  final VoidCallback onPoints;
+
+  const _TeamHeader({required this.data, required this.groupId, required this.tabs, required this.labels, required this.kinds, required this.menu, required this.onPoints});
+
+  // "قراءة ٢٠ صفحة × ٤ · الأسبوع ٣ من ٤"
+  String _subtitle() {
+    final goal = data.goal;
+    if (goal == null) {
+      final description = '${data.group['description'] ?? ''}';
+      return description.isNotEmpty ? description : 'ما فيه هدف شغّال، صوّتوا على الجاي';
+    }
+    final base = '${goal['title'] ?? ''} × ${arabicDigits(goal['timesPerWeek'] ?? '')}';
+    final start = DateTime.tryParse('${goal['startDate']}');
+    final total = goal['totalWeeks'] as int?;
+    if (start == null) return base;
+    final today = DateTime.now();
+    final days = DateTime(today.year, today.month, today.day).difference(start).inDays;
+    if (days < 0) return '$base · يبدأ ${dayAr(goal['startDate'])}';
+    final week = days ~/ 7 + 1;
+    return '$base · الأسبوع ${arabicDigits(week)}${total == null ? '' : ' من ${arabicDigits(total)}'}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    final team = teamColor(groupId);
+    const soft = Color(0xFFDCEAF0);
+    final name = '${data.group['name'] ?? ''}';
+    return Container(
+      decoration: BoxDecoration(color: team, borderRadius: const BorderRadius.vertical(bottom: Radius.circular(26))),
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(Space.s4, Space.s3, Space.s4, 14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  HeaderIconButton(icon: Icons.arrow_back_rounded, tooltip: 'رجوع', onPressed: () => Navigator.maybePop(context)),
+                  const SizedBox(width: Space.s3),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(name, style: text.headlineSmall!.copyWith(color: Colors.white, fontWeight: FontWeight.w800, height: 1.3), maxLines: 1, overflow: TextOverflow.ellipsis),
+                        Text(_subtitle(), style: text.labelSmall!.copyWith(color: soft), maxLines: 1, overflow: TextOverflow.ellipsis),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: Space.s2),
+                  Semantics(
+                    button: true,
+                    label: 'نقاط المجموعة ${data.group['points'] ?? 0} من ${data.group['pointsForGraceDay'] ?? 300}',
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(Radii.md),
+                      onTap: onPoints,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        child: Column(
+                          children: [
+                            CountUp((data.group['points'] as int?) ?? 0, style: text.titleMedium!.copyWith(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 18)),
+                            Text('من ${arabicDigits(data.group['pointsForGraceDay'] ?? 300)}', style: text.labelSmall!.copyWith(color: soft, fontSize: 10.5)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: Space.s2),
+                  menu,
+                ],
+              ),
+              const SizedBox(height: 14),
+              ListenableBuilder(
+                listenable: Listenable.merge([tabs, GroupActivity.instance]),
+                builder: (context, _) => SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      for (var i = 0; i < labels.length; i++) ...[
+                        if (i > 0) const SizedBox(width: 6),
+                        PillTab(
+                          label: labels[i],
+                          team: team,
+                          selected: tabs.index == i,
+                          hasNew: kinds[i] != null && GroupActivity.instance.hasNewIn(groupId, kinds[i]!),
+                          onTap: () => tabs.animateTo(i),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -227,7 +388,7 @@ class _InviteSheetState extends State<_InviteSheet> {
         future: _invite,
         builder: (context, snap) {
           if (snap.connectionState != ConnectionState.done) return const SizedBox(height: 200, child: LoadingView());
-          if (snap.hasError) return ErrorView(message: '${snap.error}');
+          if (snap.hasError) return ErrorView(message: errorText(snap.error!));
           final code = '${snap.data!['inviteCode'] ?? ''}';
           final qr = '${snap.data!['qrContent'] ?? code}';
           return Column(
@@ -272,27 +433,319 @@ class _InviteSheetState extends State<_InviteSheet> {
 }
 
 // ---------- members ----------
+// everyone with his points; tap a friend to see his groups and add him to a group you own
 class _MembersSheet extends StatelessWidget {
+  final GroupApi api;
+  final int groupId;
   final List<Map<String, dynamic>> members;
   final int? me;
+  final bool isOwner;
 
-  const _MembersSheet({required this.members, required this.me});
+  const _MembersSheet({required this.api, required this.groupId, required this.members, required this.me, required this.isOwner});
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
     final text = Theme.of(context).textTheme;
+    final sorted = [...members]..sort((a, b) => ((b['points'] as int?) ?? 0).compareTo((a['points'] as int?) ?? 0));
     return SheetBody(
-      title: 'الأعضاء (${arabicDigits(members.length)})',
+      title: 'الأعضاء',
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          for (final m in members)
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: NameAvatar('${m['name'] ?? ''}'),
-              title: Text('${m['name'] ?? ''}${m['memberId'] == me ? ' (أنت)' : ''}', style: text.labelLarge),
-              subtitle: Text('${arabicDigits(m['points'] ?? 0)} نقطة', style: text.labelSmall),
-              trailing: m['role'] == 'OWNER' ? const StatusBadge('منشئ المجموعة', kind: BadgeKind.success) : null,
+          Row(
+            children: [
+              Expanded(child: Text('${arabicDigits(members.length)} من ${arabicDigits(10)} أعضاء', style: text.labelSmall)),
+              Text('مرتّبين بالنقاط', style: text.labelSmall),
+            ],
+          ),
+          const SizedBox(height: Space.s2),
+          for (final (i, m) in sorted.indexed) ...[
+            Appear(
+              index: i,
+              child: RaisedCard(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                highlight: m['memberId'] == me ? c.primary : null,
+                onTap: m['memberId'] == me
+                    ? null
+                    : () => showModalBottomSheet(
+                          context: context,
+                          showDragHandle: true,
+                          isScrollControlled: true,
+                          builder: (_) => _MemberProfileSheet(api: api, member: m),
+                        ),
+                child: Row(
+                  children: [
+                    MemberAvatar('${m['name'] ?? ''}', size: 40),
+                    const SizedBox(width: Space.s3),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(m['memberId'] == me ? 'أنت' : '${m['name'] ?? ''}', style: text.labelLarge!.copyWith(fontWeight: FontWeight.w700)),
+                          Text('${arabicDigits(m['points'] ?? 0)} نقطة · انضم ${dayAr(m['joinedAt'])}', style: text.labelSmall),
+                        ],
+                      ),
+                    ),
+                    if (((m['failureCount'] as int?) ?? 0) > 0) ...[
+                      Tooltip(
+                        message: 'ما كمّل أسبوعه مرة، المرة الثانية يطلع من المجموعة',
+                        child: Pill('إنذار', fg: c.warning, bg: c.warningSoft, dot: true),
+                      ),
+                      const SizedBox(width: 6),
+                    ],
+                    if (m['role'] == 'OWNER') Pill('المنشئ', fg: c.primary, bg: c.primarySoft),
+                    if (m['memberId'] != me) Icon(Icons.chevron_left_rounded, color: c.inkSubtle),
+                  ],
+                ),
+              ),
             ),
+            const SizedBox(height: Space.s2),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+// a friend: his groups, and «أضفه» to the groups I own that he is not in
+class _MemberProfileSheet extends StatefulWidget {
+  final GroupApi api;
+  final Map<String, dynamic> member;
+
+  const _MemberProfileSheet({required this.api, required this.member});
+
+  @override
+  State<_MemberProfileSheet> createState() => _MemberProfileSheetState();
+}
+
+class _MemberProfileSheetState extends State<_MemberProfileSheet> {
+  late Future<(List<Map<String, dynamic>>, List<Map<String, dynamic>>)> _data = _load();
+  int? _adding;
+  String? _error;
+
+  int get _memberId => widget.member['memberId'] as int;
+
+  Future<(List<Map<String, dynamic>>, List<Map<String, dynamic>>)> _load() async {
+    final results = await Future.wait([widget.api.memberGroups(_memberId), widget.api.myGroups()]);
+    return (results[0], results[1]);
+  }
+
+  Future<void> _add(Map<String, dynamic> group) async {
+    setState(() {
+      _adding = group['groupId'] as int;
+      _error = null;
+    });
+    try {
+      await widget.api.addMember(group['groupId'] as int, _memberId);
+      if (!mounted) return;
+      showMessage(context, 'انضاف ${widget.member['name']} لـ ${group['groupName']}');
+      setState(() => _data = _load());
+    } catch (e) {
+      if (mounted) setState(() => _error = errorText(e));
+    } finally {
+      if (mounted) setState(() => _adding = null);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final text = Theme.of(context).textTheme;
+    final name = '${widget.member['name'] ?? ''}';
+    return SheetBody(
+      title: name,
+      error: _error,
+      child: FutureBuilder<(List<Map<String, dynamic>>, List<Map<String, dynamic>>)>(
+        future: _data,
+        builder: (context, snap) {
+          if (snap.connectionState != ConnectionState.done) return const SizedBox(height: 160, child: LoadingView());
+          if (snap.hasError) return ErrorView(message: errorText(snap.error!));
+          final (his, mine) = snap.data!;
+          final hisIds = his.map((g) => g['groupId']).toSet();
+          final canAdd = mine.where((g) => g['role'] == 'OWNER' && !hisIds.contains(g['groupId'])).toList();
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  MemberAvatar(name, size: 56),
+                  const SizedBox(width: Space.s3),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('${arabicDigits(widget.member['points'] ?? 0)} نقطة بهالمجموعة', style: text.labelLarge),
+                        Text('بـ ${arabicDigits(his.length)} مجموعات', style: text.labelSmall),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const GroupSection('مجموعاته'),
+              for (final g in his) ...[
+                Row(
+                  children: [
+                    TeamAvatar(name: '${g['groupName'] ?? ''}', color: teamColor(g['groupId']), size: 32),
+                    const SizedBox(width: Space.s3),
+                    Expanded(child: Text('${g['groupName'] ?? ''}', style: text.labelLarge)),
+                    if (g['role'] == 'OWNER') Pill('المنشئ', fg: c.primary, bg: c.primarySoft),
+                  ],
+                ),
+                const SizedBox(height: Space.s2),
+              ],
+              if (canAdd.isNotEmpty) ...[
+                const GroupSection('أضفه لمجموعة عندك'),
+                for (final g in canAdd) ...[
+                  RaisedCard(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    child: Row(
+                      children: [
+                        TeamAvatar(name: '${g['groupName'] ?? ''}', color: teamColor(g['groupId']), size: 32),
+                        const SizedBox(width: Space.s3),
+                        Expanded(child: Text('${g['groupName'] ?? ''}', style: text.labelLarge)),
+                        AtButton('أضف', expand: false, loading: _adding == g['groupId'], onPressed: _adding != null ? null : () => _add(g)),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: Space.s2),
+                ],
+              ],
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+// ---------- the group points: how they are collected and their log ----------
+class _PointsSheet extends StatelessWidget {
+  final GroupApi api;
+  final Map<String, dynamic> group;
+
+  const _PointsSheet({required this.api, required this.group});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final text = Theme.of(context).textTheme;
+    final points = (group['points'] as int?) ?? 0;
+    final target = (group['pointsForGraceDay'] as int?) ?? 300;
+    Widget rule(String label, int value) => Padding(
+          padding: const EdgeInsets.only(bottom: 6),
+          child: Row(children: [
+            Expanded(child: Text(label, style: text.bodySmall)),
+            Text('+${arabicDigits(value)}', style: text.labelLarge!.copyWith(color: c.accent, fontWeight: FontWeight.w800)),
+          ]),
+        );
+    return SheetBody(
+      title: 'نقاط المجموعة',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          RaisedCard(
+            radius: Radii.card,
+            color: c.pardonSoft,
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 72,
+                  height: 72,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      SizedBox.expand(
+                        child: TweenAnimationBuilder<double>(
+                          tween: Tween(begin: 0, end: target == 0 ? 0 : (points / target).clamp(0, 1).toDouble()),
+                          duration: Motion.sign,
+                          curve: Motion.easeOut,
+                          builder: (context, v, _) => CircularProgressIndicator(value: v, strokeWidth: 7, strokeCap: StrokeCap.round, color: c.pardon, backgroundColor: c.surface),
+                        ),
+                      ),
+                      CountUp(points, style: text.titleMedium!.copyWith(color: c.pardonText, fontWeight: FontWeight.w800)),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: Space.s4),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('${arabicDigits(points)} من ${arabicDigits(target)}', style: text.titleMedium!.copyWith(color: c.pardonText, fontWeight: FontWeight.w800)),
+                      Text('لما توصلون ${arabicDigits(target)} كل عضو ياخذ يوم عفو.', style: text.bodySmall!.copyWith(color: c.pardonText)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const GroupSection('كيف تجمعونها'),
+          rule('أسبوع ذهبي: كل الأعضاء كمّلوا الأسبوع', 50),
+          rule('فوز بمنافسة ضد مجموعة ثانية', 100),
+          rule('الأقل تسويف بالمنافسة', 50),
+          rule('كل الأعضاء كمّلوا أسبوع المنافسة', 30),
+          const GroupSection('السجل'),
+          FutureBuilder<List<Map<String, dynamic>>>(
+            future: api.groupPoints(group['id'] as int),
+            builder: (context, snap) {
+              if (snap.connectionState != ConnectionState.done) return const SizedBox(height: 120, child: LoadingView());
+              if (snap.hasError) return ErrorView(message: errorText(snap.error!));
+              final logs = snap.data!;
+              if (logs.isEmpty) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: Space.s4),
+                  child: Text('ما جمعتوا نقاط للحين. كمّلوا أسبوع كامل كلكم وتاخذون أول ٥٠.', style: text.bodySmall, textAlign: TextAlign.center),
+                );
+              }
+              return Column(
+                children: [
+                  for (final (i, l) in logs.indexed)
+                    Appear(
+                      index: i,
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: Space.s2),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 36,
+                              height: 36,
+                              decoration: BoxDecoration(
+                                color: ((l['points'] as int?) ?? 0) < 0 ? c.pardonSoft : c.primarySoft,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                ((l['points'] as int?) ?? 0) < 0 ? Icons.style_rounded : Icons.bolt_rounded,
+                                size: 18,
+                                color: ((l['points'] as int?) ?? 0) < 0 ? c.pardon : c.primary,
+                              ),
+                            ),
+                            const SizedBox(width: Space.s3),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(pointReasonsAr[l['reason']] ?? '${l['reason'] ?? ''}', style: text.labelLarge),
+                                  Text(dayAr(l['createdAt']), style: text.labelSmall),
+                                ],
+                              ),
+                            ),
+                            Text(
+                              '${((l['points'] as int?) ?? 0) > 0 ? '+' : ''}${arabicDigits(l['points'] ?? 0)}',
+                              style: text.titleSmall!.copyWith(
+                                color: ((l['points'] as int?) ?? 0) < 0 ? c.pardonText : c.accent,
+                                fontWeight: FontWeight.w800,
+                              ),
+                              textDirection: TextDirection.ltr,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
         ],
       ),
     );
@@ -355,12 +808,13 @@ class _EditSheetState extends State<_EditSheet> {
   }
 }
 
-// ---------- add a friend by his phone number ----------
+// ---------- add a friend: from my other groups, or by his phone number ----------
 class _AddMemberSheet extends StatefulWidget {
   final GroupApi api;
   final int groupId;
+  final List<Map<String, dynamic>> members;
 
-  const _AddMemberSheet({required this.api, required this.groupId});
+  const _AddMemberSheet({required this.api, required this.groupId, required this.members});
 
   @override
   State<_AddMemberSheet> createState() => _AddMemberSheetState();
@@ -368,13 +822,50 @@ class _AddMemberSheet extends StatefulWidget {
 
 class _AddMemberSheetState extends State<_AddMemberSheet> {
   final _phone = TextEditingController();
+  late final Future<List<Map<String, dynamic>>> _friends = _loadFriends();
+  final Set<int> _added = {};
   bool _loading = false;
+  int? _adding;
   String? _error;
+
+  bool get _full => widget.members.length + _added.length >= 10;
 
   @override
   void dispose() {
     _phone.dispose();
     super.dispose();
+  }
+
+  // the members of my other groups who are not in this group
+  Future<List<Map<String, dynamic>>> _loadFriends() async {
+    final inGroup = widget.members.map((m) => m['memberId']).toSet();
+    final groups = (await widget.api.myGroups()).where((g) => g['groupId'] != widget.groupId).toList();
+    final lists = await Future.wait(groups.map((g) => widget.api.members(g['groupId'] as int).catchError((_) => <Map<String, dynamic>>[])));
+    final friends = <int, Map<String, dynamic>>{};
+    for (final (i, list) in lists.indexed) {
+      for (final m in list) {
+        final id = m['memberId'] as int?;
+        if (id == null || inGroup.contains(id)) continue;
+        friends.putIfAbsent(id, () => {...m, 'from': groups[i]['groupName']});
+      }
+    }
+    return friends.values.toList();
+  }
+
+  Future<void> _addFriend(Map<String, dynamic> friend) async {
+    final id = friend['memberId'] as int;
+    setState(() {
+      _adding = id;
+      _error = null;
+    });
+    try {
+      await widget.api.addMember(widget.groupId, id);
+      if (mounted) setState(() => _added.add(id));
+    } catch (e) {
+      if (mounted) setState(() => _error = errorText(e));
+    } finally {
+      if (mounted) setState(() => _adding = null);
+    }
   }
 
   Future<void> _add() async {
@@ -403,26 +894,73 @@ class _AddMemberSheetState extends State<_AddMemberSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    final c = context.colors;
     return SheetBody(
-      title: 'أضف عضو',
-      error: _error,
-      child: Column(
-        children: [
-          TextField(
-            controller: _phone,
-            keyboardType: TextInputType.phone,
-            textDirection: TextDirection.ltr,
-            decoration: const InputDecoration(
-              labelText: 'رقم جواله',
-              hintText: '05XXXXXXXX',
-              helperText: 'لازم يكون مسجّل في أتعهّد بنفس الرقم',
+        title: 'أضف عضو',
+        error: _error,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('${arabicDigits(widget.members.length + _added.length)} من ${arabicDigits(10)} أعضاء', style: text.labelSmall),
+            if (_full)
+              Padding(
+                padding: const EdgeInsets.only(top: Space.s2),
+                child: Pill('المجموعة مليانة', fg: c.warning, bg: c.warningSoft, dot: true),
+              ),
+            const GroupSection('من أصحابك بمجموعاتك الثانية'),
+            FutureBuilder<List<Map<String, dynamic>>>(
+              future: _friends,
+              builder: (context, snap) {
+                if (snap.connectionState != ConnectionState.done) return const SizedBox(height: 80, child: LoadingView());
+                final friends = snap.data ?? const [];
+                if (friends.isEmpty) return Text('ما فيه أحد من مجموعاتك الثانية برا هالمجموعة.', style: text.bodySmall);
+                return Column(
+                  children: [
+                    for (final f in friends) ...[
+                      Row(
+                        children: [
+                          MemberAvatar('${f['name'] ?? ''}', size: 36),
+                          const SizedBox(width: Space.s3),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('${f['name'] ?? ''}', style: text.labelLarge),
+                                Text('من ${f['from'] ?? ''}', style: text.labelSmall),
+                              ],
+                            ),
+                          ),
+                          if (_added.contains(f['memberId']))
+                            Pill('انضاف', fg: c.success, bg: c.successSoft, dot: true)
+                          else
+                            AtButton('أضف', expand: false, kind: AtButtonKind.outline, loading: _adding == f['memberId'],
+                                onPressed: _adding != null || _full ? null : () => _addFriend(f)),
+                        ],
+                      ),
+                      const SizedBox(height: Space.s2),
+                    ],
+                  ],
+                );
+              },
             ),
-            onSubmitted: (_) => _add(),
-          ),
-          const SizedBox(height: Space.s4),
-          AtButton('أضف', onPressed: _add, loading: _loading),
-        ],
-      ),
+            const GroupSection('أو برقم جواله'),
+            TextField(
+              controller: _phone,
+              enabled: !_full,
+              keyboardType: TextInputType.phone,
+              textDirection: TextDirection.ltr,
+              decoration: const InputDecoration(
+                labelText: 'رقم جواله',
+                hintText: '05XXXXXXXX',
+                helperText: 'لازم يكون مسجّل في أتعهّد بنفس الرقم',
+              ),
+              onSubmitted: (_) => _add(),
+            ),
+            const SizedBox(height: Space.s4),
+            AtButton('أضف بالرقم', onPressed: _full ? null : _add, loading: _loading),
+          ],
+        ),
     );
   }
 }

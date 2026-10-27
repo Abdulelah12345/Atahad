@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../core/api/api_client.dart';
+import '../../core/api/api_exception.dart';
 import '../../core/auth/auth_state.dart';
 import '../../core/theme/at_colors.dart';
 import '../../core/utils/format.dart';
@@ -33,16 +34,22 @@ class _ProofStartScreenState extends State<ProofStartScreen> {
   CapturedImage? _before;
   DateTime? _beforeTaken;
   Future<Json> _load() async {
-    final tasks =
-        widget.activity == null ? await _api.activities() : [widget.activity!];
-    final task = tasks.firstWhere((t) =>
-        widget.activity != null ||
-        (t['weekId'] == widget.weekId && t['goalTaskId'] == widget.taskId));
+    final tasks = widget.activity == null
+        ? await _api.activities()
+        : [widget.activity!];
+    final task = tasks.firstWhere(
+      (t) =>
+          widget.activity != null ||
+          (t['weekId'] == widget.weekId && t['goalTaskId'] == widget.taskId),
+    );
     if (task['proofMethod'] == 'TIMER') {
       try {
-        final value = await _api.client.get(
-            '/api/v1/proof-attempt/suggest/${task['weekId']}',
-            query: {'goalTaskId': task['goalTaskId']}) as Map;
+        final value =
+            await _api.client.get(
+                  '/api/v1/proof-attempt/suggest/${task['weekId']}',
+                  query: {'goalTaskId': task['goalTaskId']},
+                )
+                as Map;
         if (mounted) _minutes.text = '${value['suggestedMinutes']}';
       } catch (_) {}
     }
@@ -60,8 +67,11 @@ class _ProofStartScreenState extends State<ProofStartScreen> {
     if (photo == null || !mounted) return;
     setState(() => _busy = true);
     try {
-      final id =
-          await _api.cameraUpload('BEFORE', photo.bytes, mime: photo.mime);
+      final id = await _api.cameraUpload(
+        'BEFORE',
+        photo.bytes,
+        mime: photo.mime,
+      );
       if (mounted) {
         setState(() {
           _before = photo;
@@ -92,16 +102,22 @@ class _ProofStartScreenState extends State<ProofStartScreen> {
     }
     setState(() => _busy = true);
     try {
-      final proof = await _api.client
-          .post('/api/v1/proof-attempt/start/${activity['weekId']}', body: {
-        'goalTaskId': activity['goalTaskId'],
-        'beforeAfter': _withPhotos,
-        'beforeCaptureId': _withPhotos ? _beforeId : null,
-        if (activity['proofMethod'] == 'TIMER') 'targetMinutes': duration,
-      }) as Map;
+      final proof =
+          await _api.client.post(
+                '/api/v1/proof-attempt/start/${activity['weekId']}',
+                body: {
+                  'goalTaskId': activity['goalTaskId'],
+                  'beforeAfter': _withPhotos,
+                  'beforeCaptureId': _withPhotos ? _beforeId : null,
+                  if (activity['proofMethod'] == 'TIMER')
+                    'targetMinutes': duration,
+                },
+              )
+              as Map;
       if (mounted) {
         context.pushReplacement(
-            '/proofs/session/${proof['id']}?started=1&title=${Uri.encodeComponent('${activity['title']}')}');
+          '/proofs/session/${proof['id']}?started=1&title=${Uri.encodeComponent('${activity['title']}')}',
+        );
       }
     } catch (error) {
       if (mounted) proofError(context, error);
@@ -112,117 +128,143 @@ class _ProofStartScreenState extends State<ProofStartScreen> {
 
   @override
   Widget build(BuildContext context) => FutureBuilder<Json>(
-      future: _activity,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState != ConnectionState.done) {
-          return const ProofPage(title: 'إثبات النشاط', child: LoadingView());
-        }
-        if (snapshot.hasError) {
-          return const ProofPage(
-              title: 'إثبات النشاط',
-              child: ErrorView(
-                  message:
-                      'هذا النشاط غير متاح الآن. ارجع لليوم وحدّث القائمة.'));
-        }
-        final task = snapshot.data!;
-        if (task['proofMethod'] == 'LOCATION') {
-          return VisitScreen(activity: task);
-        }
-        return ProofPage(
-            title: 'إثبات النشاط',
-            child: ListView(padding: const EdgeInsets.all(24), children: [
-              Icon(methodIcon(task['proofMethod'] as String?),
-                  size: 54, color: context.colors.primary),
-              const SizedBox(height: 20),
-              ActivityHeading(
-                  title: '${task['title']}',
-                  goalTitle: task['goalTitle'] as String?,
-                  taskTitle: task['taskTitle'] as String?,
-                  style: Theme.of(context).textTheme.headlineMedium,
-                  textAlign: TextAlign.center),
-              const SizedBox(height: 10),
-              Text(methodNames[task['proofMethod']] ?? '',
-                  style: Theme.of(context).textTheme.titleMedium,
-                  textAlign: TextAlign.center),
-              const SizedBox(height: 28),
-              ProofNotice(switch (task['proofMethod']) {
-                'TIMER' =>
-                  'اختر المدة اللي تناسبك. إكمالها يكفي لتوثيق النشاط، وتقدر تاخذ استراحة أو تمدد بعدها.',
-                'QUIZ' =>
-                  'أربعة أسئلة سهلة، والنجاح من ثلاث. صور الصفحات اختيارية، وإذا ما أرفقت صورًا تكون الأسئلة عامة عن الموضوع.',
-                _ =>
-                  'بعد تنفيذ النشاط، التقط صورة واضحة مباشرة بالكاميرا. نخلي الإثبات بسيطًا ويركز على إنجازك.',
-              }),
+    future: _activity,
+    builder: (context, snapshot) {
+      if (snapshot.connectionState != ConnectionState.done) {
+        return const ProofPage(title: 'إثبات النشاط', child: LoadingView());
+      }
+      if (snapshot.hasError) {
+        return const ProofPage(
+          title: 'إثبات النشاط',
+          child: ErrorView(
+            message: 'هذا النشاط غير متاح الآن. ارجع لليوم وحدّث القائمة.',
+          ),
+        );
+      }
+      final task = snapshot.data!;
+      if (task['proofMethod'] == 'LOCATION') {
+        return VisitScreen(activity: task);
+      }
+      return ProofPage(
+        title: 'إثبات النشاط',
+        child: ListView(
+          padding: const EdgeInsets.all(24),
+          children: [
+            Icon(
+              methodIcon(task['proofMethod'] as String?),
+              size: 54,
+              color: context.colors.primary,
+            ),
+            const SizedBox(height: 20),
+            ActivityHeading(
+              title: '${task['title']}',
+              goalTitle: task['goalTitle'] as String?,
+              taskTitle: task['taskTitle'] as String?,
+              style: Theme.of(context).textTheme.headlineMedium,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 10),
+            Text(
+              methodNames[task['proofMethod']] ?? '',
+              style: Theme.of(context).textTheme.titleMedium,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 28),
+            ProofNotice(switch (task['proofMethod']) {
+              'TIMER' =>
+                'اختر المدة اللي تناسبك. إكمالها يكفي لتوثيق النشاط، وتقدر تاخذ استراحة أو تمدد بعدها.',
+              'QUIZ' =>
+                'أربعة أسئلة سهلة، والنجاح من ثلاث. صور الصفحات اختيارية، وإذا ما أرفقت صورًا تكون الأسئلة عامة عن الموضوع.',
+              _ =>
+                'بعد تنفيذ النشاط، التقط صورة واضحة مباشرة بالكاميرا. نخلي الإثبات بسيطًا ويركز على إنجازك.',
+            }),
+            const SizedBox(height: 24),
+            if (task['proofMethod'] == 'TIMER') ...[
+              TextFormField(
+                controller: _minutes,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'مدة الجلسة بالدقائق',
+                  helperText: 'المدة مقترحة؛ عدّلها قبل البداية بما يناسبك.',
+                ),
+              ),
               const SizedBox(height: 24),
-              if (task['proofMethod'] == 'TIMER') ...[
-                TextFormField(
-                    controller: _minutes,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                        labelText: 'مدة الجلسة بالدقائق',
-                        helperText:
-                            'المدة مقترحة؛ عدّلها قبل البداية بما يناسبك.')),
-                const SizedBox(height: 24),
-              ],
-              AppCard(
-                  child: Column(children: [
-                SwitchListTile.adaptive(
+            ],
+            AppCard(
+              child: Column(
+                children: [
+                  SwitchListTile.adaptive(
                     contentPadding: EdgeInsets.zero,
                     title: const Text('أضيف صور قبل وبعد'),
                     subtitle: const Text(
-                        'اختياري؛ نجاح أي طريقة يكفي لتوثيق النشاط.'),
+                      'اختياري؛ نجاح أي طريقة يكفي لتوثيق النشاط.',
+                    ),
                     value: _withPhotos,
                     onChanged: _busy
                         ? null
-                        : (value) => setState(() => _withPhotos = value)),
-                if (_withPhotos) ...[
-                  const SizedBox(height: 12),
-                  const Text(
-                      'صوّر البداية قبل تنفيذ النشاط، والنهاية بعده. نبحث عن تغيير واضح مرتبط بمهمتك.'),
-                  const SizedBox(height: 16),
-                  if (_before != null)
-                    Padding(
+                        : (value) => setState(() => _withPhotos = value),
+                  ),
+                  if (_withPhotos) ...[
+                    const SizedBox(height: 12),
+                    const Text(
+                      'صوّر البداية قبل تنفيذ النشاط، والنهاية بعده. نبحث عن تغيير واضح مرتبط بمهمتك.',
+                    ),
+                    const SizedBox(height: 16),
+                    if (_before != null)
+                      Padding(
                         padding: const EdgeInsets.only(bottom: 14),
-                        child: Image.memory(_before!.bytes, height: 180)),
-                  AtButton(
+                        child: Image.memory(_before!.bytes, height: 180),
+                      ),
+                    AtButton(
                       _before == null
                           ? 'التقط صورة البداية'
                           : 'أعد صورة البداية',
                       kind: AtButtonKind.outline,
                       loading: _busy,
-                      onPressed: _takeBefore),
+                      onPressed: _takeBefore,
+                    ),
+                  ],
                 ],
-              ])),
-              const SizedBox(height: 24),
-              AtButton(
-                  task['proofMethod'] == 'TIMER'
-                      ? 'ابدأ الجلسة'
-                      : 'ابدأ توثيق النشاط',
-                  loading: _busy,
-                  onPressed: () => _start(task)),
-              const SizedBox(height: 8),
-              AtButton('عندي عذر بدل الإثبات',
-                  kind: AtButtonKind.text,
-                  onPressed: _busy
-                      ? null
-                      : () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (_) =>
-                                  ExcuseFormScreen(activities: [task])))),
-            ]));
-      });
+              ),
+            ),
+            const SizedBox(height: 24),
+            AtButton(
+              task['proofMethod'] == 'TIMER'
+                  ? 'ابدأ الجلسة'
+                  : 'ابدأ توثيق النشاط',
+              loading: _busy,
+              onPressed: () => _start(task),
+            ),
+            const SizedBox(height: 8),
+            AtButton(
+              'عندي عذر بدل الإثبات',
+              kind: AtButtonKind.text,
+              onPressed: _busy
+                  ? null
+                  : () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ExcuseFormScreen(activities: [task]),
+                      ),
+                    ),
+            ),
+          ],
+        ),
+      );
+    },
+  );
 }
 
 class ProofSessionScreen extends StatefulWidget {
   final int proofId;
   final String title;
   final bool justStarted;
-  const ProofSessionScreen(
-      {super.key,
-      required this.proofId,
-      required this.title,
-      this.justStarted = false});
+  const ProofSessionScreen({
+    super.key,
+    required this.proofId,
+    required this.title,
+    this.justStarted = false,
+  });
   @override
   State<ProofSessionScreen> createState() => _ProofSessionScreenState();
 }
@@ -271,8 +313,9 @@ class _ProofSessionScreenState extends State<ProofSessionScreen> {
       final state = await _api.state(widget.proofId);
       if (state['timer'] != null) {
         state['timer'] = await _api.client.post(
-            '/api/v1/proof-attempt/timer/${state['timer']['id']}/state',
-            body: {});
+          '/api/v1/proof-attempt/timer/${state['timer']['id']}/state',
+          body: {},
+        );
         final fresh = await _api.state(widget.proofId);
         state['proof'] = fresh['proof'];
         state['evidence'] = fresh['evidence'];
@@ -306,17 +349,27 @@ class _ProofSessionScreenState extends State<ProofSessionScreen> {
 
   Future<void> _photo(String kind) async {
     final photo = await takeProofPhoto(
-        context, kind == 'AFTER' ? 'صورة النهاية' : 'صورة إثبات النشاط');
+      context,
+      kind == 'AFTER' ? 'صورة النهاية' : 'صورة إثبات النشاط',
+    );
     if (photo == null || !mounted) return;
     await _run(() async {
-      final id = await _api.cameraUpload(kind, photo.bytes,
-          proofId: widget.proofId, mime: photo.mime);
+      final id = await _api.cameraUpload(
+        kind,
+        photo.bytes,
+        proofId: widget.proofId,
+        mime: photo.mime,
+      );
       if (kind == 'AFTER') {
-        await _api.client.post('/api/v1/proof-attempt/${widget.proofId}/after',
-            body: {'afterCaptureId': id});
+        await _api.client.post(
+          '/api/v1/proof-attempt/${widget.proofId}/after',
+          body: {'afterCaptureId': id},
+        );
       } else {
-        await _api.client.post('/api/v1/proof-attempt/${widget.proofId}/submit',
-            body: {'evidenceData': '$id'});
+        await _api.client.post(
+          '/api/v1/proof-attempt/${widget.proofId}/submit',
+          body: {'evidenceData': '$id'},
+        );
       }
       if (mounted) {
         if (kind == 'PHOTO') setState(() => _photoSubmitted = true);
@@ -328,8 +381,9 @@ class _ProofSessionScreenState extends State<ProofSessionScreen> {
   Future<void> _timerAction(String action, {Json body = const {}}) =>
       _run(() async {
         await _api.client.post(
-            '/api/v1/proof-attempt/timer/${_state!['timer']['id']}/$action',
-            body: body);
+          '/api/v1/proof-attempt/timer/${_state!['timer']['id']}/$action',
+          body: body,
+        );
       });
   int _elapsed(Json timer) {
     int seconds = (timer['elapsedSeconds'] as num).toInt();
@@ -343,47 +397,57 @@ class _ProofSessionScreenState extends State<ProofSessionScreen> {
       }
     }
     return math.min(
-        seconds,
-        (timer['requiredSeconds'] as num).toInt() +
-            (timer['extensionSeconds'] as num).toInt());
+      seconds,
+      (timer['requiredSeconds'] as num).toInt() +
+          (timer['extensionSeconds'] as num).toInt(),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     if (_state == null) {
       return ProofPage(
-          title: widget.title,
-          child: _error == null
-              ? const LoadingView()
-              : ErrorView(message: friendlyError(_error!), onRetry: _refresh));
+        title: widget.title,
+        child: _error == null
+            ? const LoadingView()
+            : ErrorView(message: friendlyError(_error!), onRetry: _refresh),
+      );
     }
     final proof = Map<String, dynamic>.from(_state!['proof'] as Map);
     final evidence = ProofsApi.maps(_state!['evidence']);
     final accepted = proof['result'] == 'ACCEPTED';
-    final hasPhoto = _photoSubmitted ||
+    final hasPhoto =
+        _photoSubmitted ||
         proof['primaryCaptureId'] != null ||
         '${proof['evidenceData'] ?? ''}'.startsWith('data:image/') ||
-        evidence.any((e) =>
-            e['type'] == 'PHOTO' &&
-            (e['decidedAt'] != null || e['result'] != 'PENDING'));
+        evidence.any(
+          (e) =>
+              e['type'] == 'PHOTO' &&
+              (e['decidedAt'] != null || e['result'] != 'PENDING'),
+        );
     final deadline = serverInstant(proof['attemptDeadline']);
     final closed = deadline != null && !DateTime.now().isBefore(deadline);
-    final photosWaiting = evidence
-        .any((e) => e['type'] == 'BEFORE_AFTER' && e['result'] == 'PENDING');
+    final photosWaiting = evidence.any(
+      (e) => e['type'] == 'BEFORE_AFTER' && e['result'] == 'PENDING',
+    );
     return ProofPage(
-        title: 'توثيق إنجازك',
-        actions: [
-          IconButton(
-              tooltip: 'تحديث',
-              onPressed: () => _refresh(),
-              icon: const Icon(Icons.refresh))
-        ],
-        child: ListView(padding: const EdgeInsets.all(24), children: [
+      title: 'توثيق إنجازك',
+      actions: [
+        IconButton(
+          tooltip: 'تحديث',
+          onPressed: () => _refresh(),
+          icon: const Icon(Icons.refresh),
+        ),
+      ],
+      child: ListView(
+        padding: const EdgeInsets.all(24),
+        children: [
           ActivityHeading(
-              title: widget.title,
-              goalTitle: _state!['goalTitle'] as String?,
-              taskTitle: _state!['taskTitle'] as String?,
-              style: Theme.of(context).textTheme.headlineMedium),
+            title: widget.title,
+            goalTitle: _state!['goalTitle'] as String?,
+            taskTitle: _state!['taskTitle'] as String?,
+            style: Theme.of(context).textTheme.headlineMedium,
+          ),
           const SizedBox(height: 12),
           StatusBadge.review(proof['result'] as String?),
           if (_welcome) ...[
@@ -393,11 +457,13 @@ class _ProofSessionScreenState extends State<ProofSessionScreen> {
           const SizedBox(height: 20),
           if (accepted)
             const ProofNotice(
-                'كفو، توثّق إنجازك! ما تحتاج تضيف دليلًا آخر، والنشاط ينحسب مرة واحدة.',
-                icon: Icons.verified_outlined),
+              'كفو، توثّق إنجازك! ما تحتاج تضيف دليلًا آخر، والنشاط ينحسب مرة واحدة.',
+              icon: Icons.verified_outlined,
+            ),
           if (closed && !accepted)
             const ProofNotice(
-                'انتهت مهلة هذه المحاولة. التفاصيل والنتائج محفوظة في سجلك.'),
+              'انتهت مهلة هذه المحاولة. التفاصيل والنتائج محفوظة في سجلك.',
+            ),
           if (_state!['timer'] != null)
             _timer(Map<String, dynamic>.from(_state!['timer'] as Map), closed),
           if (proof['type'] == 'PHOTO' &&
@@ -406,103 +472,136 @@ class _ProofSessionScreenState extends State<ProofSessionScreen> {
               !closed) ...[
             const SizedBox(height: 24),
             const ProofNotice(
-                'صوّر النتيجة المرتبطة بالنشاط بوضوح. الصورة المباشرة فقط، دون رفع من المعرض.'),
+              'صوّر النتيجة المرتبطة بالنشاط بوضوح. الصورة المباشرة فقط، دون رفع من المعرض.',
+            ),
             const SizedBox(height: 16),
-            AtButton('التقط صورة الإثبات',
-                loading: _busy,
-                onPressed: () => _photo('PHOTO'),
-                icon: const Icon(Icons.photo_camera_outlined)),
+            AtButton(
+              'التقط صورة الإثبات',
+              loading: _busy,
+              onPressed: () => _photo('PHOTO'),
+              icon: const Icon(Icons.photo_camera_outlined),
+            ),
           ],
           if (proof['type'] == 'QUIZ' && !accepted && !closed)
             QuizPanel(
-                proofId: widget.proofId,
-                weekId: _state!['weekId'] as int,
-                taskId: _state!['goalTaskId'] as int?,
-                onSubmitted: () => _refresh()),
+              proofId: widget.proofId,
+              weekId: _state!['weekId'] as int,
+              taskId: _state!['goalTaskId'] as int?,
+              onSubmitted: () => _refresh(),
+            ),
           if (photosWaiting && !accepted && !closed) ...[
             const SizedBox(height: 24),
             AppCard(
-                child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                  Text('صورك الإضافية',
-                      style: Theme.of(context).textTheme.titleLarge),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'صورك الإضافية',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
                   const SizedBox(height: 10),
                   const Text(
-                      'صورة البداية محفوظة. بعد التنفيذ صوّر النهاية؛ إذا نجحت الصور، يكفي هذا لقبول النشاط.'),
+                    'صورة البداية محفوظة. بعد التنفيذ صوّر النهاية؛ إذا نجحت الصور، يكفي هذا لقبول النشاط.',
+                  ),
                   const SizedBox(height: 16),
-                  AtButton('التقط صورة النهاية',
-                      kind: AtButtonKind.outline,
-                      loading: _busy,
-                      onPressed: () => _photo('AFTER')),
-                  AtButton('أكمل بدون الصور الإضافية',
-                      kind: AtButtonKind.text,
-                      onPressed: _busy
-                          ? null
-                          : () => _run(() async {
-                                await _api.client.post(
-                                    '/api/v1/proof-attempt/${widget.proofId}/skip-photos',
-                                    body: {});
-                              })),
-                ])),
+                  AtButton(
+                    'التقط صورة النهاية',
+                    kind: AtButtonKind.outline,
+                    loading: _busy,
+                    onPressed: () => _photo('AFTER'),
+                  ),
+                  AtButton(
+                    'أكمل بدون الصور الإضافية',
+                    kind: AtButtonKind.text,
+                    onPressed: _busy
+                        ? null
+                        : () => _run(() async {
+                            await _api.client.post(
+                              '/api/v1/proof-attempt/${widget.proofId}/skip-photos',
+                              body: {},
+                            );
+                          }),
+                  ),
+                ],
+              ),
+            ),
           ],
           const SizedBox(height: 24),
           Text('نتيجة كل دليل', style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 12),
           for (final item in evidence)
             Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: AppCard(
-                    child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                      Row(children: [
+              padding: const EdgeInsets.only(bottom: 12),
+              child: AppCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
                         Expanded(
-                            child: Text(item['type'] == 'BEFORE_AFTER'
+                          child: Text(
+                            item['type'] == 'BEFORE_AFTER'
                                 ? 'صور قبل وبعد'
-                                : methodNames[item['type']] ?? 'دليل النشاط')),
-                        StatusBadge.review(item['result'] as String?)
-                      ]),
-                      if (item['beforeCaptureId'] != null)
-                        ExpansionTile(
-                          title: const Text('عرض صور قبل وبعد'),
-                          children: [
-                            const Text('قبل النشاط'),
-                            EvidenceImage('capture:${item['beforeCaptureId']}'),
-                            if (item['afterCaptureId'] != null) ...[
-                              const SizedBox(height: 12),
-                              const Text('بعد النشاط'),
-                              EvidenceImage(
-                                  'capture:${item['afterCaptureId']}'),
-                            ],
-                          ],
+                                : methodNames[item['type']] ?? 'دليل النشاط',
+                          ),
                         ),
-                      if (item['reason'] != null) ...[
-                        const SizedBox(height: 10),
-                        Text('${item['reason']}',
-                            style: Theme.of(context).textTheme.bodySmall)
+                        StatusBadge.review(item['result'] as String?),
                       ],
-                    ]))),
+                    ),
+                    if (item['beforeCaptureId'] != null)
+                      ExpansionTile(
+                        title: const Text('عرض صور قبل وبعد'),
+                        children: [
+                          const Text('قبل النشاط'),
+                          EvidenceImage('capture:${item['beforeCaptureId']}'),
+                          if (item['afterCaptureId'] != null) ...[
+                            const SizedBox(height: 12),
+                            const Text('بعد النشاط'),
+                            EvidenceImage('capture:${item['afterCaptureId']}'),
+                          ],
+                        ],
+                      ),
+                    if (item['reason'] != null) ...[
+                      const SizedBox(height: 10),
+                      Text(
+                        '${item['reason']}',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
           if (proof['type'] == 'PHOTO' &&
               '${proof['evidenceData']}'.startsWith('data:image/'))
             EvidenceImage('${proof['evidenceData']}'),
           if (_state!['canObject'] == true) ...[
             const SizedBox(height: 14),
-            AtButton('اعترض على القرار', kind: AtButtonKind.outline,
-                onPressed: () async {
-              if (await editObjection(context,
-                      kind: 'PROOF', targetId: widget.proofId) &&
-                  context.mounted) {
-                showMessage(context, 'وصل اعتراضك، تابع نتيجته من طلباتي.');
-                await _refresh();
-              }
-            })
+            AtButton(
+              'اعترض على القرار',
+              kind: AtButtonKind.outline,
+              onPressed: () async {
+                if (await editObjection(
+                      context,
+                      kind: 'PROOF',
+                      targetId: widget.proofId,
+                    ) &&
+                    context.mounted) {
+                  showMessage(context, 'وصل اعتراضك، تابع نتيجته من طلباتي.');
+                  await _refresh();
+                }
+              },
+            ),
           ],
           const SizedBox(height: 20),
-          AtButton('ارجع لطلباتي',
-              kind: AtButtonKind.text,
-              onPressed: () => context.go('/requests')),
-        ]));
+          AtButton(
+            'ارجع لطلباتي',
+            kind: AtButtonKind.text,
+            onPressed: () => context.go('/requests'),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _timer(Json timer, bool closed) {
@@ -515,113 +614,151 @@ class _ProofSessionScreenState extends State<ProofSessionScreen> {
     final messageIndex = reached
         ? 2
         : elapsed >= required / 2
-            ? 1
-            : 0;
-    return Column(children: [
-      const SizedBox(height: 30),
-      Text(
-          switch (timer['status']) {
-            'PAUSED' => reached ? 'اكتملت المدة المطلوبة' : 'متوقف مؤقتًا',
-            'FINISHED' => 'اكتملت الجلسة',
-            'EXPIRED' => 'انتهت مهلة الجلسة',
-            _ => 'جارٍ التركيز',
-          },
-          textAlign: TextAlign.center),
-      if (messageIndex > 0)
-        Text(
+        ? 1
+        : 0;
+    return Column(
+      children: [
+        const SizedBox(height: 30),
+        Text(switch (timer['status']) {
+          'PAUSED' => reached ? 'اكتملت المدة المطلوبة' : 'متوقف مؤقتًا',
+          'FINISHED' => 'اكتملت الجلسة',
+          'EXPIRED' => 'انتهت مهلة الجلسة',
+          _ => 'جارٍ التركيز',
+        }, textAlign: TextAlign.center),
+        if (messageIndex > 0)
+          Text(
             messageIndex < messages.length
                 ? messages[messageIndex]
                 : 'خذ وقتك، خطوة خطوة.',
             textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.titleMedium),
-      const SizedBox(height: 24),
-      SizedBox(
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+        const SizedBox(height: 24),
+        SizedBox(
           width: 238,
           height: 238,
-          child: Stack(alignment: Alignment.center, children: [
-            SizedBox.expand(
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              SizedBox.expand(
                 child: CircularProgressIndicator(
-                    value: (elapsed / required).clamp(0, 1),
-                    strokeWidth: 9,
-                    backgroundColor: context.colors.surfaceSunken,
-                    strokeCap: StrokeCap.round)),
-            Column(mainAxisSize: MainAxisSize.min, children: [
-              Text(
-                  arabicDigits(
-                      '${(remaining ~/ 60).toString().padLeft(2, '0')}:${(remaining % 60).toString().padLeft(2, '0')}'),
-                  style: Theme.of(context).textTheme.displayLarge),
-              const SizedBox(height: 8),
-              Text(timer['status'] == 'RUNNING'
-                  ? 'وقت لك ولإنجازك'
-                  : reached
-                      ? 'اكتملت المدة الأصلية'
-                      : 'الجلسة متوقفة')
-            ]),
-          ])),
-      const SizedBox(height: 24),
-      if (!closed)
-        Wrap(
+                  value: (elapsed / required).clamp(0, 1),
+                  strokeWidth: 9,
+                  backgroundColor: context.colors.surfaceSunken,
+                  strokeCap: StrokeCap.round,
+                ),
+              ),
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    arabicDigits(
+                      '${(remaining ~/ 60).toString().padLeft(2, '0')}:${(remaining % 60).toString().padLeft(2, '0')}',
+                    ),
+                    style: Theme.of(context).textTheme.displayLarge,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    timer['status'] == 'RUNNING'
+                        ? 'وقت لك ولإنجازك'
+                        : reached
+                        ? 'اكتملت المدة الأصلية'
+                        : 'الجلسة متوقفة',
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 24),
+        if (!closed)
+          Wrap(
             spacing: 10,
             runSpacing: 10,
             alignment: WrapAlignment.center,
             children: [
               if (timer['status'] == 'RUNNING')
-                AtButton('خذ استراحة',
-                    expand: false,
-                    kind: AtButtonKind.outline,
-                    onPressed: _busy ? null : () => _timerAction('pause'),
-                    icon: const Icon(Icons.pause)),
+                AtButton(
+                  'خذ استراحة',
+                  expand: false,
+                  kind: AtButtonKind.outline,
+                  onPressed: _busy ? null : () => _timerAction('pause'),
+                  icon: const Icon(Icons.pause),
+                ),
               if (timer['status'] == 'PAUSED' && elapsed < total)
-                AtButton('كمّل الجلسة',
-                    expand: false,
-                    onPressed: _busy ? null : () => _timerAction('resume'),
-                    icon: const Icon(Icons.play_arrow)),
+                AtButton(
+                  'كمّل الجلسة',
+                  expand: false,
+                  onPressed: _busy ? null : () => _timerAction('resume'),
+                  icon: const Icon(Icons.play_arrow),
+                ),
               if (timer['status'] == 'RUNNING' || timer['status'] == 'PAUSED')
-                AtButton('أنهِ الجلسة',
-                    expand: false,
-                    kind: AtButtonKind.text,
-                    onPressed: _busy ? null : () => _timerAction('finish')),
-            ]),
-      const SizedBox(height: 18),
-      Text(
+                AtButton(
+                  'أنهِ الجلسة',
+                  expand: false,
+                  kind: AtButtonKind.text,
+                  onPressed: _busy ? null : () => _timerAction('finish'),
+                ),
+            ],
+          ),
+        const SizedBox(height: 18),
+        Text(
           'الاستراحة ما تنحسب من الوقت. تنتهي الجلسة مع نهاية اليوم بتوقيت الرياض.',
           style: Theme.of(context).textTheme.bodySmall,
-          textAlign: TextAlign.center),
-      if (reached && !closed) ...[
-        const SizedBox(height: 24),
-        AppCard(
-            child:
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('ودّك تكمل شوي؟', style: Theme.of(context).textTheme.titleLarge),
-          const SizedBox(height: 8),
-          const Text(
-              'التمديد اختياري، وإنجازك الأصلي محفوظ. خذ راحة إذا احتجت.'),
-          const SizedBox(height: 16),
-          TextField(
-              controller: _extension,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'كم دقيقة إضافية؟')),
-          const SizedBox(height: 12),
-          AtButton('مدّد الجلسة',
-              kind: AtButtonKind.outline,
-              onPressed: _busy
-                  ? null
-                  : () {
-                      final minutes = int.tryParse(_extension.text);
-                      if (minutes == null || minutes < 1 || minutes > 600) {
-                        showMessage(context, 'اختر من دقيقة إلى ٦٠٠ دقيقة.');
-                        return;
-                      }
-                      _timerAction('extend', body: {'minutes': minutes});
-                    }),
-        ])),
-      ],
-      if (reached) ...[
-        const SizedBox(height: 24),
-        Text('كيف كانت الجلسة؟',
-            style: Theme.of(context).textTheme.titleMedium),
-        const SizedBox(height: 10),
-        Wrap(
+          textAlign: TextAlign.center,
+        ),
+        if (reached && !closed) ...[
+          const SizedBox(height: 24),
+          AppCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'ودّك تكمل شوي؟',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'التمديد اختياري، وإنجازك الأصلي محفوظ. خذ راحة إذا احتجت.',
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _extension,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'كم دقيقة إضافية؟',
+                  ),
+                ),
+                const SizedBox(height: 12),
+                AtButton(
+                  'مدّد الجلسة',
+                  kind: AtButtonKind.outline,
+                  onPressed: _busy
+                      ? null
+                      : () {
+                          final minutes = int.tryParse(_extension.text);
+                          if (minutes == null || minutes < 1 || minutes > 600) {
+                            showMessage(
+                              context,
+                              'اختر من دقيقة إلى ٦٠٠ دقيقة.',
+                            );
+                            return;
+                          }
+                          _timerAction('extend', body: {'minutes': minutes});
+                        },
+                ),
+              ],
+            ),
+          ),
+        ],
+        if (reached) ...[
+          const SizedBox(height: 24),
+          Text(
+            'كيف كانت الجلسة؟',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 10),
+          Wrap(
             spacing: 8,
             runSpacing: 8,
             alignment: WrapAlignment.center,
@@ -629,21 +766,28 @@ class _ProofSessionScreenState extends State<ProofSessionScreen> {
               for (final feeling in {
                 'EASY': 'سهلة',
                 'OK': 'مناسبة',
-                'TIRING': 'متعبة'
+                'TIRING': 'متعبة',
               }.entries)
                 ChoiceChip(
-                    label: Text(feeling.value),
-                    selected: timer['feedback'] == feeling.key,
-                    onSelected: _busy
-                        ? null
-                        : (_) => _timerAction('feedback',
-                            body: {'feedback': feeling.key}))
-            ]),
-        const SizedBox(height: 8),
-        Text('رأيك اختياري وما يغير قبول الإثبات.',
-            style: Theme.of(context).textTheme.bodySmall),
+                  label: Text(feeling.value),
+                  selected: timer['feedback'] == feeling.key,
+                  onSelected: _busy
+                      ? null
+                      : (_) => _timerAction(
+                          'feedback',
+                          body: {'feedback': feeling.key},
+                        ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'رأيك اختياري وما يغير قبول الإثبات.',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ],
       ],
-    ]);
+    );
   }
 }
 
@@ -652,17 +796,20 @@ class QuizPanel extends StatefulWidget {
   final int weekId;
   final int? taskId;
   final Future<void> Function() onSubmitted;
-  const QuizPanel(
-      {super.key,
-      required this.proofId,
-      required this.weekId,
-      this.taskId,
-      required this.onSubmitted});
+  const QuizPanel({
+    super.key,
+    required this.proofId,
+    required this.weekId,
+    this.taskId,
+    required this.onSubmitted,
+  });
   @override
   State<QuizPanel> createState() => _QuizPanelState();
 }
 
 class _QuizPanelState extends State<QuizPanel> {
+  final _topic = TextEditingController();
+  bool _needsTopic = false;
   final List<int> _pages = [];
   final Map<int, String?> _answers = {};
   Json? _quiz;
@@ -673,6 +820,7 @@ class _QuizPanelState extends State<QuizPanel> {
   @override
   void dispose() {
     _expiryClock?.cancel();
+    _topic.dispose();
     super.dispose();
   }
 
@@ -697,8 +845,11 @@ class _QuizPanelState extends State<QuizPanel> {
     });
     try {
       final id = await ProofsApi(context.read<ApiClient>()).cameraUpload(
-          'PAGE', photo.bytes,
-          proofId: widget.proofId, mime: photo.mime);
+        'PAGE',
+        photo.bytes,
+        proofId: widget.proofId,
+        mime: photo.mime,
+      );
       if (mounted) {
         setState(() => _pages.add(id));
         showMessage(context, 'تم إرفاق الصفحة بنجاح');
@@ -710,20 +861,30 @@ class _QuizPanelState extends State<QuizPanel> {
     }
   }
 
-  Future<void> _generate() async {
+  Future<void> _generate({bool withoutImages = false}) async {
     if (_busy) return;
     setState(() {
       _busy = true;
-      _pendingAction = 'generate';
+      _pendingAction = withoutImages ? 'generateWithoutImages' : 'generate';
       _notice = null;
     });
     final client = context.read<ApiClient>();
     final member = context.read<AuthState>().userId;
     try {
-      final quiz = Map<String, dynamic>.from(await client.post(
-          '/api/v1/quiz/create/$member/${widget.weekId}',
-          query: {'goalTaskId': widget.taskId},
-          body: {'proofId': widget.proofId, 'captureIds': _pages}) as Map);
+      final quiz = Map<String, dynamic>.from(
+        await client.post(
+              '/api/v1/quiz/create/$member/${widget.weekId}',
+              query: {
+                'goalTaskId': widget.taskId,
+                if (_topic.text.trim().isNotEmpty) 'topic': _topic.text.trim(),
+              },
+              body: {
+                'proofId': widget.proofId,
+                'captureIds': withoutImages ? <int>[] : List<int>.of(_pages),
+              },
+            )
+            as Map,
+      );
       if (!mounted) return;
       setState(() {
         _pages.clear();
@@ -740,7 +901,15 @@ class _QuizPanelState extends State<QuizPanel> {
         });
       }
     } catch (error) {
-      if (mounted) setState(() => _notice = friendlyError(error));
+      if (mounted) {
+        setState(() {
+          _notice = friendlyError(error);
+          if (error is ApiException &&
+              error.message.contains('Quiz topic is unclear')) {
+            _needsTopic = true;
+          }
+        });
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -749,8 +918,10 @@ class _QuizPanelState extends State<QuizPanel> {
   Future<void> _submit() async {
     if (_busy) return;
     if (_remaining == Duration.zero) {
-      setState(() => _notice =
-          'انتهت مهلة الاختبار. جهّز اختبارًا جديدًا إذا كانت لديك محاولة متاحة.');
+      setState(
+        () => _notice =
+            'انتهت مهلة الاختبار. جهّز اختبارًا جديدًا إذا كانت لديك محاولة متاحة.',
+      );
       return;
     }
     final questions = ProofsApi.maps(_quiz!['questions']);
@@ -765,8 +936,9 @@ class _QuizPanelState extends State<QuizPanel> {
     try {
       final letters = questions.map((q) => _answers[q['number']]!).join();
       await context.read<ApiClient>().post(
-          '/api/v1/proof-attempt/${widget.proofId}/submit',
-          body: {'evidenceData': '${_quiz!['quizId']}:$letters'});
+        '/api/v1/proof-attempt/${widget.proofId}/submit',
+        body: {'evidenceData': '${_quiz!['quizId']}:$letters'},
+      );
       await widget.onSubmitted();
       if (mounted) {
         setState(() {
@@ -785,75 +957,131 @@ class _QuizPanelState extends State<QuizPanel> {
 
   @override
   Widget build(BuildContext context) => Padding(
-      padding: const EdgeInsets.only(top: 24),
-      child: AppCard(
-          child:
-              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text('اختبار خفيف على إنجازك',
-            style: Theme.of(context).textTheme.titleLarge),
-        const SizedBox(height: 10),
-        const Text(
-            '٤ أسئلة سهلة، والنجاح من ٣. صلاحية الاختبار ساعة من إصداره، وتوجد إعادة واحدة فقط.'),
-        const SizedBox(height: 16),
-        if (_notice != null) ...[
-          ProofNotice(_notice!),
-          const SizedBox(height: 16)
-        ],
-        if (_busy && _pendingAction == 'generate') ...[
-          const ProofNotice('جارٍ تجهيز الأسئلة…'),
-          const SizedBox(height: 12),
-        ],
-        if (_quiz == null) ...[
-          AtButton('صوّر صفحة — اختياري',
-              kind: AtButtonKind.outline, onPressed: _busy ? null : _page),
-          for (final id in _pages) EvidenceImage('capture:$id'),
-          if (_pages.isNotEmpty)
-            Padding(
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                child: Text('صور مرفقة: ${arabicDigits(_pages.length)}')),
+    padding: const EdgeInsets.only(top: 24),
+    child: AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'اختبار خفيف على إنجازك',
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
           const SizedBox(height: 10),
-          AtButton('جهّز الأسئلة',
-              loading: _busy, onPressed: _busy ? null : _generate),
-        ] else ...[
-          if (_remaining == Duration.zero)
-            AtButton('جهّز اختبارًا جديدًا',
-                loading: _busy, onPressed: _generate),
-          if (_remaining != null) ...[
-            Text(_remaining == Duration.zero
-                ? 'انتهى وقت الاختبار'
-                : 'الوقت المتبقي: ${arabicDigits(_remaining!.inMinutes.toString().padLeft(2, '0'))}:${arabicDigits((_remaining!.inSeconds % 60).toString().padLeft(2, '0'))}'),
+          const Text(
+            '٤ أسئلة سهلة، والنجاح من ٣. صلاحية الاختبار ساعة من إصداره، وتوجد إعادة واحدة فقط.',
+          ),
+          const SizedBox(height: 16),
+          if (_notice != null) ...[
+            ProofNotice(_notice!),
             const SizedBox(height: 16),
           ],
-          for (final (i, question)
-              in ProofsApi.maps(_quiz!['questions']).indexed)
-            Padding(
+          if (_busy &&
+              (_pendingAction == 'generate' ||
+                  _pendingAction == 'generateWithoutImages')) ...[
+            const ProofNotice('جارٍ تجهيز الأسئلة…'),
+            const SizedBox(height: 12),
+          ],
+          if (_quiz == null) ...[
+            if (_needsTopic) ...[
+              TextField(
+                controller: _topic,
+                enabled: !_busy,
+                maxLength: 200,
+                decoration: const InputDecoration(
+                  labelText: 'وضّح موضوع النشاط',
+                  hintText: 'حدّد موضوع ما تعلّمته في هذا النشاط',
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
+            AtButton(
+              'صوّر صفحة — اختياري',
+              kind: AtButtonKind.outline,
+              onPressed: _busy ? null : _page,
+            ),
+            for (final id in _pages) EvidenceImage('capture:$id'),
+            if (_pages.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                child: Text('صور مرفقة: ${arabicDigits(_pages.length)}'),
+              ),
+            const SizedBox(height: 10),
+            if (_pages.isNotEmpty) ...[
+              AtButton(
+                'جهّز الأسئلة من الصور',
+                loading: _busy && _pendingAction == 'generate',
+                onPressed: _busy ? null : () => _generate(),
+              ),
+              const SizedBox(height: 10),
+            ],
+            AtButton(
+              'جهّز الأسئلة بدون صور',
+              kind: _pages.isEmpty
+                  ? AtButtonKind.primary
+                  : AtButtonKind.outline,
+              loading: _busy && _pendingAction == 'generateWithoutImages',
+              onPressed: _busy ? null : () => _generate(withoutImages: true),
+            ),
+          ] else ...[
+            if (_remaining == Duration.zero)
+              AtButton(
+                'جهّز اختبارًا جديدًا',
+                loading: _busy,
+                onPressed: _generate,
+              ),
+            if (_remaining != null) ...[
+              Text(
+                _remaining == Duration.zero
+                    ? 'انتهى وقت الاختبار'
+                    : 'الوقت المتبقي: ${arabicDigits(_remaining!.inMinutes.toString().padLeft(2, '0'))}:${arabicDigits((_remaining!.inSeconds % 60).toString().padLeft(2, '0'))}',
+              ),
+              const SizedBox(height: 16),
+            ],
+            for (final (i, question) in ProofsApi.maps(
+              _quiz!['questions'],
+            ).indexed)
+              Padding(
                 padding: const EdgeInsets.only(bottom: 20),
                 child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('${arabicDigits(i + 1)}. ${question['question']}',
-                          style: Theme.of(context).textTheme.titleMedium),
-                      const SizedBox(height: 8),
-                      RadioGroup<String>(
-                          groupValue: _answers[question['number']],
-                          onChanged: (value) {
-                            if (!_busy && _remaining != Duration.zero) {
-                              setState(() =>
-                                  _answers[question['number'] as int] = value);
-                            }
-                          },
-                          child: Column(children: [
-                            for (final (option, text)
-                                in (question['options'] as List).indexed)
-                              RadioListTile<String>(
-                                  contentPadding: EdgeInsets.zero,
-                                  value: 'ABC'[option],
-                                  title: Text('$text')),
-                          ])),
-                    ])),
-          AtButton('أرسل الإجابات',
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${arabicDigits(i + 1)}. ${question['question']}',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 8),
+                    RadioGroup<String>(
+                      groupValue: _answers[question['number']],
+                      onChanged: (value) {
+                        if (!_busy && _remaining != Duration.zero) {
+                          setState(
+                            () => _answers[question['number'] as int] = value,
+                          );
+                        }
+                      },
+                      child: Column(
+                        children: [
+                          for (final (option, text)
+                              in (question['options'] as List).indexed)
+                            RadioListTile<String>(
+                              contentPadding: EdgeInsets.zero,
+                              value: 'ABC'[option],
+                              title: Text('$text'),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            AtButton(
+              'أرسل الإجابات',
               loading: _busy,
-              onPressed: _remaining == Duration.zero ? null : _submit),
+              onPressed: _remaining == Duration.zero ? null : _submit,
+            ),
+          ],
         ],
-      ])));
+      ),
+    ),
+  );
 }

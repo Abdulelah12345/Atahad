@@ -172,6 +172,7 @@ public class ProofDecisionService {
 
         Commitment commitment = proof.getCommitmentWeek().getCommitment();
         switch(proof.getType()){
+            case "STEPS" -> throw new ApiException("Steps evidence must use the walking endpoints");
             case "LOCATION" -> decideLocation(proof, commitment);
             case "TIMER" -> decideTimer(proof, commitment);
             case "QUIZ" -> {

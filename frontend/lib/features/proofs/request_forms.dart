@@ -261,7 +261,7 @@ class _ExcuseFormScreenState extends State<ExcuseFormScreen> {
   Widget build(BuildContext context) => ProofPage(
       title: widget.existing == null ? 'تقديم عذر' : 'تعديل العذر',
       child: ListView(padding: const EdgeInsets.all(24), children: [
-        Text('ظروفك لها اعتبار',
+        Text('وضّح سبب تعذّرك',
             style: Theme.of(context).textTheme.headlineMedium),
         const SizedBox(height: 10),
         const Text('اختر النشاط واليوم، وأرفق مستندًا داعمًا للعذر لتقييمه.'),

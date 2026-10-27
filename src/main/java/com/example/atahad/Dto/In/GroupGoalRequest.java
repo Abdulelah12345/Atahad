@@ -37,6 +37,9 @@ public class GroupGoalRequest {
     private Integer totalWeeks;
 
     private Integer proposalId; // optional, the chosen proposal
+    // optional, SOLO (the default): only who missed donates, HARD: everyone donates when one misses
+    @Pattern(regexp = "^(SOLO|HARD)$", message = "Difficulty must be SOLO or HARD")
+    private String difficulty;
 
     // TIMER only: the minutes of one time, the same for every member
     @Min(value = 1, message = "Minutes must be at least 1")

@@ -47,14 +47,37 @@ public class AiService {
     }
 
     // images: links (http...) or data urls, the AI looks at them with the text
+    // text only (the calendar, the groups, the settlement ...): Gemini first, OpenRouter when Gemini fails
+    // with images (proofs, excuses): OpenRouter first, Gemini when OpenRouter is not configured
     public String askWithImages(String instructions, String prompt, List<String> images, String fallback){
-        if (openRouterClient != null && openRouterClient.isConfigured()) {
-            return openRouterClient.complete(images == null || images.isEmpty() ? "text" : "vision", instructions, prompt, images, fallback);
+        boolean textOnly = images == null || images.isEmpty();
+        boolean hasGemini = apiKey != null && !apiKey.isBlank();
+        boolean hasOpenRouter = openRouterClient != null && openRouterClient.isConfigured();
+
+        if(textOnly && hasGemini){
+            String answer = callGemini(instructions, prompt, images);
+            if(answer != null){
+                return answer;
+            }
+            if(hasOpenRouter){
+                System.out.println("AI: Gemini failed, trying OpenRouter");
+                return openRouterClient.complete("text", instructions, prompt, images, fallback);
+            }
+            return fallback;
         }
-        if(apiKey == null || apiKey.isBlank()){
+        if(hasOpenRouter){
+            return openRouterClient.complete(textOnly ? "text" : "vision", instructions, prompt, images, fallback);
+        }
+        if(!hasGemini){
             System.out.println("AI ERROR: API KEY IS MISSING");
             return fallback;
         }
+        String answer = callGemini(instructions, prompt, images);
+        return answer == null ? fallback : answer;
+    }
+
+    // the Gemini key (ai.url, ai.model, ai.api-key), null when it fails or answers nothing
+    private String callGemini(String instructions, String prompt, List<String> images){
         try{
             Object content = prompt;
             if(images != null && !images.isEmpty()){
@@ -85,10 +108,10 @@ public class AiService {
             List<?> choices = (List<?>) response.get("choices");
             Map<?, ?> message = (Map<?, ?>) ((Map<?, ?>) choices.get(0)).get("message");
             String text = String.valueOf(message.get("content")).trim();
-            return text.isBlank() ? fallback : text;
+            return text.isBlank() || "null".equals(text) ? null : text;
         }catch(Exception e){
-            System.out.println("AI ERROR: " + e.getMessage());
-            return fallback;
+            System.out.println("AI ERROR (Gemini): " + e.getMessage());
+            return null;
         }
     }
 

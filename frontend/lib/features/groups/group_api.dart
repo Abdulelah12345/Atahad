@@ -24,6 +24,7 @@ class GroupApi {
   static const _chat = '/api/v1/chat-message';
   static const _alert = '/api/v1/group-alert';
   static const _moment = '/api/v1/moment';
+  static const _match = '/api/v1/group-match';
 
   // ---------- groups ----------
   Future<List<Map<String, dynamic>>> myGroups() async => _list(await api.get('$_gm/my'));
@@ -42,6 +43,8 @@ class GroupApi {
   Future<void> addMember(int groupId, int memberId) => api.post('$_gm/add/$groupId/$memberId');
   Future<void> addMemberByPhone(int groupId, String phone) => api.post('$_gm/addByPhone/$groupId', body: {'phone': phone});
   Future<void> leave(int groupId) => api.delete('$_gm/leave/$groupId');
+  // the active groups of another member (his profile)
+  Future<List<Map<String, dynamic>>> memberGroups(int memberId) async => _list(await api.get('$_gm/member/$memberId'));
 
   // ---------- goal ----------
   // null when the group has no goal now (the server answers 400)
@@ -81,6 +84,13 @@ class GroupApi {
   Future<List<Map<String, dynamic>>> searchPlaces(String query, {double? lat, double? lng}) async =>
       _list(await api.get('/api/v1/place/search', query: {'query': query, 'lat': lat, 'lng': lng}));
 
+  // ---------- competition with another group ----------
+  Future<List<Map<String, dynamic>>> matches(int groupId) async => _list(await api.get('$_match/get/$groupId'));
+  Future<List<Map<String, dynamic>>> matchSuggestions(int groupId) async => _list(await api.get('$_match/suggest/$groupId'));
+  Future<void> challenge(int groupId, {int? opponentGroupId, String? inviteCode}) =>
+      api.post('$_match/challenge/$groupId', query: {'opponentGroupId': opponentGroupId, 'inviteCode': inviteCode});
+  Future<void> respondMatch(int matchId, bool accept) => api.put('$_match/respond/$matchId/$accept');
+
   // ---------- proposals ----------
   Future<List<Map<String, dynamic>>> proposals(int groupId) async => _list(await api.get('$_prop/open/$groupId'));
   Future<void> propose(int groupId, String title, String details, int timesPerWeek) =>
@@ -110,15 +120,32 @@ class GroupApi {
     if (url == null) throw ApiException(0, 'ما انرفع الملف، حاول مرة ثانية.');
     return '$url';
   }
+  // the newest moment a friend shared in any of my groups (null when there is none)
+  Future<Map<String, dynamic>?> friendMoment() => _maybe(() => api.get('$_moment/widget'));
   Future<void> deleteMoment(int momentId) => api.delete('$_moment/delete/$momentId');
 
   // ---------- the week: settlement and titles ----------
   Future<List<Map<String, dynamic>>> settlements(int groupId) async =>
       _list(await api.get('/api/v1/group-settlement/get/$groupId'));
+  // null before the first Sunday
+  Future<Map<String, dynamic>?> latestSettlement(int groupId) => _maybe(() => api.get('/api/v1/group-settlement/latest/$groupId'));
   Future<List<Map<String, dynamic>>> latestTitles(int groupId) async =>
       _list(await api.get('/api/v1/group-title/latest/$groupId'));
   Future<List<Map<String, dynamic>>> titlesHistory(int groupId) async =>
       _list(await api.get('/api/v1/group-title/history/$groupId'));
+
+  // ---------- the group points ----------
+  Future<List<Map<String, dynamic>>> groupPoints(int groupId) async => _list(await api.get('/api/v1/point-log/group/$groupId'));
+
+  // an endpoint that answers 400 when there is nothing yet
+  static Future<Map<String, dynamic>?> _maybe(Future<dynamic> Function() call) async {
+    try {
+      return _map(await call());
+    } on ApiException catch (e) {
+      if (e.status == 400 || e.status == 404) return null;
+      rethrow;
+    }
+  }
 
   static List<Map<String, dynamic>> _list(dynamic data) =>
       data is List ? data.map((e) => Map<String, dynamic>.from(e as Map)).toList() : <Map<String, dynamic>>[];
