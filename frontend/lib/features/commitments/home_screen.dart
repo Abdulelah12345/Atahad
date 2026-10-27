@@ -284,8 +284,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   !weekDone.contains(t) &&
                   !doneToday.contains(t) &&
                   questStateOf(t['trackStatus'] as String?) == QuestState.safe &&
-                  t['hasPlan'] == true &&
-                  t['plannedToday'] != true)
+                  t['postponedToday'] == true)
               .toList();
           final tasks = all.where((t) => !weekDone.contains(t) && !doneToday.contains(t) && !postponed.contains(t)).toList();
           // by the state, never by the creation date: what to do now first

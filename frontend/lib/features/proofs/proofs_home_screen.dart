@@ -83,7 +83,9 @@ class _ProofsHomeScreenState extends State<ProofsHomeScreen> {
           onPressed: _reload,
           icon: const Icon(Icons.refresh),
         ),
-        if (!widget.requestsOnly)
+        // opened as its own page (/requests): no bottom bar and maybe nothing to go back to, so a way home
+        // (the «طلباتي» tab lives at / and has the bottom bar)
+        if (!widget.requestsOnly || GoRouterState.of(context).matchedLocation != '/')
           IconButton(
             tooltip: 'الصفحة الرئيسية',
             onPressed: () => context.go('/'),

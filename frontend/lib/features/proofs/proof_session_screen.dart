@@ -607,10 +607,11 @@ class _ProofSessionScreenState extends State<ProofSessionScreen> {
             ),
           ],
           const SizedBox(height: 20),
+          // the main page keeps the bottom bar («طلباتي» is one tap away there), a page of its own would have no way back
           AtButton(
-            'ارجع لطلباتي',
+            'ارجع للرئيسية',
             kind: AtButtonKind.text,
-            onPressed: () => context.go('/requests'),
+            onPressed: () => context.go('/'),
           ),
         ],
       ),
