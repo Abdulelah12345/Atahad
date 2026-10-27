@@ -33,11 +33,10 @@ public class Objection {
     @Column(columnDefinition = "VARCHAR(8)")
     private String status; // PENDING by default
 
-    // وقت بدء مراجعة الأدمن؛ بعد تسجيله يمنع المستخدم من تعديل الاعتراض.
+    // once the admin starts, the member can't edit it
     @Column(columnDefinition = "DATETIME")
     private LocalDateTime reviewStartedAt;
 
-    // سبب الاعتراض الذي يكتبه المستخدم.
     @NotBlank(message = "Reason cannot be empty")
     @Size(max = 1000, message = "Reason must be 1000 characters max")
     @Column(columnDefinition = "VARCHAR(1000) NOT NULL")
@@ -68,6 +67,5 @@ public class Objection {
     @JoinColumn
     @JsonIgnore
     private DonationProof donationProof; // A rejected donation proof
-
 
 }

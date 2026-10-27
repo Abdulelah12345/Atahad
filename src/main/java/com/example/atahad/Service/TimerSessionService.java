@@ -57,7 +57,7 @@ public class TimerSessionService {
         return sessions.save(timer);
     }
 
-    // الوقت من السيرفر فقط. إغلاق الشاشة لا يوقف الجلسة، والإيقاف الصريح يستثنى من الحساب.
+    // server time only: closing the screen does not stop it, a pause does
     @Transactional
     public void sync(TimerSession timer) {
         LocalDateTime now = time.now();

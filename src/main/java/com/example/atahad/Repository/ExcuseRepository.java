@@ -9,13 +9,11 @@ import java.time.LocalDate;
 import java.util.List;
 import java.time.LocalDateTime;
 
-
 @Repository
 public interface ExcuseRepository extends JpaRepository<Excuse, Integer> {
     Excuse findExcuseById(Integer id);
-    // سجل أعذار العضو المسجل فقط، للأهداف والعادات.
+    // the member's own excuses (goals and habits)
     List<Excuse> findByCommitmentWeekCommitmentMemberIdOrderByIdDesc(Integer memberId);
-
 
     /*
      تبحث عن عذر مرتبط بنفس المهمة والأسبوع وتاريخ النشاط والحالة المرسلة.

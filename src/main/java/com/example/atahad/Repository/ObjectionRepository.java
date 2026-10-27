@@ -10,11 +10,10 @@ import org.springframework.data.repository.query.Param;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
-
 @Repository
 public interface ObjectionRepository extends JpaRepository<Objection, Integer> {
     Objection findObjectionById(Integer id);
-    // لا تعرض واجهة العضو اعتراضات أي مستخدم آخر.
+    // the member's own objections only
     List<Objection> findByMemberIdOrderByIdDesc(Integer memberId);
 
     /*

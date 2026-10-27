@@ -27,7 +27,7 @@ public class PenaltyService {
 
     // the donations history of the member: waiting, paid and cancelled
     public List<PenaltyResponse> getMyPenalties(Integer memberId){
-        // المعرف في الرابط يجب أن يخص العضو المسجل، وليس أي عضو موجود.
+        // the id in the path must be the logged in member
         authenticatedUserService.checkMember(memberId);
         if(memberRepository.findMemberById(memberId) == null){
             throw new ApiException("Member not found");

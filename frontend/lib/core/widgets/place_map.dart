@@ -5,7 +5,7 @@ import 'package:latlong2/latlong.dart';
 import '../theme/at_colors.dart';
 import '../theme/at_tokens.dart';
 
-// a small map of a place: the pin, the circle the proof counts inside, a tap moves the pin (when onMove is given)
+// a small map: the pin and the circle the proof counts inside, a tap moves the pin
 class PlaceMap extends StatelessWidget {
   final double latitude;
   final double longitude;

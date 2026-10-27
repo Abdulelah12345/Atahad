@@ -5,7 +5,7 @@ import lombok.Data;
 
 import java.time.LocalDateTime;
 
-// DTO خاصة بتعديل البروف فقط، وليست طلب إضافة.
+// editing a proof (not adding one)
 @Data
 public class ProofUpdateRequest {
 

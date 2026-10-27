@@ -28,7 +28,7 @@ public class ObjectionController {
 
     private final ObjectionService objectionService;
 
-    // عرض جميع الاعتراضات للأدمن؛ تقييد الصلاحية يضاف عند ربط السكيورتي.
+    // admin: all objections
     @GetMapping("/get-all")
     public ResponseEntity<?> getAllObjections() {
         List<Objection> objectionList = objectionService.getAllObjections();
@@ -40,13 +40,11 @@ public class ObjectionController {
             @AuthenticationPrincipal User user,
             @PathVariable Integer id) {
 
-        // نمرر هوية المستخدم من الجلسة، والملكية يفحصها السيرفس.
         Integer userId = user.getId();
 
         Objection objection = objectionService.getObjectionById(userId, id);
         return ResponseEntity.status(200).body(objection);
     }
-
 
     @PostMapping("/add/proof/{proofId}")
     public ResponseEntity<?> addProofObjection(
@@ -54,7 +52,6 @@ public class ObjectionController {
             @PathVariable Integer proofId,
             @RequestBody @Valid ObjectionRequest request) {
 
-        // المستخدم من جلسة الدخول، والملكية يفحصها السيرفس.
         Integer userId = user.getId();
         objectionService.addProofObjection(userId, proofId, request);
         return ResponseEntity.status(200)
@@ -67,7 +64,6 @@ public class ObjectionController {
             @PathVariable Integer excuseId,
             @RequestBody @Valid ObjectionRequest request) {
 
-        // لا نستقبل معرف مستخدم آخر في الرابط أو بيانات الطلب.
         Integer userId = user.getId();
         objectionService.addExcuseObjection(userId, excuseId, request);
         return ResponseEntity.status(200)
@@ -80,7 +76,6 @@ public class ObjectionController {
             @PathVariable Integer objectionId,
             @RequestBody @Valid ObjectionRequest request) {
 
-        // معرف المستخدم من الجلسة، والملكية يفحصها السيرفس.
         Integer userId = user.getId();
 
         objectionService.updateObjection(userId, objectionId, request);
@@ -94,7 +89,6 @@ public class ObjectionController {
             @AuthenticationPrincipal User user,
             @PathVariable Integer objectionId) {
 
-        // معرف المستخدم من الجلسة، والملكية يفحصها السيرفس.
         Integer userId = user.getId();
 
         objectionService.deleteObjection(userId, objectionId);

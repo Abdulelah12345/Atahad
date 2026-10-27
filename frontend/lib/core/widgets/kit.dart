@@ -3,10 +3,9 @@ import 'package:flutter/material.dart';
 import '../theme/at_colors.dart';
 import '../theme/at_tokens.dart';
 
-// the shared building blocks of the screens: icon tiles, sheets with a header, big option cards,
-// grouped settings rows, segmented pills, stat cells and feature banners. One look everywhere.
+// small pieces the screens share: icon tiles, sheets, option cards, setting rows, pills
 
-// a rounded square with an icon: the start of every row and card
+// a rounded square with an icon
 class IconTile extends StatelessWidget {
   final IconData icon;
   final Color? fg;
@@ -27,7 +26,7 @@ class IconTile extends StatelessWidget {
   }
 }
 
-// every bottom sheet opens the same way: rounded, a handle, scrolls with the keyboard
+// a bottom sheet with a handle, it moves up with the keyboard
 Future<T?> showAtSheet<T>(BuildContext context, {required WidgetBuilder builder}) => showModalBottomSheet<T>(
       context: context,
       showDragHandle: true,
@@ -69,7 +68,7 @@ class SheetHeader extends StatelessWidget {
   }
 }
 
-// a big choice: icon, title, one line. Selected = filled with the color
+// a big choice card, filled when selected
 class OptionCard extends StatelessWidget {
   final IconData icon;
   final String title;
@@ -120,7 +119,7 @@ class OptionCard extends StatelessWidget {
   }
 }
 
-// a white card that holds rows split by thin lines (settings, menus)
+// rows in one card, split by thin lines
 class RowGroup extends StatelessWidget {
   final List<Widget> children;
 
@@ -151,7 +150,7 @@ class RowGroup extends StatelessWidget {
   }
 }
 
-// one row: icon tile, title (+ a short line), and a chevron or something on the end
+// icon, title, an optional line, and a chevron
 class ActionRow extends StatelessWidget {
   final IconData icon;
   final String title;
@@ -299,7 +298,7 @@ class StatCell extends StatelessWidget {
   }
 }
 
-// a colored card that leads somewhere (تحدي الحظ، رحلة التعلّم): icon, title, one line, an arrow
+// a colored card that opens a page (تحدي الحظ، رحلة التعلّم)
 class FeatureBanner extends StatelessWidget {
   final IconData icon;
   final String title;
@@ -370,8 +369,10 @@ class SectionHeader extends StatelessWidget {
   final String title;
   final String? count;
   final Widget? action;
+  final IconData? icon;
+  final Color? color;
 
-  const SectionHeader(this.title, {super.key, this.count, this.action});
+  const SectionHeader(this.title, {super.key, this.count, this.action, this.icon, this.color});
 
   @override
   Widget build(BuildContext context) {
@@ -380,6 +381,10 @@ class SectionHeader extends StatelessWidget {
       padding: const EdgeInsets.only(top: Space.s5, bottom: Space.s2),
       child: Row(
         children: [
+          if (icon != null) ...[
+            Icon(icon, size: 18, color: color ?? context.colors.primary),
+            const SizedBox(width: 6),
+          ],
           Text(title, style: text.titleMedium!.copyWith(fontWeight: FontWeight.w700, fontSize: 15)),
           if (count != null) ...[
             const SizedBox(width: 6),

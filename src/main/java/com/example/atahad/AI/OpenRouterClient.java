@@ -72,7 +72,7 @@ public class OpenRouterClient {
             content = parts;
         }
 
-        // لا نعتمد الإحالة أو التعذر قبل استنفاد القائمة. قبول/رفض واضح يوقف السلسلة.
+        // try the next model on a failure, a clear accept/reject stops here
         String uncertain = null;
         for (int index = 0; index < models.size(); index++) {
             String candidate = models.get(index);

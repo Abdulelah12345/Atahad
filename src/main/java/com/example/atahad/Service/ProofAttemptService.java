@@ -47,7 +47,7 @@ public class ProofAttemptService {
         CommitmentWeek week = ownWeek(memberId,weekId);
         GoalTask task = request.getGoalTaskId() == null ? null : tasks.findGoalTaskById(request.getGoalTaskId());
         if (request.getGoalTaskId() != null && task == null) { throw new ApiException("Task not found"); }
-        // نتحقق من انتماء المهمة قبل إرسال عنوانها للذكاء أو إنشاء أي جلسة.
+        // check the task belongs to the week before anything
         if (task != null) {
             if (task.getGoal() == null || !task.getGoal().getId().equals(week.getCommitment().getId())) {
                 throw new ApiException("Task does not belong to this goal");
@@ -58,7 +58,7 @@ public class ProofAttemptService {
         }
         String type = task == null ? week.getCommitment().getProofMethod() : task.getProofMethod();
         if("STEPS".equals(type)) { throw new ApiException("Use the walking steps sync or screenshot endpoint"); }
-        // ربط نتيجة الزيارة بالمحاولة الإضافية من مسؤولية الزميلة؛ نترك مسار الزيارة الحالي يعمل مستقلا.
+        // visits keep their own flow
         if ("LOCATION".equals(type)) {
             throw new ApiException("Location sessions await visit integration; use the existing visit flow");
         }
@@ -66,7 +66,7 @@ public class ProofAttemptService {
         Integer minutes = request.getTargetMinutes();
         if (minutes == null) { minutes = week.getCommitment().getTargetMinutes(); }
         if (type.equals("TIMER") && minutes == null) { minutes = timerAI.suggestMinutes(title); }
-        // نجهز التشجيع قبل حجز الأسبوع، كي لا يبقى القفل أثناء طلب الذكاء.
+        // ask the AI before locking the week
         String messages = type.equals("TIMER") ? timerAI.messages(title) : "";
         boolean withPhotos = false;
         if (request.getBeforeAfter() != null) { withPhotos = request.getBeforeAfter(); }
@@ -95,10 +95,10 @@ public class ProofAttemptService {
         checkDeadline(proof);
         if (proof.getType().equals("TIMER")) { throw new ApiException("Use the server timer actions"); }
         if (data == null || data.isBlank()) { throw new ApiException("Evidence is required"); }
-        // تحليل الدليل يستخدم نسخة غير مدارة؛ لا يكتب نتيجة قديمة فوق نجاح دليل آخر أثناء انتظار الذكاء.
+        // detached, so an old copy never overwrites another evidence's success
         entityManager.detach(proof);
         if (proof.getType().equals("PHOTO")) {
-            // صورة مفردة أيضا من مسار التصوير، وليس رابطا عشوائيا أو صورة من المعرض.
+            // the photo comes from the app camera only
             int captureId;
             try { captureId=Integer.parseInt(data.trim()); } catch(NumberFormatException ex) { throw new ApiException("Send the camera capture ID"); }
             data = captures.use(memberId,captureId,"PHOTO",proofId).getImageData();
@@ -122,8 +122,8 @@ public class ProofAttemptService {
         String answer = imageAI.compare(title,before.getImageData(),after.getImageData());
         String result = imageAI.field(answer,"DECISION");
         if (!List.of("ACCEPTED","REJECTED","ESCALATED").contains(result)) { result="ESCALATED"; }
-        // لا نحجز صف دليل الصور أثناء انتظار الذكاء، حتى يستطيع المؤقت حفظ نجاحه.
-        // بعد الرد نحجز الأسبوع أولا، ثم نعيد فحص الدليل ونحفظ النتيجة بنفس ترتيب الأقفال.
+        // no lock while waiting for the AI, the timer can still save
+        // then lock the week first and check again (same lock order everywhere)
         entityManager.lock(proof.getCommitmentWeek(),LockModeType.PESSIMISTIC_WRITE);
         entityManager.refresh(photos,LockModeType.PESSIMISTIC_WRITE);
         if (photos.getAfterCaptureId() != null) { throw new ApiException("The after photo was already submitted"); }
@@ -149,7 +149,7 @@ public class ProofAttemptService {
         result.put("goalTaskId",proof.getGoalTask()==null?null:proof.getGoalTask().getId());
         result.put("goalTitle", proof.getGoalTask() == null ? null : proof.getCommitmentWeek().getCommitment().getTitle());
         result.put("taskTitle", proof.getGoalTask() == null ? null : proof.getGoalTask().getTitle());
-        // زر الاعتراض يظهر فقط عندما يسمح القرار والمهلة وعدم وجود اعتراض سابق.
+        // the objection button shows only when it is allowed
         result.put("canObject", "REJECTED".equals(proof.getResult()) && proof.getDecidedAt() != null
                 && proof.getObjection() == null && !time.now().isAfter(proof.getDecidedAt().plusHours(48)));
         result.put("evidence",evidence.findByProofIdOrderById(proofId)); result.put("timer",timers.findByProofId(proofId));

@@ -16,7 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class AuthenticatedUserService {
     private final UserRepository userRepository;
 
-    // لا نثق بمعرف العضو في الرابط؛ يجب أن يكون ملف المستخدم المسجل نفسه.
+    // the id in the path must be the logged in member
     public void checkMember(Integer memberId) {
         User user = getCurrentUser();
         if (user.getRole() == null) {
@@ -34,7 +34,7 @@ public class AuthenticatedUserService {
         }
     }
 
-    // نثبت هوية الأدمن الذي يصدر القرار بدل السماح له بإرسال معرف أدمن آخر.
+    // the deciding admin is the logged in one
     public void checkAdmin(Integer adminId) {
         User user = getCurrentUser();
         if (user.getRole() == null) {

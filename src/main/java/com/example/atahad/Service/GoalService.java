@@ -37,6 +37,7 @@ public class GoalService {
     private final CommitmentWeekRepository commitmentWeekRepository;
     private final CommitmentWeekService commitmentWeekService;
     private final AiService aiService;
+    private final ProofMethodService proofMethodService;
 
     // admin
     public List<Goal> getAllGoals(){
@@ -63,6 +64,7 @@ public class GoalService {
         goal.setMember(member);
         goal.setStatus("ACTIVE");
         CommitmentService.checkStartDate(goal);
+        proofMethodService.apply(goal);
         goal.setEffectiveFrom(startOf(goal));
         goal.setBaseAmount(null); // goals use the amount of each task
         goal.setPendingBaseAmount(null);
@@ -174,6 +176,7 @@ public class GoalService {
         goal.setTargetMinutes(dto.getTargetMinutes());
         goal.setTotalWeeks(dto.getWeeks().size());
         goal.setStartDate(dto.getStartDate());
+        goal.setProofOptionId(dto.getProofOptionId());
         addGoal(memberId, goal);
 
         int weekNumber = 1;
@@ -184,7 +187,7 @@ public class GoalService {
             task.setTitle(week.getTitle());
             task.setTimesPerWeek(week.getTimesPerWeek());
             task.setAmountPerTime(dto.getAmountPerTime());
-            task.setProofMethod(dto.getProofMethod());
+            task.setProofMethod(goal.getProofMethod()); // a custom method is a photo
             task.setCompletedCount(0);
             task.setExcusedCount(0);
             goalTaskRepository.save(task);

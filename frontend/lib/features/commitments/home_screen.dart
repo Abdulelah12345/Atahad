@@ -263,10 +263,11 @@ class _HomeScreenState extends State<HomeScreen> {
               label: const Text('تعهّد جديد'),
               style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: Space.s2), visualDensity: VisualDensity.compact),
             );
+            final c = context.colors;
             final sections = [
-              if (urgent.isNotEmpty) ('لازم اليوم', urgent),
-              if (missed.isNotEmpty) ('يحتاج قرار', missed),
-              if (fine.isNotEmpty) ('ماشية تمام', fine),
+              if (urgent.isNotEmpty) ('لازم اليوم', urgent, Icons.bolt_rounded, c.urgent),
+              if (missed.isNotEmpty) ('يحتاج قرار', missed, Icons.error_outline_rounded, c.danger),
+              if (fine.isNotEmpty) ('ماشية تمام', fine, Icons.check_circle_outline_rounded, c.success),
             ];
             return RefreshIndicator(
               onRefresh: reload,
@@ -291,6 +292,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   ],
                   const SizedBox(height: 14),
                   _WeekStrip(activity: Map<String, int>.from(data['activity'] as Map? ?? const {})),
+                  // today's quest bar: what is done out of what was due today
+                  if (all.isNotEmpty) ...[
+                    const SizedBox(height: 14),
+                    _TodayBar(done: doneToday.length, total: doneToday.length + tasks.length),
+                  ],
                   if (all.isEmpty)
                     _EmptyToday(
                       icon: Icons.flag_rounded,
@@ -307,8 +313,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       action: 'تعهّد جديد',
                       onAction: _newCommitment,
                     ),
-                  for (final (i, (title, list)) in sections.indexed) ...[
-                    SectionHeader(title, count: arabicDigits(list.length), action: i == 0 ? newButton : null),
+                  for (final (i, (title, list, icon, color)) in sections.indexed) ...[
+                    SectionHeader(title, count: arabicDigits(list.length), action: i == 0 ? newButton : null, icon: icon, color: color),
                     ...list.map(quest),
                   ],
                   if (doneToday.isNotEmpty || postponed.isNotEmpty || weekDone.isNotEmpty) ...[
@@ -336,7 +342,15 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-// the top: my avatar in my level's ring, «هلا ...», my level and weeks, points and pardon cards
+// a different hello for the morning, the afternoon and the night
+String _greeting() {
+  final hour = DateTime.now().hour;
+  if (hour < 12) return 'صباح الهمّة';
+  if (hour < 18) return 'هلا';
+  return 'مساء الإنجاز';
+}
+
+// the top: my avatar in my level's ring, the hello, my level and weeks, points and pardon cards
 class _Header extends StatelessWidget {
   final String name;
   final JsonMap? stats;
@@ -381,7 +395,7 @@ class _Header extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(name.isEmpty ? 'هلا' : 'هلا $name',
+                Text(name.isEmpty ? _greeting() : '${_greeting()} $name',
                     style: text.headlineSmall!.copyWith(fontWeight: FontWeight.w800), maxLines: 1, overflow: TextOverflow.ellipsis),
                 if (level != null)
                   Text(
@@ -555,7 +569,7 @@ class _Quest extends StatelessWidget {
     final excused = (t['excused'] ?? 0) as int;
     final state = questStateOf(t['trackStatus'] as String?);
     final settled = t['trackStatus'] == 'SETTLED';
-    // the manual pardon card is for habits (goals use pardon cards by themselves); postponing fits any task with times left
+    // pardon by hand: habits only (goals use it by themselves). postpone: any task with times left
     final habitRunning = t['type'] == 'HABIT' && !settled;
     final canPostpone = !settled && ((t['remaining'] ?? 0) as int) > 0;
     final meta = [
@@ -630,6 +644,72 @@ class _PostponeSheetState extends State<_PostponeSheet> {
             AtButton('احفظ', icon: const Icon(Icons.check_rounded, size: 20), onPressed: () => Navigator.pop(context, _days)),
           ],
         ),
+      ),
+    );
+  }
+}
+
+
+// «خلّصت ٢ من ٥ اليوم»: a bar that fills, a trophy when everything is done
+class _TodayBar extends StatelessWidget {
+  final int done;
+  final int total;
+
+  const _TodayBar({required this.done, required this.total});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final text = Theme.of(context).textTheme;
+    final all = total > 0 && done >= total;
+    final value = total == 0 ? 0.0 : (done / total).clamp(0, 1).toDouble();
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      decoration: BoxDecoration(
+        color: all ? c.successSoft : c.surface,
+        borderRadius: BorderRadius.circular(Radii.card),
+        border: Border.all(color: all ? c.success.withValues(alpha: 0.4) : c.line),
+      ),
+      child: Row(
+        children: [
+          AnimatedSwitcher(
+            duration: Motion.base,
+            transitionBuilder: (child, a) => ScaleTransition(scale: a, child: child),
+            child: Icon(
+              all ? Icons.emoji_events_rounded : Icons.flag_circle_rounded,
+              key: ValueKey(all),
+              size: 30,
+              color: all ? c.success : c.accent,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  all ? 'يومك مكتمل، كفو!' : 'مهام اليوم: ${arabicDigits(done)} من ${arabicDigits(total)}',
+                  style: text.labelLarge!.copyWith(fontWeight: FontWeight.w800, color: all ? c.success : c.ink),
+                ),
+                const SizedBox(height: 6),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(Radii.full),
+                  child: TweenAnimationBuilder<double>(
+                    tween: Tween(begin: 0, end: value),
+                    duration: Motion.reward,
+                    curve: Motion.easeOut,
+                    builder: (context, v, _) => LinearProgressIndicator(
+                      value: v,
+                      minHeight: 8,
+                      backgroundColor: c.surfaceSunken,
+                      valueColor: AlwaysStoppedAnimation(all ? c.success : c.accent),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -26,7 +26,7 @@ public class Proof {
     @Pattern(regexp = "^(LOCATION|PHOTO|QUIZ|TIMER|STEPS)$", message = "Invalid proof type")
     @Column(columnDefinition = "VARCHAR(8) NOT NULL")
     private String type;
-//ممكن يحتوي رابط او موقع ، عشان بعدين نشيك عليه
+// a link, a location or a capture id, checked later
     @NotBlank(message = "Evidence data cannot be empty")
     @Column(columnDefinition = "MEDIUMTEXT NOT NULL")
     private String evidenceData;
@@ -41,7 +41,7 @@ public class Proof {
     @Column(columnDefinition = "VARCHAR(9)")
     private String result; // PENDING by default, ESCALATED = the AI was not sure, an admin decides
 
-    // حالة معالجة الإثبات، مستقلة عن نتيجة القبول أو الرفض.
+    // WAITING / PROCESSING / DONE, separate from the result
     @NotBlank(message = "Processing status cannot be empty")
     @Pattern(regexp = "^(WAITING|PROCESSING|FINISHED)$", message = "Invalid processing status")
     @Column(columnDefinition = "VARCHAR(10) NOT NULL")
@@ -51,12 +51,11 @@ public class Proof {
     @Column(columnDefinition = "VARCHAR(500)")
     private String rejectionReason;
 
-    // وقت صدور قرار الذكاء، وتبدأ منه مهلة تقديم الاعتراض البالغة 48 ساعة.
-    // يبقى فارغا عند الإضافة ويعبئه النظام عند إصدار القرار.
+    // the 48 hours to object start here
     @Column(columnDefinition = "DATETIME")
     private LocalDateTime decidedAt;
 
-    // للمحاولات الجديدة: الأساسية والصور الإضافية لهما نتائج مستقلة وقرار نهائي واحد.
+    // new attempts: the main proof and the extra photos have their own results, one final decision
     private LocalDateTime attemptDeadline;
     private Boolean beforeAfterEnabled = false;
     private Boolean pageReuploadRequested = false;
@@ -74,9 +73,7 @@ public class Proof {
     @JsonIgnore
     private Objection objection;
 
-
-    // المهمة التي ينتمي إليها الإثبات.
-// تكون فارغة عندما يكون الإثبات لعادة.
+// null for a habit
     @ManyToOne
     @JoinColumn(name = "goal_task_id")
     @JsonIgnore

@@ -51,6 +51,9 @@ public class LockService {
         if("DEACTIVATED".equals(member.getAccountStatus())){
             return "This account is deactivated";
         }
+        if("SUSPENDED".equals(member.getAccountStatus())){
+            return "This account is suspended by the admin";
+        }
         if(Boolean.TRUE.equals(member.getAccountBanned())){
             boolean paying = path.startsWith("/api/v1/donation-proof")
                     || path.startsWith("/api/v1/commitment/lockStatus")

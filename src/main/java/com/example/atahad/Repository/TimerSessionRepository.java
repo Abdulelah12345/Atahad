@@ -7,7 +7,7 @@ import java.util.List;
 public interface TimerSessionRepository extends JpaRepository<TimerSession,Integer> {
     TimerSession findByProofId(Integer proofId);
     List<TimerSession> findByStatusIn(List<String> statuses);
-    /* تسلسل عمليات بدء وإيقاف نفس الجلسة يمنع احتساب الوقت مرتين من جهازين. */
+    /* one start/stop at a time, two phones can't count the time twice */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT t FROM TimerSession t WHERE t.id = :id")
     TimerSession findForUpdate(@Param("id") Integer id);

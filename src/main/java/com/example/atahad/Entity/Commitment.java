@@ -53,6 +53,16 @@ public abstract class Commitment {
     @Column(columnDefinition = "DATE")
     private LocalDate startDate; // The day week 1 starts: today or later (null = today)
 
+    // a custom proof method from the admin: its name, and what the photo must show
+    @Column(columnDefinition = "VARCHAR(40)")
+    private String proofLabel;
+
+    @Column(columnDefinition = "VARCHAR(300)")
+    private String proofHint;
+
+    @Transient
+    private Integer proofOptionId; // sent when creating, not saved
+
     // LOCATION only: the place of the commitment (the gym, the mosque ...), a proof counts inside the radius
     @DecimalMin(value = "-90.0", message = "Latitude must be between -90 and 90")
     @DecimalMax(value = "90.0", message = "Latitude must be between -90 and 90")

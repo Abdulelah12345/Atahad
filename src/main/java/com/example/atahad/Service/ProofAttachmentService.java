@@ -19,7 +19,7 @@ public class ProofAttachmentService {
         resolve(memberId, reference);
     }
 
-    // نحفظ مرجعا قصيرا للصورة، ونرسل محتواها الفعلي للذكاء؛ لا نرسل رابط localhost للمزود.
+    // save a short reference, the AI gets the image itself (not a localhost link)
     public String resolve(Integer memberId, String value) {
         if (value == null || !value.startsWith("capture:")) { return value; }
         Integer captureId;

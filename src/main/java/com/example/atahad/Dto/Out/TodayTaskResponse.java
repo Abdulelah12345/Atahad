@@ -30,4 +30,5 @@ public class TodayTaskResponse {
     private Boolean postponedToday; // the member moved this week off today (habits only)
     private Boolean doneToday; // a proof of today was sent (accepted or still in review)
     private java.util.Set<String> plannedDays; // this week's reminder days (SUN..SAT), for the postpone sheet
+    private String proofHint; // a custom method from the admin: what the photo must show
 }

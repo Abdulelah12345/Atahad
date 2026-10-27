@@ -30,6 +30,7 @@ class _HabitFormScreenState extends State<HabitFormScreen> {
   late final TargetDraft _target;
   late final WalkingDraft _walking;
   String _proofMethod = 'PHOTO';
+  List<Map<String, dynamic>>? _catalog; // the methods the admin left on, null until it loads
   int _times = 3;
   DateTime _start = dateOnly(DateTime.now()); // a new habit starts today or later
   Set<String> _days = {};
@@ -78,6 +79,9 @@ class _HabitFormScreenState extends State<HabitFormScreen> {
   @override
   void initState() {
     super.initState();
+    ProofCatalog.load(context.read<ApiClient>()).then((list) {
+      if (mounted) setState(() => _catalog = list);
+    }).catchError((_) {}); // all the built-in methods stay
     final h = widget.habit;
     _target = h == null ? TargetDraft() : TargetDraft.from(h);
     _walking = h == null ? WalkingDraft() : WalkingDraft.from(h);
@@ -118,7 +122,7 @@ class _HabitFormScreenState extends State<HabitFormScreen> {
     }
     final body = {
       'title': _title.text.trim(),
-      'proofMethod': _proofMethod,
+      ...proofMethodJson(_proofMethod),
       'timesPerWeek': _times,
       'baseAmount': double.parse(normalizeWalkingNumber(_amount.text)),
       'plannedDays': _days.toList(),
@@ -241,14 +245,20 @@ class _HabitFormScreenState extends State<HabitFormScreen> {
 
   Widget _formStep(BuildContext context, TextTheme text, double amount) {
     final c = context.colors;
-    // the steps only for a walking habit (a reading habit never sees it), and they cannot be added or removed after it starts
-    final methods = [
+    // steps only for a walking habit, and they can't change after it starts
+    final methods = ProofCatalog.methods(_catalog, [
       'PHOTO',
       'TIMER',
       'QUIZ',
       'LOCATION',
       if (_proofMethod == 'STEPS' || (!_editing && isWalkingTitle(_title.text))) 'STEPS',
-    ];
+    ]);
+    // the current method always shows, even if the admin turned it off later
+    if (!methods.contains(_proofMethod)) methods.insert(0, _proofMethod);
+    final labels = {
+      ...ProofCatalog.labels(_catalog),
+      if (widget.habit?['proofLabel'] != null) 'PHOTO': '${widget.habit!['proofLabel']}',
+    };
     Widget label(String title, {String? hint}) => Padding(
           padding: const EdgeInsets.only(top: Space.s5, bottom: Space.s2),
           child: Row(
@@ -308,6 +318,7 @@ class _HabitFormScreenState extends State<HabitFormScreen> {
             ),
             ProofMethodGrid(
               methods: methods,
+              labels: labels,
               value: _proofMethod,
               onChanged: _methodLocked
                   ? null

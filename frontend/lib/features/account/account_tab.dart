@@ -13,7 +13,7 @@ import '../../core/widgets/app_card.dart';
 import '../../core/widgets/widgets.dart';
 import '../commitments/commitment_widgets.dart' show confirmDialog;
 
-// OWNER: Abdulelah - the "حسابي" tab (design: Account): the blue card with my numbers, my activity, then the settings
+// OWNER: Abdulelah - the "حسابي" tab (design: Account)
 class AccountTab extends StatelessWidget {
   const AccountTab({super.key});
 

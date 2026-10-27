@@ -7,7 +7,7 @@ import 'proof_widgets.dart';
 import 'proofs_api.dart';
 import 'proofs_home_screen.dart';
 
-// بطاقة اليوم تصل للمهمة نفسها؛ لا يكتب العضو أي معرفات ولا يختار مهمة من هدف شخص آخر.
+// opens the proof of this exact task, the member never types an id
 Future<void> openActivityProof(BuildContext context, Json activity) async {
   if (activity['proofMethod'] == 'STEPS') {
     await context.push('/walking/${activity['weekId']}', extra: activity);

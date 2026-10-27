@@ -99,7 +99,7 @@ public class QuizService {
             correct.append(matcher.group(5).toUpperCase()); stored.append(matcher.group()).append("\n");
         }
         if (questions.size()!=4) { throw new ApiException("Quiz generation is unavailable; no quiz attempt was consumed"); }
-        // بعد رجوع الذكاء نحجز الأسبوع ونعيد عد المحاولات؛ لا نحجزه أثناء انتظار النموذج.
+        // lock the week after the AI answers, then count the tries again
         entityManager.lock(week,LockModeType.PESSIMISTIC_WRITE);
         if (attempts(weekId,task,day).size()>=2) { throw new ApiException("Only one retry is allowed"); }
         Quiz quiz=new Quiz(); quiz.setTopic(subject); quiz.setQuestions(stored.toString()); quiz.setCorrectAnswers(correct.toString());

@@ -33,7 +33,7 @@ public class ObjectionDecisionService {
     // the objections on proofs and excuses are added in ObjectionService, the donation ones here
     @Transactional
     public Objection addDonationObjection(Integer memberId, Integer donationProofId, ObjectionRequest request){
-        // المعرف في الرابط يجب أن يخص العضو المسجل، وليس أي عضو موجود.
+        // the id in the path must be the logged in member
         authenticatedUserService.checkMember(memberId);
         Member member = memberRepository.findMemberById(memberId);
         if(member == null){

@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.*;
 public class ProofAttachmentController {
     private final ProofCaptureService proofCaptureService;
 
-    // مرفقات العذر والتبرع متاحة في مساراتهما حتى عندما يكون التطبيق مقفلا.
+    // excuse and donation attachments work while the app is locked
     @PostMapping({"/api/v1/excuse/attachment", "/api/v1/donation-proof/attachment"})
     public ResponseEntity<?> create(@AuthenticationPrincipal User user) {
         return ResponseEntity.status(200).body(proofCaptureService.start(user.getId(), "PHOTO", null));

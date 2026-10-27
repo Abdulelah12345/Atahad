@@ -18,7 +18,7 @@ public class ProofWorkspaceService {
     private final ExcuseRepository excuseRepository;
     private final ObjectionRepository objectionRepository;
 
-    // نأخذ المستخدم من جلسة الدخول ونبحث عن سجلاته فقط، دون إظهار سجلات بقية الأعضاء.
+    // the logged in member's records only
     @Transactional(readOnly = true)
     public Map<String, Object> getMyWorkspace(Integer userId) {
         authenticatedUserService.checkMember(userId);

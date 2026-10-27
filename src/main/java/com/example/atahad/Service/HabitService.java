@@ -19,6 +19,7 @@ public class HabitService {
     private final MemberRepository memberRepository;
     private final CommitmentWeekService commitmentWeekService;
     private final WalkingStepsService walkingStepsService;
+    private final ProofMethodService proofMethodService;
 
     // admin
     public List<Habit> getAllHabits(){
@@ -49,6 +50,7 @@ public class HabitService {
         habit.setMember(member);
         habit.setStatus("ACTIVE");
         CommitmentService.checkStartDate(habit);
+        proofMethodService.apply(habit);
         habit.setEffectiveFrom(habit.getStartDate() == null ? LocalDate.now() : habit.getStartDate());
         habit.setPendingTimesPerWeek(null);
         habit.setPendingBaseAmount(null);

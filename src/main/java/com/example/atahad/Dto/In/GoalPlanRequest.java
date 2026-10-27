@@ -55,4 +55,6 @@ public class GoalPlanRequest {
 
     // the day week 1 starts: today or later (empty = today)
     private java.time.LocalDate startDate;
+
+    private Integer proofOptionId; // a custom proof method from the admin
 }

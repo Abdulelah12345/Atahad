@@ -41,7 +41,7 @@ public class AdminService {
         user.setRole("ADMIN");
         user.setCreatedAt(LocalDateTime.now());
 
-        // نخزن BCrypt فقط؛ لا نخزن كلمة المرور الأصلية.
+        // BCrypt only, never the plain password
 
   user.setPassword(passwordEncoder.encode(dto.getPassword()));
 

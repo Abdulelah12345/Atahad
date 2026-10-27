@@ -39,6 +39,17 @@ class _GoalPlanScreenState extends State<GoalPlanScreen> {
   final _amount = TextEditingController(text: '5'); // the least Ehsan takes
   final _target = TargetDraft();
   String _proofMethod = 'PHOTO';
+  List<Map<String, dynamic>>? _catalog; // the methods the admin left on
+
+  @override
+  void initState() {
+    super.initState();
+    ProofCatalog.load(context.read<ApiClient>()).then((list) {
+      if (mounted) setState(() => _catalog = list);
+    }).catchError((_) {});
+  }
+
+  List<String> get _methods => ProofCatalog.methods(_catalog, ['PHOTO', 'TIMER', 'QUIZ', 'LOCATION']);
   List<_WeekDraft> _weeks = [];
 
   bool _busy = false;
@@ -82,7 +93,7 @@ class _GoalPlanScreenState extends State<GoalPlanScreen> {
         _plan = plan;
         _title.text = '${plan['title'] ?? _goal.text.trim()}';
         final method = '${plan['proofMethod'] ?? ''}';
-        _proofMethod = proofMethodsAr.containsKey(method) ? method : 'PHOTO';
+        _proofMethod = _methods.contains(method) ? method : 'PHOTO';
         _weeks = ((plan['weeks'] as List?) ?? const [])
             .map((w) => _WeekDraft('${(w as Map)['title'] ?? ''}', ((w['timesPerWeek'] ?? 1) as int).clamp(1, 7)))
             .toList();
@@ -108,7 +119,7 @@ class _GoalPlanScreenState extends State<GoalPlanScreen> {
       await _api.addWithPlan({
         'title': _title.text.trim(),
         'description': _goal.text.trim(),
-        'proofMethod': _proofMethod,
+        ...proofMethodJson(_proofMethod),
         'amountPerTime': amount,
         'weeks': _weeks.map((w) => {'title': w.title.text.trim(), 'timesPerWeek': w.times}).toList(),
         ..._target.toCommitmentJson(_proofMethod),
@@ -220,7 +231,8 @@ class _GoalPlanScreenState extends State<GoalPlanScreen> {
         Text('كيف تثبت؟', style: text.labelLarge),
         const SizedBox(height: Space.s2),
         ProofMethodGrid(
-          methods: const ['PHOTO', 'TIMER', 'QUIZ', 'LOCATION'],
+          methods: _methods,
+          labels: ProofCatalog.labels(_catalog),
           value: _proofMethod,
           onChanged: (v) => setState(() {
             _proofMethod = v;

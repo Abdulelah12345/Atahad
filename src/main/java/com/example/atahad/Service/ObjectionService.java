@@ -36,7 +36,6 @@ public class ObjectionService {
 
     public Objection getObjectionById(Integer userId, Integer objectionId) {
 
-        // معرف المستخدم المسجل يأتي من جلسة الدخول.
         if (userId == null) {
             throw new ApiException("User ID is required");
         }
@@ -45,7 +44,6 @@ public class ObjectionService {
             throw new ApiException("Objection ID is required");
         }
 
-        // جلب الاعتراض المطلوب قبل التحقق من صاحبه.
         Objection objection =
                 objectionRepository.findObjectionById(objectionId);
 
@@ -63,8 +61,7 @@ public class ObjectionService {
             throw new ApiException("Objection owner user not found");
         }
 
-        // نتأكد أن معرف المستخدم المسجل يطابق صاحب الاعتراض.
-        // يمنع هذا الشرط عرض اعتراض خاص بمستخدم آخر بمجرد معرفة معرفه.
+        // only its owner
         Integer ownerUserId = member.getUser().getId();
 
         if (!userId.equals(ownerUserId)) {
@@ -77,11 +74,9 @@ public class ObjectionService {
     public void addProofObjection(Integer userId, Integer proofId,
                                       ObjectionRequest request) {
 
-        // هوية المستخدم تؤخذ من جلسة الدخول.
         if (userId == null) {
             throw new ApiException("User ID is required");
         }
-        // معرف السجل الذي صدر عليه قرار الذكاء.
         if (proofId == null) {
             throw new ApiException("Proof ID is required");
         }
@@ -89,7 +84,6 @@ public class ObjectionService {
             throw new ApiException("Objection data is required");
         }
 
-        // سبب الاعتراض يدخله المستخدم، ولا يستطيع تحديد القرار أو الوقت.
         String reason = request.getReason();
         if (reason == null) {
             throw new ApiException("Reason is required");
@@ -106,7 +100,7 @@ public class ObjectionService {
             throw new ApiException("Proof not found");
         }
 
-        // نصل للمالك من الأسبوع والتعهد، لدعم الأهداف والعادات.
+        // the owner through the week, works for goals and habits
         CommitmentWeek week = proof.getCommitmentWeek();
         if (week == null) {
             throw new ApiException("Commitment week not found");
@@ -123,20 +117,17 @@ public class ObjectionService {
             throw new ApiException("Commitment owner user not found");
         }
 
-        // نتأكد أن معرف المستخدم المسجل هو نفسه صاحب التعهد.
-        // يمنع هذا الشرط تقديم اعتراض على قرارات تخص شخصا آخر.
         Integer ownerUserId = member.getUser().getId();
         if (!userId.equals(ownerUserId)) {
             throw new ApiException("This proof does not belong to you");
         }
 
-        // يجب أن ينتهي التحليل قبل الاعتراض على قراره.
+        // only after the AI decided
         if (!"FINISHED".equals(proof.getProcessingStatus())) {
             throw new ApiException("Proof analysis has not finished");
         }
         String status = proof.getResult();
 
-        // نفحص null قبل استخدام equals بالطريقة المتفق عليها.
         if (status == null) {
             throw new ApiException("Decision status is missing");
         }
@@ -145,7 +136,7 @@ public class ObjectionService {
             throw new ApiException("Only rejected decisions can be objected to");
         }
 
-        // مهلة الاعتراض تبدأ من القرار، وليس من إرسال الإثبات أو العذر.
+        // 48 hours from the decision, not from sending
         LocalDateTime decidedAt = proof.getDecidedAt();
         if (decidedAt == null) {
             throw new ApiException("Decision time is missing");
@@ -159,13 +150,12 @@ public class ObjectionService {
             throw new ApiException("The 48-hour objection period has ended");
         }
 
-        // اعتراض واحد لكل قرار حسب علاقة الواحد لواحد الحالية.
+        // one objection per decision
         if (proof.getObjection() != null) {
             throw new ApiException("An objection already exists for this proof");
         }
 
-        // نحدد المهمة واليوم لفحص الطلبات المتعارضة.
-        // null للتاسك يعني أن السجل يخص عادة داخل هذا الأسبوع.
+        // task null = a habit
         GoalTask task = proof.getGoalTask();
         Integer goalTaskId = null;
         if (task != null) {
@@ -193,21 +183,21 @@ public class ObjectionService {
         LocalDateTime nextDayStart = activityDate.plusDays(1).atStartOfDay();
         Integer weekId = week.getId();
 
-        // لا نفتح اعتراضا أثناء وجود إثبات بديل قيد المعالجة أو مقبول.
+        // not while another proof of that day is waiting or accepted
         boolean hasBlockingProof = objectionRepository.existsBlockingProof(
                 weekId, goalTaskId, dayStart, nextDayStart);
         if (hasBlockingProof) {
             throw new ApiException("This day already has a pending or accepted proof");
         }
 
-        // لا نفتح اعتراضا أثناء معالجة عذر آخر أو بعد قبول إعفاء لنفس اليوم.
+        // or an excuse of that day
         boolean hasBlockingExcuse = objectionRepository.existsBlockingExcuse(
                 weekId, goalTaskId, activityDate);
         if (hasBlockingExcuse) {
             throw new ApiException("This day already has an active or accepted excuse");
         }
 
-        // منع إضافة اعتراض أثناء معالجة اعتراض على بروف لنفس المهمة واليوم.
+        // or another open objection
         boolean hasPendingProofObjection =
                 objectionRepository.existsPendingProofObjection(
                         weekId,
@@ -220,7 +210,6 @@ public class ObjectionService {
             throw new ApiException("A proof objection for this day is still pending");
         }
 
-        // منع إضافة اعتراض أثناء معالجة اعتراض على عذر لنفس المهمة واليوم.
         boolean hasPendingExcuseObjection =
                 objectionRepository.existsPendingExcuseObjection(
                         weekId,
@@ -232,10 +221,8 @@ public class ObjectionService {
             throw new ApiException("An excuse objection for this day is still pending");
         }
 
-        // سبب قرار الذكاء يؤخذ من السجل المحفوظ.
         String aiReason = proof.getRejectionReason();
 
-        // بعد جميع التشييكات ننشئ الاعتراض ونربطه بنوع واحد فقط.
         Objection objection = new Objection();
         objection.setReason(reason);
         objection.setAiReason(aiReason);
@@ -249,18 +236,16 @@ public class ObjectionService {
 
         objectionRepository.save(objection);
 
-        // قرار الذكاء، وإذا ما كان متأكد يبقى PENDING عند الأدمن.
+        // the AI decides, unsure = stays PENDING for the admin
         objectionDecisionService.decide(objection);
     }
 
     public void addExcuseObjection(Integer userId, Integer excuseId,
                                       ObjectionRequest request) {
 
-        // هوية المستخدم تؤخذ من جلسة الدخول.
         if (userId == null) {
             throw new ApiException("User ID is required");
         }
-        // معرف السجل الذي صدر عليه قرار الذكاء.
         if (excuseId == null) {
             throw new ApiException("Excuse ID is required");
         }
@@ -268,7 +253,6 @@ public class ObjectionService {
             throw new ApiException("Objection data is required");
         }
 
-        // سبب الاعتراض يدخله المستخدم، ولا يستطيع تحديد القرار أو الوقت.
         String reason = request.getReason();
         if (reason == null) {
             throw new ApiException("Reason is required");
@@ -285,7 +269,7 @@ public class ObjectionService {
             throw new ApiException("Excuse not found");
         }
 
-        // نصل للمالك من الأسبوع والتعهد، لدعم الأهداف والعادات.
+        // the owner through the week, works for goals and habits
         CommitmentWeek week = excuse.getCommitmentWeek();
         if (week == null) {
             throw new ApiException("Commitment week not found");
@@ -302,14 +286,12 @@ public class ObjectionService {
             throw new ApiException("Commitment owner user not found");
         }
 
-        // نتأكد أن معرف المستخدم المسجل هو نفسه صاحب التعهد.
-        // يمنع هذا الشرط تقديم اعتراض على قرارات تخص شخصا آخر.
         Integer ownerUserId = member.getUser().getId();
         if (!userId.equals(ownerUserId)) {
             throw new ApiException("This excuse does not belong to you");
         }
 
-        // لا نقبل اعتراضا بهذه الميثود على قرار صادر من الأدمن.
+        // not on an admin's decision
         if (excuse.getAdmin() != null) {
             throw new ApiException("This excuse was reviewed by an admin");
         }
@@ -318,7 +300,6 @@ public class ObjectionService {
         }
         String status = excuse.getStatus();
 
-        // نفحص null قبل استخدام equals بالطريقة المتفق عليها.
         if (status == null) {
             throw new ApiException("Decision status is missing");
         }
@@ -327,7 +308,7 @@ public class ObjectionService {
             throw new ApiException("Only rejected decisions can be objected to");
         }
 
-        // مهلة الاعتراض تبدأ من القرار، وليس من إرسال الإثبات أو العذر.
+        // 48 hours from the decision, not from sending
         LocalDateTime decidedAt = excuse.getDecidedAt();
         if (decidedAt == null) {
             throw new ApiException("Decision time is missing");
@@ -341,13 +322,12 @@ public class ObjectionService {
             throw new ApiException("The 48-hour objection period has ended");
         }
 
-        // اعتراض واحد لكل قرار حسب علاقة الواحد لواحد الحالية.
+        // one objection per decision
         if (excuse.getObjection() != null) {
             throw new ApiException("An objection already exists for this excuse");
         }
 
-        // نحدد المهمة واليوم لفحص الطلبات المتعارضة.
-        // null للتاسك يعني أن السجل يخص عادة داخل هذا الأسبوع.
+        // task null = a habit
         GoalTask task = excuse.getGoalTask();
         Integer goalTaskId = null;
         if (task != null) {
@@ -374,21 +354,21 @@ public class ObjectionService {
         LocalDateTime nextDayStart = activityDate.plusDays(1).atStartOfDay();
         Integer weekId = week.getId();
 
-        // لا نفتح اعتراضا أثناء وجود إثبات بديل قيد المعالجة أو مقبول.
+        // not while another proof of that day is waiting or accepted
         boolean hasBlockingProof = objectionRepository.existsBlockingProof(
                 weekId, goalTaskId, dayStart, nextDayStart);
         if (hasBlockingProof) {
             throw new ApiException("This day already has a pending or accepted proof");
         }
 
-        // لا نفتح اعتراضا أثناء معالجة عذر آخر أو بعد قبول إعفاء لنفس اليوم.
+        // or an excuse of that day
         boolean hasBlockingExcuse = objectionRepository.existsBlockingExcuse(
                 weekId, goalTaskId, activityDate);
         if (hasBlockingExcuse) {
             throw new ApiException("This day already has an active or accepted excuse");
         }
 
-        // منع إضافة اعتراض أثناء معالجة اعتراض على بروف لنفس المهمة واليوم.
+        // or another open objection
         boolean hasPendingProofObjection =
                 objectionRepository.existsPendingProofObjection(
                         weekId,
@@ -401,7 +381,6 @@ public class ObjectionService {
             throw new ApiException("A proof objection for this day is still pending");
         }
 
-        // منع إضافة اعتراض أثناء معالجة اعتراض على عذر لنفس المهمة واليوم.
         boolean hasPendingExcuseObjection =
                 objectionRepository.existsPendingExcuseObjection(
                         weekId,
@@ -413,10 +392,8 @@ public class ObjectionService {
             throw new ApiException("An excuse objection for this day is still pending");
         }
 
-        // سبب قرار الذكاء يؤخذ من السجل المحفوظ.
         String aiReason = excuse.getAiAssessment();
 
-        // بعد جميع التشييكات ننشئ الاعتراض ونربطه بنوع واحد فقط.
         Objection objection = new Objection();
         objection.setReason(reason);
         objection.setAiReason(aiReason);
@@ -430,24 +407,19 @@ public class ObjectionService {
 
         objectionRepository.save(objection);
 
-        // قرار الذكاء، وإذا ما كان متأكد يبقى PENDING عند الأدمن.
+        // the AI decides, unsure = stays PENDING for the admin
         objectionDecisionService.decide(objection);
     }
 
-
-
-
-    // تعدّل السبب فقط لصاحب الاعتراض، ما دام قيد الانتظار ولم يبدأ الأدمن مراجعته، بدون إعادة فحص مهلة الـ٤٨ ساعة.
+    // the owner edits the reason while it waits and the admin did not start
     public void updateObjection(Integer userId,
                                 Integer objectionId,
                                 ObjectionRequest request) {
 
-        // معرف المستخدم المسجل يأتي من جلسة الدخول.
         if (userId == null) {
             throw new ApiException("User ID is required");
         }
 
-        // معرف الاعتراض الذي يريد المستخدم تعديله.
         if (objectionId == null) {
             throw new ApiException("Objection ID is required");
         }
@@ -456,7 +428,6 @@ public class ObjectionService {
             throw new ApiException("Objection update data is required");
         }
 
-        // جلب الاعتراض المحفوظ من قاعدة البيانات.
         Objection objection =
                 objectionRepository.findObjectionById(objectionId);
 
@@ -464,7 +435,6 @@ public class ObjectionService {
             throw new ApiException("Objection not found");
         }
 
-        // العضو صاحب الاعتراض.
         Member member = objection.getMember();
 
         if (member == null) {
@@ -475,25 +445,21 @@ public class ObjectionService {
             throw new ApiException("Objection owner user not found");
         }
 
-        // نتأكد أن المستخدم المسجل هو نفسه صاحب الاعتراض.
-        // يمنع هذا الشرط تعديل اعتراضات مستخدم آخر.
         Integer ownerUserId = member.getUser().getId();
 
         if (!userId.equals(ownerUserId)) {
             throw new ApiException("This objection does not belong to you");
         }
 
-        // لا نعدل اعتراضا صدر قرار بقبوله أو رفضه.
         if (!"PENDING".equals(objection.getStatus())) {
             throw new ApiException("Only pending objections can be updated");
         }
 
-        // بدء مراجعة الأدمن يمنع التعديل حتى لو بقيت الحالة PENDING.
+        // the admin started = locked, even if still PENDING
         if (objection.getReviewStartedAt() != null) {
             throw new ApiException("This objection is already under review");
         }
 
-        // السبب الجديد الذي أرسله المستخدم، باستخدام نفس DTO الإضافة.
         String reason = request.getReason();
 
         if (reason == null) {
@@ -508,28 +474,23 @@ public class ObjectionService {
             throw new ApiException("Reason must be 1000 characters max");
         }
 
-        // لا نفحص مهلة 48 ساعة مجددا؛ هي مهلة تقديم الاعتراض فقط.
-        // بعد جميع التشييكات نعدل السبب دون تغيير الوقت أو الحالة أو العلاقات.
+        // the 48 hours are for sending only
         objection.setReason(reason);
 
-        // حفظ التعديل على نفس الاعتراض.
         objectionRepository.save(objection);
     }
 
-    // يحذف صاحب الاعتراض طلبه قبل بدء مراجعة الأدمن، دون إعادة فحص مهلة التقديم.
+    // the owner deletes it before the admin starts
     public void deleteObjection(Integer userId, Integer objectionId) {
 
-        // معرف المستخدم المسجل يأتي من جلسة الدخول.
         if (userId == null) {
             throw new ApiException("User ID is required");
         }
 
-        // معرف الاعتراض المراد حذفه.
         if (objectionId == null) {
             throw new ApiException("Objection ID is required");
         }
 
-        // جلب الاعتراض المحفوظ.
         Objection objection =
                 objectionRepository.findObjectionById(objectionId);
 
@@ -537,7 +498,6 @@ public class ObjectionService {
             throw new ApiException("Objection not found");
         }
 
-        // العضو صاحب الاعتراض.
         Member member = objection.getMember();
 
         if (member == null) {
@@ -548,29 +508,25 @@ public class ObjectionService {
             throw new ApiException("Objection owner user not found");
         }
 
-        // نتأكد أن معرف المستخدم المسجل يطابق صاحب الاعتراض.
-        // يمنع هذا الشرط حذف اعتراضات مستخدم آخر.
+        // only its owner
         Integer ownerUserId = member.getUser().getId();
 
         if (!userId.equals(ownerUserId)) {
             throw new ApiException("This objection does not belong to you");
         }
 
-        // نفحص وجود الحالة قبل استخدام equals عليها.
         String status = objection.getStatus();
 
         if (status == null) {
             throw new ApiException("Objection status is missing");
         }
 
-        // لا نحذف اعتراضا صدر قرار بقبوله أو رفضه.
         boolean isPending = status.equals("PENDING");
 
         if (!isPending) {
             throw new ApiException("Only pending objections can be deleted");
         }
 
-        // لا نحذف الاعتراض بعد بدء مراجعة الأدمن.
         if (objection.getReviewStartedAt() != null) {
             throw new ApiException("An objection under review cannot be deleted");
         }
@@ -582,6 +538,5 @@ public class ObjectionService {
         */
         objectionRepository.delete(objection);
     }
-
 
 }

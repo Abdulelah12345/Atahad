@@ -40,7 +40,6 @@ public class ExcuseService {
 
     public Excuse getExcuseById(Integer userId, Integer excuseId) {
 
-        // معرف المستخدم المسجل يأتي من جلسة الدخول.
         if (userId == null) {
             throw new ApiException("User ID is required");
         }
@@ -49,13 +48,12 @@ public class ExcuseService {
             throw new ApiException("Excuse ID is required");
         }
 
-        // جلب العذر ثم التحقق من صاحبه قبل إرجاعه.
         Excuse excuse = excuseRepository.findExcuseById(excuseId);
         if (excuse == null) {
             throw new ApiException("Excuse not found");
         }
 
-        // الوصول لصاحب العذر من الأسبوع والتعهد يدعم الأهداف والعادات.
+        // the owner through the week, works for goals and habits
         CommitmentWeek week = excuse.getCommitmentWeek();
         if (week == null) {
             throw new ApiException("Excuse commitment week not found");
@@ -75,8 +73,7 @@ public class ExcuseService {
             throw new ApiException("Excuse owner user not found");
         }
 
-        // نتأكد أن معرف المستخدم المسجل هو نفسه صاحب التعهد المرتبط بالعذر.
-        // يمنع هذا الشرط عرض أعذار مستخدم آخر بمجرد معرفة معرف العذر.
+        // only the owner can see it
         Integer ownerUserId = member.getUser().getId();
         if (!userId.equals(ownerUserId)) {
             throw new ApiException("This excuse does not belong to you");
@@ -90,16 +87,13 @@ public class ExcuseService {
                                   Integer commitmentWeekId,
                                   ExcuseRequest request) {
 
-        // المرحلة الأولى: التحقق من المعرفات وبيانات الطلب.
-        // معرف المستخدم المسجل يأتي من جلسة الدخول.
+        // 1. ids and request
         if (userId == null) {
             throw new ApiException("User ID is required");
         }
-        // معرف المهمة التي يقدم المستخدم العذر عنها.
         if (goalTaskId == null) {
             throw new ApiException("Goal task ID is required");
         }
-        // معرف أسبوع الالتزام المرتبط بالعذر.
         if (commitmentWeekId == null) {
             throw new ApiException("Commitment week ID is required");
         }
@@ -107,7 +101,7 @@ public class ExcuseService {
             throw new ApiException("Excuse data is required");
         }
 
-        // المرحلة الثانية: جلب المهمة والهدف والتحقق من الملكية.
+        // 2. the task, its goal and the owner
         GoalTask task = goalTaskRepository.findGoalTaskById(goalTaskId);
         if (task == null) {
             throw new ApiException("Goal task not found");
@@ -126,14 +120,12 @@ public class ExcuseService {
             throw new ApiException("Goal owner user not found");
         }
 
-        // نتأكد أن المستخدم المسجل هو نفسه صاحب الجول.
-        // يمنع هذا الشرط تقديم عذر لمهمة تخص مستخدما آخر.
         Integer goalOwnerUserId = member.getUser().getId();
         if (!userId.equals(goalOwnerUserId)) {
             throw new ApiException("This goal does not belong to you");
         }
 
-        // المرحلة الثالثة: التحقق من الأسبوع وانتماء المهمة إليه.
+        // 3. the task belongs to this week
         CommitmentWeek week =
                 commitmentWeekRepository.findCommitmentWeekById(commitmentWeekId);
         if (week == null) {
@@ -145,7 +137,6 @@ public class ExcuseService {
             throw new ApiException("Week must belong to a commitment");
         }
 
-        // المهمة والأسبوع يجب أن يتبعا نفس الهدف.
         if (!goal.getId().equals(commitment.getId())) {
             throw new ApiException("Goal task does not belong to this goal");
         }
@@ -158,19 +149,18 @@ public class ExcuseService {
         if (weekNumber == null) {
             throw new ApiException("Commitment week number is missing");
         }
-        // تطابق الهدف وحده لا يكفي؛ يجب تطابق رقم الأسبوع أيضا.
+        // same goal is not enough, the week number too
         if (!taskWeekNumber.equals(weekNumber)) {
             throw new ApiException("Goal task does not belong to this week");
         }
 
-        // المرحلة الرابعة: التحقق من حالة التعهد والأسبوع والمهمة.
+        // 4. the commitment, the week and the task are still open
         String goalStatus = goal.getStatus();
 
         if (goalStatus == null) {
             throw new ApiException("Goal status is missing");
         }
 
-        // إضافة العذر وتعديله مسموحان فقط عندما يكون التعهد نشطا.
         boolean isActive = goalStatus.equals("ACTIVE");
 
         if (!isActive) {
@@ -182,7 +172,6 @@ public class ExcuseService {
             throw new ApiException("Week status is missing");
         }
         boolean isWeekSettled = weekStatus.equals("SETTLED");
-        // لا نستقبل أعذارا جديدة بعد تسوية الأسبوع.
         if (isWeekSettled) {
             throw new ApiException("This week is settled");
         }
@@ -196,19 +185,18 @@ public class ExcuseService {
             throw new ApiException("This goal task is settled");
         }
 
-        // المرحلة الخامسة: التحقق من بيانات العذر.
+        // 5. the excuse data
         String type = request.getType();
         if (type == null) {
             throw new ApiException("Excuse type is required");
         }
-        // نتحقق أن النوع أحد الأنواع المسموحة.
         boolean isValidType = type.matches("^(SICK|TRAVEL|EMERGENCY|OTHER)$");
         if (!isValidType) {
             throw new ApiException("Invalid excuse type");
         }
 
         String evidenceUrl = request.getEvidenceUrl();
-        // المستند إلزامي، ونتحقق من رفعه وملكيته قبل الحفظ.
+        // the document is required and must be his
         if (evidenceUrl != null) {
             if (evidenceUrl.length() > 500) {
                 throw new ApiException("Evidence URL must be 500 characters max");
@@ -220,7 +208,7 @@ public class ExcuseService {
             throw new ApiException("Excuse date is required");
         }
 
-        // المرحلة السادسة: التحقق من وقت التقديم وتاريخ اليوم المعذور.
+        // 6. sent during the week, for a day of the week
         LocalDateTime weekStart = week.getWeekStart();
         LocalDateTime weekEnd = week.getWeekEnd();
         if (weekStart == null) {
@@ -231,16 +219,15 @@ public class ExcuseService {
         }
 
         LocalDateTime now = LocalDateTime.now(ZoneId.of("Asia/Riyadh"));
-        // التقديم مسموح أثناء فترة الأسبوع فقط.
         if (now.isBefore(weekStart)) {
             throw new ApiException("This week has not started");
         }
-        // نهاية الأسبوع هي آخر موعد، بدون إضافة مهلة.
+        // the week end is the deadline, no extra time
         if (now.isAfter(weekEnd)) {
             throw new ApiException("Excuse submission time has ended");
         }
 
-        // العذر يغطي يوما، لذلك نقارن التاريخ دون الساعة.
+        // an excuse covers a day, compare dates only
         LocalDate weekStartDate = weekStart.toLocalDate();
         LocalDate weekEndDate = weekEnd.toLocalDate();
         if (excuseDate.isBefore(weekStartDate)) {
@@ -250,47 +237,40 @@ public class ExcuseService {
             throw new ApiException("Excuse date is after this week");
         }
 
-        // حدود اليوم المعذور للبحث عن الإثباتات المرتبطة به.
         LocalDateTime dayStart = excuseDate.atStartOfDay();
         LocalDateTime nextDayStart = excuseDate.plusDays(1).atStartOfDay();
 
-        // المرحلة السابعة: منع التكرار والتداخل لنفس المهمة واليوم.
-        // وجود بروف مقبولة يعني أن تنفيذ هذا اليوم اكتمل.
+        // 7. nothing else for this task and day
         boolean hasAcceptedProof = proofRepository.existsTaskProof(
                 goalTaskId, commitmentWeekId, dayStart, nextDayStart, "ACCEPTED");
         if (hasAcceptedProof) {
             throw new ApiException("This day already has an accepted proof");
         }
 
-        // ننتظر معالجة البروف قبل السماح بعذر عن نفس اليوم.
         boolean hasPendingProof = proofRepository.existsTaskProof(
                 goalTaskId, commitmentWeekId, dayStart, nextDayStart, "PENDING");
         if (hasPendingProof) {
             throw new ApiException("A proof for this day is still pending");
         }
 
-        // اليوم المعفى سابقا لا يستقبل عذرا آخر.
         boolean hasAcceptedExcuse = excuseRepository.existsTaskExcuse(
                 goalTaskId, commitmentWeekId, excuseDate, "ACCEPTED");
         if (hasAcceptedExcuse) {
             throw new ApiException("This day already has an accepted excuse");
         }
 
-        // لا نستقبل عذرا جديدا قبل معالجة العذر السابق.
         boolean hasPendingExcuse = excuseRepository.existsTaskExcuse(
                 goalTaskId, commitmentWeekId, excuseDate, "PENDING");
         if (hasPendingExcuse) {
             throw new ApiException("An excuse for this day is still pending");
         }
 
-        // العذر المحول للأدمن ما زال قيد المعالجة.
         boolean hasEscalatedExcuse = excuseRepository.existsTaskExcuse(
                 goalTaskId, commitmentWeekId, excuseDate, "ESCALATED");
         if (hasEscalatedExcuse) {
             throw new ApiException("An excuse for this day is awaiting admin review");
         }
 
-        // الاعتراض المعلق على بروف يمنع تقديم العذر.
         boolean hasPendingProofObjection =
                 objectionRepository.existsPendingProofObjection(
                         commitmentWeekId, goalTaskId, dayStart, nextDayStart);
@@ -298,7 +278,6 @@ public class ExcuseService {
             throw new ApiException("A proof objection for this day is still pending");
         }
 
-        // الاعتراض المعلق على عذر سابق يمنع إعادة التقديم.
         boolean hasPendingExcuseObjection =
                 objectionRepository.existsPendingExcuseObjection(
                         commitmentWeekId, goalTaskId, excuseDate);
@@ -306,7 +285,7 @@ public class ExcuseService {
             throw new ApiException("An excuse objection for this day is still pending");
         }
 
-        // المرحلة الثامنة: التحقق من وجود عدد مطلوب متبق للمهمة.
+        // 8. there is still a time left to excuse
         Integer requiredCount = task.getTimesPerWeek();
         Integer completedCount = task.getCompletedCount();
         Integer excusedCount = task.getExcusedCount();
@@ -323,36 +302,30 @@ public class ExcuseService {
             throw new ApiException("Task excused count is missing");
         }
 
-        // نقرأ العدادات فقط، ولا نعدلها عند تقديم العذر.
         int remainingCount = requiredCount - completedCount;
         remainingCount = remainingCount - excusedCount;
         if (remainingCount <= 0) {
             throw new ApiException("Task required count has already been fulfilled");
         }
 
-        // المرحلة التاسعة: إنشاء العذر بعد نجاح جميع التشييكات.
+        // 9. save it
         Excuse excuse = new Excuse();
-        // بيانات المستخدم.
         excuse.setType(type);
-        // نتحقق أن المرفق المرفوع يخص صاحب العذر قبل حفظ مرجعه.
         proofAttachmentService.requireExcuseDocument(userId, evidenceUrl);
         excuse.setEvidenceUrl(evidenceUrl);
         excuse.setExcuseDate(excuseDate);
-        // قيم يحددها النظام؛ التقييم لم يبدأ بعد.
         excuse.setStatus("PENDING");
         excuse.setProcessingStatus("WAITING");
         excuse.setAiAssessment(null);
         excuse.setDecidedAt(null);
         excuse.setForwardedToAdmin(false);
         excuse.setAdmin(null);
-        // ربط العذر بالمهمة وأسبوع الالتزام.
         excuse.setGoalTask(task);
         excuse.setCommitmentWeek(week);
 
-        // المرحلة العاشرة: حفظ العذر في قاعدة البيانات.
         excuseRepository.save(excuse);
 
-        // قرار الذكاء: مقبول (مرة معذورة) أو مرفوض أو يتحول للأدمن.
+        // the AI decides: accepted (an excused time), rejected or to the admin
         excuseDecisionService.decide(excuse);
     }
 
@@ -360,12 +333,10 @@ public class ExcuseService {
                                      Integer excuseId,
                                      ExcuseRequest request) {
 
-        // المرحلة الأولى: التحقق من المعرفات وبيانات الطلب.
-        // معرف المستخدم المسجل يأتي من جلسة الدخول.
+        // 1. ids and request
         if (userId == null) {
             throw new ApiException("User ID is required");
         }
-        // معرف العذر الذي يريد المستخدم تعديله.
         if (excuseId == null) {
             throw new ApiException("Excuse ID is required");
         }
@@ -373,13 +344,12 @@ public class ExcuseService {
             throw new ApiException("Excuse update data is required");
         }
 
-        // جلب العذر الحالي؛ التعديل لا ينشئ سجلا جديدا.
         Excuse excuse = excuseRepository.findExcuseById(excuseId);
         if (excuse == null) {
             throw new ApiException("Excuse not found");
         }
 
-        // المهمة تؤخذ من العذر المحفوظ ولا يمكن تغييرها في طلب التعديل.
+        // the task can't change in an edit
         GoalTask task = excuse.getGoalTask();
         if (task == null) {
             throw new ApiException("This excuse is not linked to a goal task");
@@ -398,14 +368,12 @@ public class ExcuseService {
             throw new ApiException("Goal owner user not found");
         }
 
-        // نتأكد أن المستخدم المسجل هو نفسه صاحب الجول.
-        // يمنع هذا الشرط تقديم عذر لمهمة تخص مستخدما آخر.
         Integer goalOwnerUserId = member.getUser().getId();
         if (!userId.equals(goalOwnerUserId)) {
             throw new ApiException("This goal does not belong to you");
         }
 
-        // التحقق أن العذر ما زال ينتظر التقييم.
+        // only while it waits
         String processingStatus = excuse.getProcessingStatus();
         if (processingStatus == null) {
             throw new ApiException("Excuse processing status is missing");
@@ -424,7 +392,6 @@ public class ExcuseService {
             throw new ApiException("Only pending excuses can be updated");
         }
 
-        // نفحص وجود قيمة التحويل أولا، ثم نستخدمها مباشرة.
         Boolean forwardedToAdmin = excuse.getForwardedToAdmin();
         if (forwardedToAdmin != null) {
             if (forwardedToAdmin) {
@@ -444,7 +411,7 @@ public class ExcuseService {
             throw new ApiException("An excuse with an objection cannot be updated");
         }
 
-        // المرحلة الثالثة: التحقق من الأسبوع وانتماء المهمة إليه.
+        // 3. the task belongs to this week
         CommitmentWeek week =
                 excuse.getCommitmentWeek();
         if (week == null) {
@@ -456,7 +423,6 @@ public class ExcuseService {
             throw new ApiException("Week must belong to a commitment");
         }
 
-        // المهمة والأسبوع يجب أن يتبعا نفس الهدف.
         if (!goal.getId().equals(commitment.getId())) {
             throw new ApiException("Goal task does not belong to this goal");
         }
@@ -469,19 +435,18 @@ public class ExcuseService {
         if (weekNumber == null) {
             throw new ApiException("Commitment week number is missing");
         }
-        // تطابق الهدف وحده لا يكفي؛ يجب تطابق رقم الأسبوع أيضا.
+        // same goal is not enough, the week number too
         if (!taskWeekNumber.equals(weekNumber)) {
             throw new ApiException("Goal task does not belong to this week");
         }
 
-        // المرحلة الرابعة: التحقق من حالة التعهد والأسبوع والمهمة.
+        // 4. the commitment, the week and the task are still open
         String goalStatus = goal.getStatus();
 
         if (goalStatus == null) {
             throw new ApiException("Goal status is missing");
         }
 
-        // إضافة العذر وتعديله مسموحان فقط عندما يكون التعهد نشطا.
         boolean isActive = goalStatus.equals("ACTIVE");
 
         if (!isActive) {
@@ -493,7 +458,6 @@ public class ExcuseService {
             throw new ApiException("Week status is missing");
         }
         boolean isWeekSettled = weekStatus.equals("SETTLED");
-        // لا نستقبل أعذارا جديدة بعد تسوية الأسبوع.
         if (isWeekSettled) {
             throw new ApiException("This week is settled");
         }
@@ -507,19 +471,18 @@ public class ExcuseService {
             throw new ApiException("This goal task is settled");
         }
 
-        // المرحلة الخامسة: التحقق من بيانات العذر.
+        // 5. the excuse data
         String type = request.getType();
         if (type == null) {
             throw new ApiException("Excuse type is required");
         }
-        // نتحقق أن النوع أحد الأنواع المسموحة.
         boolean isValidType = type.matches("^(SICK|TRAVEL|EMERGENCY|OTHER)$");
         if (!isValidType) {
             throw new ApiException("Invalid excuse type");
         }
 
         String evidenceUrl = request.getEvidenceUrl();
-        // المستند إلزامي، ونتحقق من رفعه وملكيته قبل الحفظ.
+        // the document is required and must be his
         if (evidenceUrl != null) {
             if (evidenceUrl.length() > 500) {
                 throw new ApiException("Evidence URL must be 500 characters max");
@@ -531,13 +494,12 @@ public class ExcuseService {
             throw new ApiException("Excuse date is required");
         }
 
-        // تاريخ العذر القديم للمقارنة مع اليوم الجديد.
         LocalDate oldExcuseDate = excuse.getExcuseDate();
         if (oldExcuseDate == null) {
             throw new ApiException("Original excuse date is missing");
         }
 
-        // المرحلة السادسة: التحقق من وقت التقديم وتاريخ اليوم المعذور.
+        // 6. sent during the week, for a day of the week
         LocalDateTime weekStart = week.getWeekStart();
         LocalDateTime weekEnd = week.getWeekEnd();
         if (weekStart == null) {
@@ -548,16 +510,15 @@ public class ExcuseService {
         }
 
         LocalDateTime now = LocalDateTime.now(ZoneId.of("Asia/Riyadh"));
-        // التقديم مسموح أثناء فترة الأسبوع فقط.
         if (now.isBefore(weekStart)) {
             throw new ApiException("This week has not started");
         }
-        // نهاية الأسبوع هي آخر موعد، بدون إضافة مهلة.
+        // the week end is the deadline, no extra time
         if (now.isAfter(weekEnd)) {
             throw new ApiException("Excuse update time has ended");
         }
 
-        // العذر يغطي يوما، لذلك نقارن التاريخ دون الساعة.
+        // an excuse covers a day, compare dates only
         LocalDate weekStartDate = weekStart.toLocalDate();
         LocalDate weekEndDate = weekEnd.toLocalDate();
         if (excuseDate.isBefore(weekStartDate)) {
@@ -575,47 +536,40 @@ public class ExcuseService {
         if (!oldExcuseDate.equals(excuseDate)) {
             Integer goalTaskId = task.getId();
             Integer commitmentWeekId = week.getId();
-            // حدود اليوم المعذور للبحث عن الإثباتات المرتبطة به.
             LocalDateTime dayStart = excuseDate.atStartOfDay();
             LocalDateTime nextDayStart = excuseDate.plusDays(1).atStartOfDay();
     
-            // المرحلة السابعة: منع التكرار والتداخل لنفس المهمة واليوم.
-            // وجود بروف مقبولة يعني أن تنفيذ هذا اليوم اكتمل.
+            // 7. nothing else for this task and day
             boolean hasAcceptedProof = proofRepository.existsTaskProof(
                     goalTaskId, commitmentWeekId, dayStart, nextDayStart, "ACCEPTED");
             if (hasAcceptedProof) {
                 throw new ApiException("This day already has an accepted proof");
             }
     
-            // ننتظر معالجة البروف قبل السماح بعذر عن نفس اليوم.
             boolean hasPendingProof = proofRepository.existsTaskProof(
                     goalTaskId, commitmentWeekId, dayStart, nextDayStart, "PENDING");
             if (hasPendingProof) {
                 throw new ApiException("A proof for this day is still pending");
             }
     
-            // اليوم المعفى سابقا لا يستقبل عذرا آخر.
             boolean hasAcceptedExcuse = excuseRepository.existsTaskExcuse(
                     goalTaskId, commitmentWeekId, excuseDate, "ACCEPTED");
             if (hasAcceptedExcuse) {
                 throw new ApiException("This day already has an accepted excuse");
             }
     
-            // لا نستقبل عذرا جديدا قبل معالجة العذر السابق.
             boolean hasPendingExcuse = excuseRepository.existsTaskExcuse(
                     goalTaskId, commitmentWeekId, excuseDate, "PENDING");
             if (hasPendingExcuse) {
                 throw new ApiException("An excuse for this day is still pending");
             }
     
-            // العذر المحول للأدمن ما زال قيد المعالجة.
             boolean hasEscalatedExcuse = excuseRepository.existsTaskExcuse(
                     goalTaskId, commitmentWeekId, excuseDate, "ESCALATED");
             if (hasEscalatedExcuse) {
                 throw new ApiException("An excuse for this day is awaiting admin review");
             }
     
-            // الاعتراض المعلق على بروف يمنع تقديم العذر.
             boolean hasPendingProofObjection =
                     objectionRepository.existsPendingProofObjection(
                             commitmentWeekId, goalTaskId, dayStart, nextDayStart);
@@ -623,18 +577,16 @@ public class ExcuseService {
                 throw new ApiException("A proof objection for this day is still pending");
             }
     
-            // الاعتراض المعلق على عذر سابق يمنع إعادة التقديم.
             boolean hasPendingExcuseObjection =
                     objectionRepository.existsPendingExcuseObjection(
                             commitmentWeekId, goalTaskId, excuseDate);
             if (hasPendingExcuseObjection) {
                 throw new ApiException("An excuse objection for this day is still pending");
             }
-    
-    
+
         }
 
-        // المرحلة الثامنة: التحقق من وجود عدد مطلوب متبق للمهمة.
+        // 8. there is still a time left to excuse
         Integer requiredCount = task.getTimesPerWeek();
         Integer completedCount = task.getCompletedCount();
         Integer excusedCount = task.getExcusedCount();
@@ -651,39 +603,31 @@ public class ExcuseService {
             throw new ApiException("Task excused count is missing");
         }
 
-        // نقرأ العدادات فقط، ولا نعدلها عند تقديم العذر.
         int remainingCount = requiredCount - completedCount;
         remainingCount = remainingCount - excusedCount;
         if (remainingCount <= 0) {
             throw new ApiException("Task required count has already been fulfilled");
         }
 
-        // بعد جميع التشييكات نعدل بيانات المستخدم فقط.
-        // التعديل يتطلب مستندًا مرفوعًا؛ إرسال دليل فارغ غير مسموح.
+        // an edit needs the document too
         excuse.setType(type);
-        // نتحقق أن المرفق المرفوع يخص صاحب العذر قبل حفظ مرجعه.
         proofAttachmentService.requireExcuseDocument(userId, evidenceUrl);
         excuse.setEvidenceUrl(evidenceUrl);
         excuse.setExcuseDate(excuseDate);
 
-        // حفظ نفس السجل دون تغيير الحالات أو العلاقات أو العداد أو المبلغ.
         excuseRepository.save(excuse);
     }
 
     public void deleteGoalTaskExcuse(Integer userId, Integer excuseId) {
 
-        // المرحلة الأولى: التحقق من المعرفات.
-        // معرف المستخدم يأتي من جلسة الدخول.
         if (userId == null) {
             throw new ApiException("User ID is required");
         }
 
-        // معرف العذر المراد حذفه.
         if (excuseId == null) {
             throw new ApiException("Excuse ID is required");
         }
 
-        // المرحلة الثانية: جلب العذر والمهمة والهدف.
         Excuse excuse = excuseRepository.findExcuseById(excuseId);
         if (excuse == null) {
             throw new ApiException("Excuse not found");
@@ -699,7 +643,6 @@ public class ExcuseService {
             throw new ApiException("Goal task must belong to a goal");
         }
 
-        // المرحلة الثالثة: التحقق من ملكية المستخدم.
         Member member = goal.getMember();
         if (member == null) {
             throw new ApiException("Goal owner not found");
@@ -708,14 +651,12 @@ public class ExcuseService {
             throw new ApiException("Goal owner user not found");
         }
 
-        // نتأكد أن المستخدم المسجل هو نفسه صاحب الجول.
-        // يمنع هذا الشرط حذف عذر لمهمة تخص مستخدما آخر.
         Integer goalOwnerUserId = member.getUser().getId();
         if (!userId.equals(goalOwnerUserId)) {
             throw new ApiException("This goal does not belong to you");
         }
 
-        // المرحلة الرابعة: الحذف مسموح قبل بدء المعالجة فقط.
+        // delete only before the AI starts
         String processingStatus = excuse.getProcessingStatus();
         if (processingStatus == null) {
             throw new ApiException("Excuse processing status is missing");
@@ -726,7 +667,6 @@ public class ExcuseService {
             throw new ApiException("Only excuses waiting for analysis can be deleted");
         }
 
-        // المرحلة الخامسة: التحقق من ارتباط المهمة بالأسبوع.
         CommitmentWeek week = excuse.getCommitmentWeek();
         if (week == null) {
             throw new ApiException("Excuse commitment week not found");
@@ -752,7 +692,6 @@ public class ExcuseService {
             throw new ApiException("Goal task does not belong to this week");
         }
 
-        // المرحلة السادسة: التحقق من حالة التعهد والأسبوع والمهمة.
         String goalStatus = goal.getStatus();
         if (goalStatus == null) {
             throw new ApiException("Goal status is missing");
@@ -768,7 +707,6 @@ public class ExcuseService {
             throw new ApiException("Cannot delete excuse for a withdrawn goal");
         }
 
-        // التعهد المنتهي لا يسمح بحذف الأعذار المرتبطة به.
         boolean isEnded = goalStatus.equals("ENDED");
         if (isEnded) {
             throw new ApiException("Cannot delete excuse for an ended goal");
@@ -794,7 +732,6 @@ public class ExcuseService {
             throw new ApiException("This goal task is settled");
         }
 
-        // المرحلة السابعة: التحقق من مهلة الأسبوع.
         LocalDateTime weekStart = week.getWeekStart();
         LocalDateTime weekEnd = week.getWeekEnd();
         if (weekStart == null) {
@@ -812,8 +749,7 @@ public class ExcuseService {
             throw new ApiException("Excuse deletion time has ended");
         }
 
-        // المرحلة الأخيرة: الحذف بعد جميع التشييكات.
-        // لا نغير العداد أو المبلغ لأن العذر لم تتم معالجته.
+        // no counters to undo, it was never decided
         excuseRepository.delete(excuse);
     }
 }

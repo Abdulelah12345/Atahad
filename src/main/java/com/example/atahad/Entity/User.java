@@ -53,14 +53,14 @@ public class User implements UserDetails {
     @Column(columnDefinition = "DATETIME")
     private LocalDateTime createdAt;
 
-    // تسجيل الدخول بالبريد؛ اسم الميثود مفروض من واجهة UserDetails.
+    // login is by email (the name comes from UserDetails)
     @Override
     @JsonIgnore
     public String getUsername() {
         return email;
     }
 
-    // نرجع نفس الدور المستخدم في hasAuthority: MEMBER أو ADMIN.
+    // MEMBER or ADMIN, the same as hasAuthority
     @Override
     @JsonIgnore
     public Collection<? extends GrantedAuthority> getAuthorities() {
@@ -90,7 +90,7 @@ public class User implements UserDetails {
         return true;
     }
 
-    // الحساب المعطل لا يدخل، أما الحساب المحظور فتطبق عليه قيود الفلو بعد الدخول.
+    // deactivated and suspended can't log in, a banned one logs in with limits
     @Override
     @JsonIgnore
     public boolean isEnabled() {
@@ -101,7 +101,7 @@ public class User implements UserDetails {
         if (status == null) {
             return true;
         }
-        return !status.equals("DEACTIVATED");
+        return !status.equals("DEACTIVATED") && !status.equals("SUSPENDED"); // SUSPENDED: by the admin
     }
 
     //Relations

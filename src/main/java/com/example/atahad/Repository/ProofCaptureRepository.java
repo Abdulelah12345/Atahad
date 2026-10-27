@@ -4,7 +4,7 @@ import org.springframework.data.jpa.repository.*;
 import org.springframework.data.repository.query.Param;
 import jakarta.persistence.LockModeType;
 public interface ProofCaptureRepository extends JpaRepository<ProofCapture,Integer> {
-    /* نقفل طلب التصوير عند استخدامه حتى لا يربط بمحاولتين مختلفتين. */
+    /* locked so one capture can't join two attempts */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT c FROM ProofCapture c WHERE c.id = :id")
     ProofCapture findForUpdate(@Param("id") Integer id);

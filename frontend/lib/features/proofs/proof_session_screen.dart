@@ -195,6 +195,11 @@ class _ProofStartScreenState extends State<ProofStartScreen> {
             ),
             const SizedBox(height: Space.s2),
             Center(child: TagPill(methodNames[method] ?? '', fg: c.primary, bg: c.primarySoft, icon: methodIcon(method))),
+            // a custom method from the admin: what the photo must show
+            if ('${task['proofHint'] ?? ''}'.trim().isNotEmpty) ...[
+              const SizedBox(height: Space.s3),
+              ProofNotice('الصورة لازم تبيّن: ${task['proofHint']}', icon: Icons.center_focus_strong_rounded),
+            ],
             const SizedBox(height: Space.s5),
             Container(
               padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
@@ -670,7 +675,7 @@ class _ProofSessionScreenState extends State<ProofSessionScreen> {
             ),
           ],
           const SizedBox(height: 20),
-          // the main page keeps the bottom bar («طلباتي» is one tap away there), a page of its own would have no way back
+          // go home, a page of its own has no way back
           if (!accepted)
             AtButton(
               'ارجع للرئيسية',

@@ -255,7 +255,7 @@ class EvidenceImage extends StatelessWidget {
   }
 }
 
-// يبقى تحميل المرفق محفوظا أثناء تحديث عداد المؤقت؛ لا نعيد طلب الصورة كل ثانية.
+// keep the loaded image, the timer rebuilds every second
 class _OwnedCaptureImage extends StatefulWidget {
   final int id;
   const _OwnedCaptureImage({required this.id});

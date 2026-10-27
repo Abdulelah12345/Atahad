@@ -242,7 +242,7 @@ class _CommitmentsScreenState extends State<CommitmentsScreen> {
     return CommitmentCard(
       title: '${h['title']}',
       details: [
-        '${arabicDigits(h['timesPerWeek'])} مرات بالأسبوع · ${h['proofMethod'] == 'STEPS' ? 'مجموع خطوات اليوم' : proofMethodsAr[h['proofMethod']] ?? h['proofMethod']}',
+        '${arabicDigits(h['timesPerWeek'])} مرات بالأسبوع · ${h['proofMethod'] == 'STEPS' ? 'مجموع خطوات اليوم' : h['proofLabel'] ?? proofMethodsAr[h['proofMethod']] ?? h['proofMethod']}',
         if (h['proofMethod'] == 'STEPS') 'الهدف: ${arabicDigits(h['targetSteps'])} خطوة في اليوم',
         if (startsLater(h) != null) startsLater(h)!,
       ],
@@ -288,7 +288,7 @@ class _CommitmentsScreenState extends State<CommitmentsScreen> {
     return CommitmentCard(
       title: '${g['title']}',
       details: [
-        '${arabicDigits(g['totalWeeks'])} أسابيع · ${proofMethodsAr[g['proofMethod']] ?? g['proofMethod']}',
+        '${arabicDigits(g['totalWeeks'])} أسابيع · ${g['proofLabel'] ?? proofMethodsAr[g['proofMethod']] ?? g['proofMethod']}',
         if (startsLater(g) != null) startsLater(g)!,
         if (g['endDate'] != null) 'ينتهي ${arabicDigits(g['endDate'])}',
       ],

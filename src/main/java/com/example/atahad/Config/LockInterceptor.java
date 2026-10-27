@@ -35,10 +35,10 @@ public class LockInterceptor implements HandlerInterceptor {
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null) {
-            return true; // السكيورتي تتولى رفض الطلبات التي تحتاج تسجيل الدخول.
+            return true; // security rejects the ones that need a login
         }
         if (new AuthenticationTrustResolverImpl().isAnonymous(authentication)) {
-            return true; // مثل تسجيل حساب عضو أو رجوع Google.
+            return true; // like register or the Google callback
         }
         Integer memberId = loggedInMember();
         if(memberId == null){

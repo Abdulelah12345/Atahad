@@ -9,7 +9,7 @@ import '../../core/widgets/widgets.dart';
 import 'proof_widgets.dart';
 import 'proofs_api.dart';
 
-// تستخدم مسارات الزيارة الحالية فقط، دون تغيير حساب المسافة والمدة أو ربط الصور الإضافية.
+// uses the visit endpoints as they are
 class VisitScreen extends StatefulWidget {
   final Json activity;
   const VisitScreen({super.key, required this.activity});
