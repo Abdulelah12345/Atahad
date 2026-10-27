@@ -10,29 +10,41 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.core.annotation.Order;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.jdbc.core.ConnectionCallback;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
 import java.io.InputStream;
 import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
+import java.sql.ResultSet;
+import java.sql.Statement;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.TemporalAdjusters;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
-// test data for the app, runs once on an empty database
-// on only when seed.enabled=true (in application-local.properties), the main user's email and phone are there too
+// the demo data. seed.reset=true wipes every table on each run, so every run starts the demo from the same place
+// on only when seed.enabled=true (application-local.properties has the emails and the password)
+//
+//  عبدالإله  : a year of finished habits (the achievements map), paid what he owed, one habit this week,
+//              owner of «تحسين اللياقة البدنية»
+//  صبحية    : owner of «ننهي اختبار الآيلتس», the group that gets the challenge in the demo
+//  في       : (seed.main-email) locked with 5 SAR since seed.lock-test.main-since, the bank email after it unlocks her
+//  تركي     : the admin, two objections waiting and a donation he can cancel
+//  سارة، ريم : test members in both groups
 @Slf4j
+@Order(1) // before GmailLinkSeeder, which links the main user's Gmail
 @Component
 @RequiredArgsConstructor
 @ConditionalOnProperty(name = "seed.enabled", havingValue = "true")
 public class DevDataSeeder implements ApplicationRunner {
+
+    private final JdbcTemplate jdbcTemplate;
 
     private final MemberService memberService;
     private final AdminService adminService;
@@ -40,245 +52,327 @@ public class DevDataSeeder implements ApplicationRunner {
     private final GroupService groupService;
     private final GroupMemberService groupMemberService;
     private final GroupGoalService groupGoalService;
-    private final GoalProposalService goalProposalService;
     private final ChatMessageService chatMessageService;
     private final CommitmentWeekService commitmentWeekService;
     private final GroupAccessService groupAccessService;
+    private final LockService lockService;
+    private final WhatsAppService whatsAppService;
 
     private final UserRepository userRepository;
     private final MemberRepository memberRepository;
+    private final AdminRepository adminRepository;
+    private final HabitRepository habitRepository;
+    private final CommitmentWeekRepository commitmentWeekRepository;
+    private final ProofRepository proofRepository;
+    private final PointLogRepository pointLogRepository;
+    private final PenaltyRepository penaltyRepository;
+    private final ExcuseRepository excuseRepository;
+    private final ObjectionRepository objectionRepository;
     private final GroupRepository groupRepository;
     private final GroupMemberRepository groupMemberRepository;
     private final GroupGoalRepository groupGoalRepository;
-    private final CommitmentWeekRepository commitmentWeekRepository;
-    private final ChatMessageRepository chatMessageRepository;
-    private final ExcuseRepository excuseRepository;
-    private final PenaltyRepository penaltyRepository;
-    private final GraceDayRepository graceDayRepository;
     private final GroupSettlementRepository groupSettlementRepository;
     private final MomentRepository momentRepository;
-    private final GroupMatchRepository groupMatchRepository;
-    private final GroupMatchService groupMatchService;
 
+    @Value("${seed.reset:false}")
+    private boolean reset;
     @Value("${seed.main-email}")
     private String mainEmail;
     @Value("${seed.main-phone}")
     private String mainPhone;
     @Value("${seed.password:Atahad123}")
     private String password;
-    @Value("${seed.friend-email:}")
-    private String friendEmail; // a real account of a friend to test with (optional)
-    @Value("${seed.place-lat:24.7136}")
-    private Double placeLat;
-    @Value("${seed.place-lng:46.6753}")
-    private Double placeLng;
+    @Value("${seed.friend-email:abdulelah@atahad.test}")
+    private String abdulelahEmail;
+    @Value("${seed.subhiyyah-email:faiali052@gmail.com}")
+    private String subhiyyahEmail;
+    @Value("${seed.admin-email:turki@gmail.com}")
+    private String adminEmail;
+    @Value("${seed.lock-test.main-since:}")
+    private String mainSince; // the main user owes from this time, a bank email after it pays it
+    @Value("${seed.demo.whatsapp:true}")
+    private boolean whatsapp; // queue the lock message on every run
+
+    private final Random random = new Random(7); // the same "random" year on every run
 
     @Override
     public void run(ApplicationArguments args) {
-        if (userRepository.findUserByEmail(mainEmail) != null) {
+        if (reset) {
+            wipe();
+        } else if (userRepository.findUserByEmail(mainEmail) != null) {
             log.info("Seed: the data is already there, nothing added");
             return;
         }
 
-        // ---------- the users: 5 members and 1 admin ----------
-        Member noura = member("نوره", mainEmail, mainPhone);
-        Member sara = member("سارة", "sara@atahad.test", "+15550100001");
-        Member reem = member("ريم", "reem@atahad.test", "+15550100002");
-        Member faisal = member("فيصل", "faisal@atahad.test", "+15550100003");
-        Member abdulelah = member("عبدالإله", friendEmail.isBlank() ? "abdulelah@atahad.test" : friendEmail, "+15550100004");
-        admin("فريق المراجعة", "admin@atahad.test", "+15550100009");
+        // ---------- the users ----------
+        Member abdulelah = member("عبدالإله", abdulelahEmail, "+966500000001");
+        Member subhiyyah = member("صبحية", subhiyyahEmail, "+966500000002");
+        Member fai = member("في", mainEmail, mainPhone);
+        Member sara = member("سارة", "sara@atahad.test", "+966500000003");
+        Member reem = member("ريم", "reem@atahad.test", "+966500000004");
+        adminService.registerAdmin(new AdminRegisterRequest("تركي", adminEmail, "+966500000009", password, "مراجعة الأعذار"));
+        Admin turki = adminRepository.findAdminById(userRepository.findUserByEmail(adminEmail).getId());
 
         LocalDate thisSunday = LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.SUNDAY));
-        LocalDate lastSunday = thisSunday.minusWeeks(1);
-        LocalDate twoWeeksAgo = thisSunday.minusWeeks(2);
 
-        // ---------- Noura's own habits ----------
+        // ---------- عبدالإله: a year of habits, all finished and paid ----------
+        LocalDate yearStart = LocalDate.of(LocalDate.now().getYear(), 1, 1).with(TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY));
+        LocalDate aprilEnd = LocalDate.of(LocalDate.now().getYear(), 4, 26);
+        LocalDate augustEnd = LocalDate.of(LocalDate.now().getYear(), 8, 2);
+        pastHabit(abdulelah, "المشي ٣٠ دقيقة", "PHOTO", 3, "10.00", yearStart, aprilEnd);
+        pastHabit(abdulelah, "قراءة ٢٠ صفحة", "QUIZ", 4, "5.00", aprilEnd, augustEnd);
+        pastHabit(abdulelah, "تمرين بالبيت", "PHOTO", 3, "10.00", augustEnd, thisSunday);
+
+        // his one habit this week, done once already
+        Habit stretch = new Habit();
+        stretch.setTitle("تمارين إطالة ١٥ دقيقة");
+        stretch.setProofMethod("PHOTO");
+        stretch.setTimesPerWeek(3);
+        stretch.setBaseAmount(new BigDecimal("10.00"));
+        stretch.setPlannedDays(Set.of("SUN", "TUE", "THU"));
+        habitService.addHabit(abdulelah.getId(), stretch);
+        CommitmentWeek stretchWeek = commitmentWeekService.getCurrentWeek(abdulelah.getId(), stretch.getId());
+        proof(stretchWeek, "PHOTO", LocalDateTime.now().minusHours(3), "ACCEPTED", null, "seed");
+        commitmentWeekService.recordCompletion(stretchWeek.getId(), null);
+        level(abdulelah, "PERSEVERING", 6, 120);
+
+        // ---------- group 1: تحسين اللياقة البدنية (عبدالإله) ----------
+        Group fitness = group(abdulelah, "تحسين اللياقة البدنية", "نتمرن ٣ مرات بالأسبوع ونشجّع بعض");
+        join(fitness, sara, reem);
+        GroupGoalRequest fitnessGoal = new GroupGoalRequest();
+        fitnessGoal.setTitle("تمرين ٣٠ دقيقة");
+        fitnessGoal.setProofMethod("PHOTO");
+        fitnessGoal.setTimesPerWeek(3);
+        fitnessGoal.setTotalWeeks(4);
+        fitnessGoal.setAmountPerTime(new BigDecimal("10.00"));
+        GroupGoal fitnessActive = groupGoalService.createGoal(fitness.getId(), abdulelah.getId(), fitnessGoal);
+        // it started last week: the week tab has a summary
+        fitnessActive.setStartDate(thisSunday.minusWeeks(1));
+        fitnessActive.setEndDate(thisSunday.minusWeeks(1).plusDays(6).plusWeeks(3));
+        groupGoalRepository.save(fitnessActive);
+        settlement(fitnessActive, thisSunday.minusWeeks(1),
+                "أسبوع حلو! سارة خلّصت مراتها قبل الكل، وعبدالإله ما فاته ولا تمرين. ريم فاتتها مرة، الأسبوع هذا نبيها معنا.",
+                titles(fitness, "IRON", abdulelah, "ROCKET", sara));
+        setTitle(fitness, abdulelah, "IRON", 60);
+        setTitle(fitness, sara, "ROCKET", 50);
+        setTitle(fitness, reem, null, 20);
+        fitness.setPoints(130);
+        groupRepository.save(fitness);
+        done(fitnessActive, abdulelah, 1);
+        done(fitnessActive, sara, 1);
+
+        chat(fitness, abdulelah, "بداية أسبوع جديد، يلا");
+        chat(fitness, sara, "خلّصت تمريني اليوم");
+        chat(fitness, reem, "أنا بكرة إن شاء الله");
+        chat(fitness, abdulelah, "كفو سارة");
+
+        moment(fitness, abdulelah, "fit_walk.jpg", 0, 2);
+        moment(fitness, sara, "fit_yoga.jpg", 0, 6);
+        moment(fitness, reem, "fit_bike.jpg", 1, 3);
+        moment(fitness, abdulelah, "fit_gym.jpg", 2, 5);
+        moment(fitness, sara, "fit_watch.jpg", 4, 1);
+
+        // ---------- group 2: ننهي اختبار الآيلتس (صبحية), gets the challenge in the demo ----------
+        Group ielts = group(subhiyyah, "ننهي اختبار الآيلتس", "نذاكر للآيلتس مع بعض لين الاختبار");
+        join(ielts, sara, reem);
+        GroupGoalRequest ieltsGoal = new GroupGoalRequest();
+        ieltsGoal.setTitle("مذاكرة آيلتس");
+        ieltsGoal.setProofMethod("TIMER");
+        ieltsGoal.setTargetMinutes(45);
+        ieltsGoal.setTimesPerWeek(4);
+        ieltsGoal.setTotalWeeks(6);
+        ieltsGoal.setAmountPerTime(new BigDecimal("5.00"));
+        GroupGoal ieltsActive = groupGoalService.createGoal(ielts.getId(), subhiyyah.getId(), ieltsGoal);
+        done(ieltsActive, subhiyyah, 1);
+        ielts.setPoints(60);
+        groupRepository.save(ielts);
+
+        chat(ielts, subhiyyah, "اليوم Reading");
+        chat(ielts, reem, "تمام، بعد العشا");
+        chat(ielts, sara, "أنا خلصت Listening");
+
+        moment(ielts, subhiyyah, "ielts_notes.jpg", 0, 3);
+        moment(ielts, sara, "ielts_books.jpg", 1, 2);
+        moment(ielts, reem, "ielts_night.jpg", 2, 8);
+
+        Habit vocab = new Habit();
+        vocab.setTitle("١٠ كلمات إنجليزي");
+        vocab.setProofMethod("QUIZ");
+        vocab.setTimesPerWeek(5);
+        vocab.setBaseAmount(new BigDecimal("5.00"));
+        habitService.addHabit(subhiyyah.getId(), vocab);
+        level(subhiyyah, "COMMITTED", 4, 90);
+
+        // ---------- في: locked with 5 SAR, the bank email after mainSince pays it ----------
         Habit walk = new Habit();
-        walk.setTitle("المشي ٣٠ دقيقة");
+        walk.setTitle("المشي اليومي");
         walk.setProofMethod("PHOTO");
         walk.setTimesPerWeek(3);
-        walk.setBaseAmount(new BigDecimal("10.00"));
-        walk.setPlannedDays(Set.of("SUN", "TUE", "THU"));
-        habitService.addHabit(noura.getId(), walk);
+        walk.setBaseAmount(new BigDecimal("5.00"));
+        habitService.addHabit(fai.getId(), walk);
+        CommitmentWeek walkWeek = commitmentWeekService.getCurrentWeek(fai.getId(), walk.getId());
+        LocalDateTime since = mainSince.isBlank() ? LocalDateTime.now() : LocalDateTime.parse(mainSince.trim());
+        penalty(fai, walkWeek, "5.00", "PENDING", since, null);
+        lockService.refresh(memberRepository.findMemberById(fai.getId()));
+        if (whatsapp) {
+            whatsAppService.lockMessage(memberRepository.findMemberById(fai.getId()), walk.getTitle(), 1,
+                    new BigDecimal("5.00"), new BigDecimal("5.00"), false);
+        }
 
-        Habit read = new Habit();
-        read.setTitle("قراءة ٢٠ دقيقة");
-        read.setProofMethod("TIMER");
-        read.setTargetMinutes(20);
-        read.setTimesPerWeek(4);
-        read.setBaseAmount(new BigDecimal("5.00"));
-        read.setPlannedDays(Set.of("SUN", "MON", "WED", "FRI"));
-        habitService.addHabit(noura.getId(), read);
+        // ---------- what the admin finds: two objections and a donation he can cancel ----------
+        CommitmentWeek saraWeek = groupGoalService.currentWeek(fitnessActive, sara);
+        Proof rejected = proof(saraWeek, "PHOTO", LocalDateTime.now().minusHours(5), "REJECTED",
+                "الصورة مظلمة وما يبين فيها التمرين", photoData("fit_gym.jpg"));
+        objection(sara, rejected, null, "كنت بالنادي فعلًا، الإضاءة ضعيفة بس", "ما قدر الذكاء يتأكد من التمرين بالصورة");
 
-        // a habit proved by the location (the place is in application-local.properties, the simulator can be moved there)
-        Habit club = new Habit();
-        club.setTitle("الذهاب للنادي");
-        club.setProofMethod("LOCATION");
-        club.setTimesPerWeek(3);
-        club.setBaseAmount(new BigDecimal("10.00"));
-        club.setTargetLatitude(placeLat);
-        club.setTargetLongitude(placeLng);
-        club.setTargetRadiusMeters(150);
-        club.setTargetPlaceName("النادي");
-        club.setTargetMinutes(2); // 2 minutes inside the place, short for testing
-        club.setPlannedDays(Set.of("SUN", "TUE", "THU"));
-        habitService.addHabit(noura.getId(), club);
-
-        // walked once this week
-        commitmentWeekService.recordCompletion(commitmentWeekService.getCurrentWeek(noura.getId(), walk.getId()).getId(), null);
-
-        // an excuse waiting for the admin (travel)
+        CommitmentWeek reemWeek = groupGoalService.currentWeek(ieltsActive, reem);
         Excuse excuse = new Excuse();
-        excuse.setType("TRAVEL");
+        excuse.setType("SICK");
         excuse.setExcuseDate(LocalDate.now());
-        excuse.setAiAssessment("العذر يبدو منطقيًا لكن المرفق غير واضح، يحتاج مراجعة المشرف");
-        excuse.setStatus("ESCALATED");
+        excuse.setStatus("REJECTED");
         excuse.setProcessingStatus("FINISHED");
-        excuse.setForwardedToAdmin(true);
-        excuse.setCommitmentWeek(commitmentWeekService.getCurrentWeek(noura.getId(), read.getId()));
+        excuse.setAiAssessment("التقرير ما يوضح التاريخ");
+        excuse.setDecidedAt(LocalDateTime.now().minusHours(2));
+        excuse.setCommitmentWeek(reemWeek);
         excuseRepository.save(excuse);
+        objection(reem, null, excuse, "كنت مريضة والتاريخ مكتوب تحت بالتقرير", "التقرير ما يوضح التاريخ");
 
-        // ---------- group 1: Healthier Month, all 5 members, in its third week with two settled weeks ----------
-        Group gym = group(noura, "Healthier Month", "شهر صحي: نتمرن بالنادي ٣ مرات بالأسبوع");
-        join(gym, sara, reem, faisal, abdulelah);
-        GroupGoalRequest gymGoal = new GroupGoalRequest();
-        gymGoal.setTitle("تمرين بالنادي");
-        gymGoal.setProofMethod("LOCATION"); // every member chooses his own gym
-        gymGoal.setTargetMinutes(2); // 2 minutes inside the place, short for testing
-        gymGoal.setTimesPerWeek(3);
-        gymGoal.setTotalWeeks(4);
-        gymGoal.setAmountPerTime(new BigDecimal("10.00"));
-        GroupGoal gymActive = groupGoalService.createGoal(gym.getId(), noura.getId(), gymGoal);
-        // it started two weeks ago (week 3 of 4 now)
-        gymActive.setStartDate(twoWeeksAgo);
-        gymActive.setEndDate(twoWeeksAgo.plusDays(6).plusWeeks(3));
-        groupGoalRepository.save(gymActive);
+        penalty(reem, reemWeek, "10.00", "PENDING", LocalDateTime.now().minusDays(1), null);
+        lockService.refresh(memberRepository.findMemberById(reem.getId()));
 
-        // the two past weeks: the AI summary and the titles of every week
-        GroupSettlement week1 = settlement(gymActive, twoWeeksAgo,
-                "أول أسبوع وبداية حلوة! سارة كمّلت الثلاث مرات قبل الكل، ونوره نبّهت المجموعة أكثر وحدة. ريم فاتتها مرتين وتبرعت بالمبلغ، الأسبوع الجاي نبيها معنا.",
-                titles(gym, "IRON", sara, "ROCKET", sara, "ALARMIST", noura));
-        GroupSettlement week2 = settlement(gymActive, lastSunday,
-                "أسبوع أقوى من اللي قبله! ريم رجعت وكمّلت كل مراتها، وعبدالإله أول واحد خلّص. فيصل سجّل أغلب إثباتاته بالليل. باقي أسبوعين ونخلص الشهر.",
-                titles(gym, "IRON", sara, "ROCKET", abdulelah, "COMEBACK", reem, "OWL", faisal, "TOP_DONOR", reem));
-
-        // what the members won last week, and the points of the group
-        setTitle(gym, sara, "IRON", 60);
-        setTitle(gym, abdulelah, "ROCKET", 45);
-        setTitle(gym, reem, "COMEBACK,TOP_DONOR", 30);
-        setTitle(gym, faisal, "OWL", 40);
-        setTitle(gym, noura, null, 50);
-        gym.setPoints(225);
-        groupRepository.save(gym);
-
-        // Reem missed two times in the first week and paid them
-        Penalty paid = new Penalty();
-        paid.setAmount(new BigDecimal("20.00"));
-        paid.setReason("LOST_DAY");
-        paid.setStatus("PAID");
-        paid.setCreatedAt(twoWeeksAgo.plusDays(7).atTime(0, 5));
-        paid.setPaidAt(twoWeeksAgo.plusDays(8).atTime(19, 30));
-        paid.setMember(reem);
-        paid.setGroupSettlement(week1);
-        penaltyRepository.save(paid);
-
-        // this week: Sara is ahead, Noura and Abdulelah did one, Reem and Faisal nothing yet
-        done(gymActive, sara, 2);
-        done(gymActive, noura, 1);
-        done(gymActive, abdulelah, 1);
-
-        chat(gym, noura, "يلا يا جماعة، الأسبوع الثالث بدأ");
-        chat(gym, sara, "صباح الخير، خلصت تمريني الثاني");
-        chat(gym, abdulelah, "سجّلت أول مرة اليوم");
-        chat(gym, reem, "اليوم مشغولة بس بكرة أعوّض");
-        chat(gym, faisal, "أنا بروح الليلة إن شاء الله");
-
-        // Sara alerted Noura today
-        alert(gym, sara, noura, "باقي لك مرتين هالأسبوع، المجموعة تنتظرك");
-
-        // ---------- group 2: Sara is the owner, no goal yet, proposals and votes ----------
-        Group books = group(sara, "٣ كتب في ٤ شهور", "نقرأ ٣ كتب خلال ٤ شهور ونتناقش في كل كتاب");
-        join(books, noura, reem);
-        proposal(books, sara, "قراءة ١٥ صفحة يوميًا", "كل يوم ١٥ صفحة، نخلص الكتاب تقريبًا كل ٥ أسابيع");
-        proposal(books, noura, "جلسة قراءة ٣ مرات بالأسبوع", "كل جلسة ٤٠ دقيقة بالمؤقت");
-        GroupGoal first = groupGoalRepository.findGroupGoalsByGroupIdAndStatus(books.getId(), "PROPOSED").get(0);
-        goalProposalService.vote(first.getId(), sara.getId());
-        goalProposalService.vote(first.getId(), reem.getId());
-        chat(books, sara, "صوّتوا على الهدف الجاي، الكتاب الأول نبدأه الأحد");
-
-        // ---------- group 3: Faisal is the owner, a university course with a plan of weeks ----------
-        Group study = group(faisal, "نجتاز مقرر ريض ١٠١ (تفاضل وتكامل ١)", "نذاكر المقرر مع بعض لين الاختبار النهائي");
-        join(study, noura, abdulelah);
-        GroupGoalRequest studyGoal = new GroupGoalRequest();
-        studyGoal.setTitle("مذاكرة مركزة");
-        studyGoal.setProofMethod("TIMER");
-        studyGoal.setTargetMinutes(45);
-        studyGoal.setAmountPerTime(new BigDecimal("5.00"));
-        studyGoal.setWeeks(List.of(
-                new PlanWeekRequest("مراجعة النهايات والاتصال", 3),
-                new PlanWeekRequest("حل تمارين الاشتقاق", 4),
-                new PlanWeekRequest("مراجعة شاملة للنهائي", 5)));
-        groupGoalService.createGoal(study.getId(), faisal.getId(), studyGoal);
-        chat(study, faisal, "الأسبوع هذا النهايات، أول جلسة اليوم ٩ بالليل");
-
-        // ---------- competition: Healthier Month won last week against the course group, now the course group challenges again ----------
-        GroupGoal studyActive = groupGoalRepository.findGroupGoalByGroupIdAndStatus(study.getId(), "ACTIVE");
-        GroupMatch past = new GroupMatch();
-        past.setStatus("FINISHED");
-        past.setStartDate(lastSunday);
-        past.setEndDate(lastSunday.plusDays(6));
-        past.setChallenger(gym);
-        past.setOpponent(study);
-        past.setChallengerGoal(gymActive);
-        past.setOpponentGoal(studyActive);
-        past.setChallengerScore(87);
-        past.setOpponentScore(67);
-        past.setWinner(gym);
-        past.setLeastProcrastinating(study);
-        groupMatchRepository.save(past);
-        groupMatchService.challenge(study.getId(), faisal.getId(), gym.getId(), null);
-
-        // ---------- group 4: archived, the goal ended with a summary ----------
-        Group summer = group(noura, "نتعلم السباحة بالصيف", "حصص سباحة طول الصيف");
-        join(summer, sara);
-        GroupGoalRequest summerGoal = new GroupGoalRequest();
-        summerGoal.setTitle("حصة سباحة");
-        summerGoal.setProofMethod("PHOTO");
-        summerGoal.setTimesPerWeek(3);
-        summerGoal.setTotalWeeks(1);
-        summerGoal.setAmountPerTime(new BigDecimal("5.00"));
-        GroupGoal summerActive = groupGoalService.createGoal(summer.getId(), noura.getId(), summerGoal);
-        settlement(summerActive, LocalDate.now().minusMonths(3),
-                "آخر أسبوع بالصيف! سارة حضرت كل الحصص، ونوره فاتتها حصة وحدة.",
-                titles(summer, "IRON", sara));
-        groupGoalService.endGoal(summerActive);
-        summer.setStatus("ARCHIVED");
-        groupRepository.save(summer);
-
-        // ---------- moments (photos in src/main/resources/seed/moments) ----------
-        moment(gym, noura, "walk.jpg", 0, 8);
-        moment(gym, sara, "gym.jpg", 0, 2);
-        moment(gym, abdulelah, "water.jpg", 0, 5);
-        moment(gym, sara, "water.jpg", 2, 5);
-        moment(gym, noura, "gym.jpg", 3, 3);
-        moment(gym, reem, "walk.jpg", 5, 1);
-        moment(gym, faisal, "gym.jpg", 9, 2);
-        moment(books, noura, "reading.jpg", 0, 4);
-        moment(books, sara, "reading.jpg", 3, 2);
-        moment(study, noura, "study.jpg", 0, 1);
-        moment(study, faisal, "study.jpg", 1, 7);
-
-        // ---------- member states ----------
-        level(noura, "COMMITTED", 3, 120);
-        graceDay(noura);
-        level(sara, "IRON", 9, 140);
-        level(reem, "BEGINNER", 1, 40);
-        level(faisal, "COMMITTED", 2, 90);
-        level(abdulelah, "PERSEVERING", 5, 110);
-        log.info("Seed: done, every account uses the same password");
+        level(sara, "COMMITTED", 3, 80);
+        level(reem, "BEGINNER", 1, 30);
+        log.info("Seed: the demo is ready, every account uses the same password (admin: {})", turki.getId());
     }
 
-    // the summary of a closed week, its titles are TITLE=groupMemberId separated by ;
+    // ---------- wipe ----------
+
+    // every table of this database, emptied (the structure stays)
+    private void wipe() {
+        jdbcTemplate.execute((ConnectionCallback<Void>) con -> {
+            List<String> tables = new ArrayList<>();
+            try (ResultSet rs = con.createStatement().executeQuery(
+                    "SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE() AND table_type = 'BASE TABLE'")) {
+                while (rs.next()) {
+                    tables.add(rs.getString(1));
+                }
+            }
+            try (Statement st = con.createStatement()) {
+                st.execute("SET FOREIGN_KEY_CHECKS = 0");
+                for (String table : tables) {
+                    st.execute("TRUNCATE TABLE `" + table + "`");
+                }
+                st.execute("SET FOREIGN_KEY_CHECKS = 1");
+            }
+            return null;
+        });
+        log.info("Seed: the database was emptied for the demo");
+    }
+
+    // ---------- a finished habit with its weeks, proofs and points ----------
+
+    // weeks from start (a Sunday) until end: most weeks full, some miss a time and that donation is paid
+    private void pastHabit(Member member, String title, String method, int times, String amount, LocalDate start, LocalDate end) {
+        Habit habit = new Habit();
+        habit.setTitle(title);
+        habit.setProofMethod(method);
+        habit.setTimesPerWeek(times);
+        habit.setBaseAmount(new BigDecimal(amount));
+        habit.setStatus("ENDED");
+        habit.setEffectiveFrom(start);
+        habit.setStartDate(start);
+        habit.setMember(member);
+        if ("TIMER".equals(method)) {
+            habit.setTargetMinutes(20);
+        }
+        habitRepository.save(habit);
+
+        int number = 1;
+        for (LocalDate sunday = start; sunday.isBefore(end); sunday = sunday.plusWeeks(1)) {
+            int done = random.nextInt(10) < 8 ? times : times - 1; // 8 of 10 weeks are full
+            CommitmentWeek week = new CommitmentWeek();
+            week.setCommitment(habit);
+            week.setWeekNumber(number++);
+            week.setWeekStart(sunday.atStartOfDay());
+            week.setWeekEnd(sunday.plusDays(6).atTime(23, 59, 59));
+            week.setRequired(times);
+            week.setCompleted(done);
+            week.setExcusedDays(0);
+            week.setAmountPerDay(habit.getBaseAmount());
+            week.setTrackStatus("SETTLED");
+            week.setIsFullWeek(done == times);
+            week.setStepsSettlementPending(false);
+            commitmentWeekRepository.save(week);
+
+            // the days of the proofs: different days of that week, in the evening
+            List<Integer> days = new ArrayList<>(List.of(0, 1, 2, 3, 4, 5, 6));
+            Collections.shuffle(days, random);
+            for (int i = 0; i < done; i++) {
+                LocalDateTime at = sunday.plusDays(days.get(i)).atTime(17 + random.nextInt(5), random.nextInt(60));
+                proof(week, method, at, "ACCEPTED", null, "seed");
+                PointLog log = new PointLog();
+                log.setPoints(10);
+                log.setReason("TASK_DONE");
+                log.setCreatedAt(at);
+                log.setMember(member);
+                pointLogRepository.save(log);
+            }
+            if (done < times) {
+                LocalDateTime lost = sunday.plusDays(7).atTime(0, 5);
+                penalty(member, week, amount, "PAID", lost, lost.plusDays(1).withHour(20));
+            }
+        }
+    }
+
+    private Proof proof(CommitmentWeek week, String type, LocalDateTime at, String result, String reason, String evidence) {
+        Proof proof = new Proof();
+        proof.setType(type);
+        proof.setEvidenceData(evidence);
+        proof.setActivityTime(at);
+        proof.setSubmittedAt(at.plusMinutes(2));
+        proof.setResult(result);
+        proof.setProcessingStatus("FINISHED");
+        proof.setRejectionReason(reason);
+        proof.setDecidedAt(at.plusMinutes(3));
+        proof.setCommitmentWeek(week);
+        return proofRepository.save(proof);
+    }
+
+    private void penalty(Member member, CommitmentWeek week, String amount, String status, LocalDateTime createdAt, LocalDateTime paidAt) {
+        Penalty penalty = new Penalty();
+        penalty.setAmount(new BigDecimal(amount));
+        penalty.setReason("LOST_DAY");
+        penalty.setStatus(status);
+        penalty.setCreatedAt(createdAt);
+        penalty.setPaidAt(paidAt);
+        penalty.setMember(member);
+        penalty.setCommitmentWeek(week);
+        penaltyRepository.save(penalty);
+    }
+
+    private void objection(Member member, Proof proof, Excuse excuse, String reason, String aiReason) {
+        Objection objection = new Objection();
+        objection.setMember(member);
+        objection.setProof(proof);
+        objection.setExcuse(excuse);
+        objection.setReason(reason);
+        objection.setAiReason(aiReason);
+        objection.setStatus("PENDING");
+        objection.setCreatedAt(LocalDateTime.now().minusHours(1));
+        objectionRepository.save(objection);
+    }
+
+    // a seed photo as a data url, so the admin sees it
+    private String photoData(String file) {
+        try (InputStream in = new ClassPathResource("seed/moments/" + file).getInputStream()) {
+            return "data:image/jpeg;base64," + Base64.getEncoder().encodeToString(in.readAllBytes());
+        } catch (Exception e) {
+            return "seed";
+        }
+    }
+
+    // ---------- groups ----------
+
     private GroupSettlement settlement(GroupGoal goal, LocalDate weekStart, String text, String titles) {
         GroupSettlement settlement = new GroupSettlement();
         settlement.setWeekStart(weekStart);
@@ -289,15 +383,14 @@ public class DevDataSeeder implements ApplicationRunner {
         return groupSettlementRepository.save(settlement);
     }
 
-    // titles(group, "IRON", sara, "ROCKET", noura) -> "IRON=4;ROCKET=1"
+    // titles(group, "IRON", sara, "ROCKET", noura) -> "IRON=4;ROCKET=1" (group member ids)
     private String titles(Group group, Object... pairs) {
-        Map<String, Member> map = new LinkedHashMap<>();
-        for (int i = 0; i < pairs.length; i += 2) {
-            map.put((String) pairs[i], (Member) pairs[i + 1]);
-        }
         StringBuilder text = new StringBuilder();
-        map.forEach((title, member) -> text.append(text.length() == 0 ? "" : ";").append(title).append("=")
-                .append(groupAccessService.getActiveMembership(group.getId(), member.getId()).getId()));
+        for (int i = 0; i < pairs.length; i += 2) {
+            Member member = (Member) pairs[i + 1];
+            text.append(text.length() == 0 ? "" : ";").append(pairs[i]).append("=")
+                    .append(groupAccessService.getActiveMembership(group.getId(), member.getId()).getId());
+        }
         return text.toString();
     }
 
@@ -306,24 +399,6 @@ public class DevDataSeeder implements ApplicationRunner {
         groupMember.setTitle(title);
         groupMember.setPoints(points);
         groupMemberRepository.save(groupMember);
-    }
-
-    private void level(Member member, String level, int weeks, int points) {
-        Member saved = memberRepository.findMemberById(member.getId());
-        saved.setLevel(level);
-        saved.setConsecutiveWeeks(weeks);
-        saved.setPoints(points);
-        memberRepository.save(saved);
-    }
-
-    private Member member(String name, String email, String phone) {
-        MemberRegisterRequest dto = new MemberRegisterRequest(name, email, phone, password);
-        memberService.registerMember(dto);
-        return memberRepository.findMemberById(userRepository.findUserByEmail(email).getId());
-    }
-
-    private void admin(String name, String email, String phone) {
-        adminService.registerAdmin(new AdminRegisterRequest(name, email, phone, password, "مراجعة الأعذار"));
     }
 
     private Group group(Member owner, String name, String description) {
@@ -347,22 +422,7 @@ public class DevDataSeeder implements ApplicationRunner {
         chatMessageService.send(group.getId(), member.getId(), new ChatMessageRequest(text));
     }
 
-    private void alert(Group group, Member from, Member to, String text) {
-        ChatMessage message = new ChatMessage();
-        message.setType("ALERT");
-        message.setContent(text);
-        message.setSentAt(LocalDateTime.now());
-        message.setGroup(group);
-        message.setSender(groupAccessService.getActiveMembership(group.getId(), from.getId()));
-        message.setReceiver(groupAccessService.getActiveMembership(group.getId(), to.getId()));
-        chatMessageRepository.save(message);
-    }
-
-    private void proposal(Group group, Member member, String title, String details) {
-        goalProposalService.propose(group.getId(), member.getId(), new GoalProposalRequest(title, details));
-    }
-
-    // a photo moment shared with the group, days and hours ago (the old ones show in the past weeks)
+    // a photo moment shared with the group, days and hours ago
     private void moment(Group group, Member member, String file, int daysAgo, int hoursAgo) {
         String name = "seed-" + file;
         try (InputStream in = new ClassPathResource("seed/moments/" + file).getInputStream()) {
@@ -382,12 +442,18 @@ public class DevDataSeeder implements ApplicationRunner {
         momentRepository.save(moment);
     }
 
-    private void graceDay(Member member) {
-        GraceDay day = new GraceDay();
-        day.setSource("PERSONAL_POINTS");
-        day.setEarnedAt(LocalDate.now().minusDays(3));
-        day.setExpiresAt(LocalDate.now().minusDays(3).plusWeeks(4));
-        day.setMember(member);
-        graceDayRepository.save(day);
+    // ---------- members ----------
+
+    private void level(Member member, String level, int weeks, int points) {
+        Member saved = memberRepository.findMemberById(member.getId());
+        saved.setLevel(level);
+        saved.setConsecutiveWeeks(weeks);
+        saved.setPoints(points);
+        memberRepository.save(saved);
+    }
+
+    private Member member(String name, String email, String phone) {
+        memberService.registerMember(new MemberRegisterRequest(name, email, phone, password));
+        return memberRepository.findMemberById(userRepository.findUserByEmail(email).getId());
     }
 }
