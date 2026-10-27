@@ -8,6 +8,7 @@ import '../proofs/activity_proof_entry.dart';
 import '../proofs/proof_widgets.dart';
 import '../proofs/request_forms.dart';
 import '../../core/auth/auth_state.dart';
+import '../../core/theme/at_colors.dart';
 import '../../core/theme/at_tokens.dart';
 import '../../core/utils/format.dart';
 import '../../core/widgets/widgets.dart';

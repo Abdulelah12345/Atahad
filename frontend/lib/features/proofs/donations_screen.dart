@@ -122,13 +122,20 @@ class _DonationsScreenState extends State<DonationsScreen> {
         HapticFeedback.mediumImpact(); // the app opens: one tap
         // all the donations so far (the paid amounts), for the unlocked screen
         num donated = 0;
+        num left = 0; // still owed: the donation paid only a part
         try {
           final data = await _data;
           for (final p in ProofsApi.maps(data['penalties'])) {
             if (p['status'] == 'PAID') donated += (p['amount'] as num? ?? 0);
+            if (p['status'] == 'PENDING') left += (p['amount'] as num? ?? 0);
           }
         } catch (_) {}
         if (!mounted) return;
+        if (context.read<AuthState>().isLocked || left > 0) {
+          // accepted, but it did not cover everything: the app stays locked, so no "opened" screen
+          showMessage(context, 'انقبل تبرّعك وتسدّد جزء، باقي عليك ${money(left)} ريال عشان ينفتح التطبيق.');
+          return;
+        }
         await Navigator.of(context).push(MaterialPageRoute(builder: (_) => _UnlockedScreen(amount: amount, donated: donated)));
       } else if (status == 'ESCALATED') {
         await Navigator.of(context).push(MaterialPageRoute(builder: (_) => _ReviewScreen(amount: amount, email: email)));

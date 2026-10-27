@@ -28,7 +28,7 @@ public class GmailService {
     private final MemberRepository memberRepository;
 
     private static final String IMAP_HOST = "imap.gmail.com";
-    private static final int MAX_EMAILS = 30;
+    private static final int MAX_EMAILS = 100; // the newest emails since the day of the donation, the bank email can be under many others
     private static final List<String> FREE_MAIL = List.of("gmail.com", "googlemail.com", "outlook.com", "hotmail.com", "live.com",
             "yahoo.com", "icloud.com", "me.com", "aol.com", "proton.me", "protonmail.com", "gmx.com", "mail.com", "yandex.com");
 

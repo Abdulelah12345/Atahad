@@ -44,6 +44,8 @@ dependencies:
 dependency_overrides:
   video_player_avfoundation: 2.6.5
   camera_avfoundation: 0.9.17+5
+  # health -> device_info_plus 12.4.0 uses an iOS 26 API (isiOSAppOnVision) that Xcode 16 does not have
+  device_info_plus: 12.3.0
 
 dev_dependencies:
   flutter_test:
