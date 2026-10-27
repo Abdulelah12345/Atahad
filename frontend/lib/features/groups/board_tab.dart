@@ -886,6 +886,7 @@ class _ProposeSheetState extends State<_ProposeSheet> {
   }
 }
 
+
 // ---------- the owner sets the goal (from a proposal or by himself) ----------
 // the same times every week, or a plan of weeks from the AI (the same task and times for every member in a week)
 class SetGoalSheet extends StatefulWidget {
