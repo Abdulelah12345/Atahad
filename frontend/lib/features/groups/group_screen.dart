@@ -122,7 +122,7 @@ class _GroupScreenState extends State<GroupScreen> with SingleTickerProviderStat
           showMessage(context, 'فيه هدف شغّال بالمجموعة، تقدر تحذفها بعد ما يخلص.');
           return;
         }
-        if (!await confirm(context, 'تحذف المجموعة؟', 'المجموعة تتأرشف وسجلها يبقى.', yes: 'احذف')) return;
+        if (!await confirm(context, 'تحذف المجموعة؟', '', yes: 'احذف')) return;
         await _run(() => _api.archive(id), done: 'انحذفت المجموعة', pop: true);
     }
   }
@@ -414,7 +414,9 @@ class _InviteSheetState extends State<_InviteSheet> {
 
   Future<void> _reset() async {
     if (!await confirm(context, 'كود جديد؟', 'الكود القديم ما عاد يشتغل.', yes: 'غيّر الكود')) return;
-    setState(() => _invite = widget.api.resetInvite(widget.groupId));
+    setState(() {
+      _invite = widget.api.resetInvite(widget.groupId);
+    });
   }
 
   void _copy(String code) {
@@ -546,14 +548,6 @@ class _MembersSheet extends StatelessWidget {
               child: RaisedCard(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 highlight: m['memberId'] == me ? c.primary : null,
-                onTap: m['memberId'] == me
-                    ? null
-                    : () => showModalBottomSheet(
-                          context: context,
-                          showDragHandle: true,
-                          isScrollControlled: true,
-                          builder: (_) => _MemberProfileSheet(api: api, member: m),
-                        ),
                 child: Row(
                   children: [
                     MemberAvatar('${m['name'] ?? ''}', size: 40),
@@ -583,117 +577,6 @@ class _MembersSheet extends StatelessWidget {
             const SizedBox(height: Space.s2),
           ],
         ],
-      ),
-    );
-  }
-}
-
-// a friend: his groups, and «أضفه» to the groups I own that he is not in
-class _MemberProfileSheet extends StatefulWidget {
-  final GroupApi api;
-  final Map<String, dynamic> member;
-
-  const _MemberProfileSheet({required this.api, required this.member});
-
-  @override
-  State<_MemberProfileSheet> createState() => _MemberProfileSheetState();
-}
-
-class _MemberProfileSheetState extends State<_MemberProfileSheet> {
-  late Future<(List<Map<String, dynamic>>, List<Map<String, dynamic>>)> _data = _load();
-  int? _adding;
-  String? _error;
-
-  int get _memberId => widget.member['memberId'] as int;
-
-  Future<(List<Map<String, dynamic>>, List<Map<String, dynamic>>)> _load() async {
-    final results = await Future.wait([widget.api.memberGroups(_memberId), widget.api.myGroups()]);
-    return (results[0], results[1]);
-  }
-
-  Future<void> _add(Map<String, dynamic> group) async {
-    setState(() {
-      _adding = group['groupId'] as int;
-      _error = null;
-    });
-    try {
-      await widget.api.addMember(group['groupId'] as int, _memberId);
-      if (!mounted) return;
-      showMessage(context, 'انضاف ${widget.member['name']} لـ ${group['groupName']}');
-      setState(() => _data = _load());
-    } catch (e) {
-      if (mounted) setState(() => _error = errorText(e));
-    } finally {
-      if (mounted) setState(() => _adding = null);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-    final text = Theme.of(context).textTheme;
-    final name = '${widget.member['name'] ?? ''}';
-    return SheetBody(
-      title: name,
-      error: _error,
-      child: FutureBuilder<(List<Map<String, dynamic>>, List<Map<String, dynamic>>)>(
-        future: _data,
-        builder: (context, snap) {
-          if (snap.connectionState != ConnectionState.done) return const SizedBox(height: 160, child: LoadingView());
-          if (snap.hasError) return ErrorView(message: errorText(snap.error!));
-          final (his, mine) = snap.data!;
-          final hisIds = his.map((g) => g['groupId']).toSet();
-          final canAdd = mine.where((g) => g['role'] == 'OWNER' && !hisIds.contains(g['groupId'])).toList();
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                children: [
-                  MemberAvatar(name, size: 56),
-                  const SizedBox(width: Space.s3),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('${arabicDigits(widget.member['points'] ?? 0)} نقطة بهالمجموعة', style: text.labelLarge),
-                        Text('بـ ${arabicDigits(his.length)} مجموعات', style: text.labelSmall),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const GroupSection('مجموعاته'),
-              for (final g in his) ...[
-                Row(
-                  children: [
-                    TeamAvatar(name: '${g['groupName'] ?? ''}', color: teamColor(g['groupId']), size: 32),
-                    const SizedBox(width: Space.s3),
-                    Expanded(child: Text('${g['groupName'] ?? ''}', style: text.labelLarge)),
-                    if (g['role'] == 'OWNER') Pill('المنشئ', fg: c.primary, bg: c.primarySoft),
-                  ],
-                ),
-                const SizedBox(height: Space.s2),
-              ],
-              if (canAdd.isNotEmpty) ...[
-                const GroupSection('أضفه لمجموعة عندك'),
-                for (final g in canAdd) ...[
-                  RaisedCard(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    child: Row(
-                      children: [
-                        TeamAvatar(name: '${g['groupName'] ?? ''}', color: teamColor(g['groupId']), size: 32),
-                        const SizedBox(width: Space.s3),
-                        Expanded(child: Text('${g['groupName'] ?? ''}', style: text.labelLarge)),
-                        AtButton('أضف', expand: false, loading: _adding == g['groupId'], onPressed: _adding != null ? null : () => _add(g)),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: Space.s2),
-                ],
-              ],
-            ],
-          );
-        },
       ),
     );
   }

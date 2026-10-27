@@ -48,6 +48,11 @@ public class Group {
     @Column(columnDefinition = "VARCHAR(8)")
     private String status = "ACTIVE";
 
+    // who donates when someone misses, chosen when the group is made and never changes:
+    // SOLO = only the one who missed, ALL = everyone (null = an old group, its goals decide)
+    @Column(columnDefinition = "VARCHAR(4)")
+    private String payMode;
+
     @Column(columnDefinition = "DATETIME")
     private LocalDateTime createdAt;
 

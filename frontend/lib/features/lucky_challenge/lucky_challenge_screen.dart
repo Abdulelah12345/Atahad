@@ -439,7 +439,7 @@ class _LuckyChallengeScreenState extends State<LuckyChallengeScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('تحدي الحظ'),
+        title: const Text('مهمة عشوائية'),
         centerTitle: true,
       ),
       body: checking
@@ -460,7 +460,7 @@ class _LuckyChallengeScreenState extends State<LuckyChallengeScreen> {
                   ),
                   const SizedBox(height: Space.s3),
                   Text(
-                    'تحدي الحظ',
+                    'مهمة عشوائية',
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.bold,
                       color: c.ink,

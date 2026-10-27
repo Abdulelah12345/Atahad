@@ -298,7 +298,7 @@ class StatCell extends StatelessWidget {
   }
 }
 
-// a colored card that opens a page (تحدي الحظ، رحلة التعلّم)
+// a colored card that opens a page (مهمة عشوائية، رحلة التعلّم)
 class FeatureBanner extends StatelessWidget {
   final IconData icon;
   final String title;

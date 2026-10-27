@@ -276,10 +276,6 @@ public class ProofDecisionService {
             }
         }
         String task = proof.getGoalTask() == null ? commitment.getTitle() : commitment.getTitle() + " - " + proof.getGoalTask().getTitle();
-        // a custom method from the admin adds its rule for the AI
-        if (commitment.getProofHint() != null && !commitment.getProofHint().isBlank()) {
-            task += " (the photo must show: " + commitment.getProofHint() + ")";
-        }
 
         // free OpenRouter models, escalated when it can't decide
         String answer = proofImageAIService.check(task, proof.getEvidenceData());

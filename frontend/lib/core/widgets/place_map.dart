@@ -67,8 +67,13 @@ class PlaceMap extends StatelessWidget {
                     child: Icon(Icons.location_on_rounded, size: 44, color: c.primary),
                   ),
                 ]),
-                const SimpleAttributionWidget(source: Text('OpenStreetMap')),
               ],
+            ),
+            // the map data needs its credit, a tiny one in the corner
+            PositionedDirectional(
+              bottom: 4,
+              end: 6,
+              child: Text('© OpenStreetMap', style: TextStyle(fontSize: 9, color: Colors.black.withValues(alpha: 0.55))),
             ),
             if (onMove != null)
               PositionedDirectional(

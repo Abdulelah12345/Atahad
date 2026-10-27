@@ -60,6 +60,7 @@ public class GroupService {
         group.setPoints(0);
         group.setPointsForGraceDay(300);
         group.setStatus("ACTIVE");
+        group.setPayMode(dto.getPayMode() == null ? "SOLO" : dto.getPayMode());
 
         String inviteCode;
         do {
@@ -108,7 +109,7 @@ public class GroupService {
         return new GroupInviteResponse(inviteCode, "atahad://join/" + inviteCode);
     }
 
-    // the group is archived and not deleted, its settlements and penalties stay in the history
+    // gone for every member (they all leave it), its settlements and penalties stay in the history
     @Transactional
     public void deleteGroup(Integer groupId, Integer memberId) {
         GroupMember owner = groupAccessService.checkOwner(groupId, memberId);
@@ -137,7 +138,8 @@ public class GroupService {
                 group.getPoints(),
                 group.getPointsForGraceDay(),
                 group.getStatus(),
-                goal == null ? null : goal.getTitle()
+                goal == null ? null : goal.getTitle(),
+                group.getPayMode()
         );
     }
 }

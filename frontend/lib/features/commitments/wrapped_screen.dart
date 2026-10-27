@@ -20,17 +20,17 @@ class WrappedScreen extends StatefulWidget {
 class _WrappedScreenState extends State<WrappedScreen> {
   late final _api = CommitmentsApi(context.read<ApiClient>());
   int _version = 0;
-  bool _busy = false;
+  String? _busy; // the month being made, only its button spins
 
   Future<void> _generate(String month) async {
-    setState(() => _busy = true);
+    setState(() => _busy = month);
     try {
       await _api.generateWrapped(month);
       if (mounted) setState(() => _version++);
     } catch (error) {
       if (mounted) showError(context, error);
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted) setState(() => _busy = null);
     }
   }
 
@@ -56,8 +56,8 @@ class _WrappedScreenState extends State<WrappedScreen> {
                   children: [
                     Expanded(
                       child: OutlinedButton.icon(
-                        onPressed: _busy ? null : () => _generate(thisMonth),
-                        icon: _busy
+                        onPressed: _busy != null ? null : () => _generate(thisMonth),
+                        icon: _busy == thisMonth
                             ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
                             : const Icon(Icons.auto_awesome_rounded, size: 18),
                         label: const Text('هالشهر'),
@@ -66,9 +66,11 @@ class _WrappedScreenState extends State<WrappedScreen> {
                     const SizedBox(width: Space.s3),
                     Expanded(
                       child: OutlinedButton.icon(
-                        onPressed: _busy ? null : () => _generate(lastMonth),
-                        icon: const Icon(Icons.history_rounded, size: 18),
-                        label: const Text('اللي فات'),
+                        onPressed: _busy != null ? null : () => _generate(lastMonth),
+                        icon: _busy == lastMonth
+                            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                            : const Icon(Icons.history_rounded, size: 18),
+                        label: const Text('الشهر اللي فات'),
                       ),
                     ),
                   ],

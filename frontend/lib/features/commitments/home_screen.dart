@@ -14,6 +14,7 @@ import '../../core/utils/format.dart';
 import '../../core/widgets/widgets.dart';
 import 'commitment_widgets.dart';
 import 'commitments_api.dart';
+import 'day_screen.dart';
 import '../learn_quest/learn_quest_api.dart';
 
 // OWNER: Turki - the home screen: my level and points, and what is left this week (GET /commitment-week/today)
@@ -39,15 +40,7 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       hasLearningGoal = await LearnQuestApi(context.read<ApiClient>()).hasLearningGoal();
     } catch (_) {} // hide the library if checking eligibility fails
-    // the week strip: which days of this week had a done task
-    Map<String, int> activity = {};
-    try {
-      final map = await context.read<ApiClient>().get('/api/v1/member/activity-map');
-      for (final item in (map as List? ?? const [])) {
-        if (item is Map && item['date'] != null) activity['${item['date']}'] = int.tryParse('${item['completed'] ?? 0}') ?? 0;
-      }
-    } catch (_) {} // the strip just shows the days without the marks
-    return {'tasks': tasks, 'stats': stats, 'hasLearningGoal': hasLearningGoal, 'activity': activity};
+    return {'tasks': tasks, 'stats': stats, 'hasLearningGoal': hasLearningGoal};
   }
 
   Future<void> _open(String location) async {
@@ -195,8 +188,8 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _luckyChallengeCard() {
     return FeatureBanner(
       icon: Icons.casino_rounded,
-      title: 'تحدي الحظ',
-      subtitle: 'تحدي مفاجئ اليوم بـ ٢٠ نقطة',
+      title: 'مهمة عشوائية',
+      subtitle: 'نفّذ مهمة عشوائية وتكسب نقاط زيادة!',
       colors: const [Color(0xFF6A4BE0), Color(0xFF3B2A9E)],
       badge: const TagPill('٣ فرص', fg: Colors.white, bg: Color(0x33FFFFFF)),
       onTap: () => _open('/lucky-challenge'),
@@ -219,6 +212,11 @@ class _HomeScreenState extends State<HomeScreen> {
     final profile = context.watch<AuthState>().profile ?? const {};
     final name = '${profile['name'] ?? ''}'.trim().split(' ').first;
     return Scaffold(
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _newCommitment,
+        icon: const Icon(Icons.add_rounded),
+        label: const Text('أنشئ تعهّد جديد'),
+      ),
       body: SafeArea(
         bottom: false,
         child: AsyncView<JsonMap>(
@@ -256,13 +254,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     onExcuse: () => _excuse(t, reload),
                   ),
                 );
-            // «تعهّد جديد» sits on the first heading, always in sight
-            final newButton = TextButton.icon(
-              onPressed: _newCommitment,
-              icon: const Icon(Icons.add_rounded, size: 18),
-              label: const Text('تعهّد جديد'),
-              style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: Space.s2), visualDensity: VisualDensity.compact),
-            );
             final c = context.colors;
             final sections = [
               if (urgent.isNotEmpty) ('لازم اليوم', urgent, Icons.bolt_rounded, c.urgent),
@@ -272,7 +263,7 @@ class _HomeScreenState extends State<HomeScreen> {
             return RefreshIndicator(
               onRefresh: reload,
               child: ListView(
-                padding: const EdgeInsets.fromLTRB(Space.s4, Space.s4, Space.s4, Space.s8),
+                padding: const EdgeInsets.fromLTRB(Space.s4, Space.s4, Space.s4, 96), // room for the button
                 children: [
                   _Header(
                     name: name,
@@ -291,7 +282,11 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ],
                   const SizedBox(height: 14),
-                  _WeekStrip(activity: Map<String, int>.from(data['activity'] as Map? ?? const {})),
+                  _WeekStrip(
+                    onDay: (day) async {
+                      await Navigator.push(context, MaterialPageRoute(builder: (_) => DayScreen(day: day)));
+                    },
+                  ),
                   // today's quest bar: what is done out of what was due today
                   if (all.isNotEmpty) ...[
                     const SizedBox(height: 14),
@@ -302,29 +297,30 @@ class _HomeScreenState extends State<HomeScreen> {
                       icon: Icons.flag_rounded,
                       title: 'ما عندك مهام اليوم',
                       line: 'اللي يبدأ بعدين تلقاه في تعهّداتي',
-                      action: 'تعهّد جديد',
-                      onAction: _newCommitment,
                     )
                   else if (tasks.isEmpty)
                     _EmptyToday(
                       icon: Icons.task_alt_rounded,
                       title: 'خلّصت اللي عليك اليوم',
                       line: 'كفو! نشوفك بكرة',
-                      action: 'تعهّد جديد',
-                      onAction: _newCommitment,
                     ),
-                  for (final (i, (title, list, icon, color)) in sections.indexed) ...[
-                    SectionHeader(title, count: arabicDigits(list.length), action: i == 0 ? newButton : null, icon: icon, color: color),
+                  for (final (title, list, icon, color) in sections) ...[
+                    SectionHeader(title, count: arabicDigits(list.length), icon: icon, color: color),
                     ...list.map(quest),
                   ],
-                  if (doneToday.isNotEmpty || postponed.isNotEmpty || weekDone.isNotEmpty) ...[
-                    const SizedBox(height: Space.s2),
-                    _ElsewhereRow(
-                      doneToday: doneToday.length,
-                      postponed: postponed.length,
-                      weekDone: weekDone.length,
-                      onTap: () => _open('/commitments'),
+                  // what is out of the way: done today, done for the week, moved to another day
+                  if (doneToday.isNotEmpty || weekDone.isNotEmpty) ...[
+                    SectionHeader(
+                      'خلّصت ${arabicDigits(doneToday.length + weekDone.length)} ${doneToday.length + weekDone.length == 1 ? 'مهمة' : 'مهام'}',
+                      icon: Icons.task_alt_rounded,
+                      color: c.success,
                     ),
+                    for (final t in doneToday) _DoneRow(task: t, label: 'خلّصتها اليوم', color: c.success, soft: c.successSoft),
+                    for (final t in weekDone) _DoneRow(task: t, label: 'خلّصت هذا الأسبوع', color: c.accent, soft: c.primarySoft),
+                  ],
+                  if (postponed.isNotEmpty) ...[
+                    SectionHeader('أجّلتها ليوم ثاني', count: arabicDigits(postponed.length), icon: Icons.event_repeat_rounded, color: c.inkSubtle),
+                    for (final t in postponed) _DoneRow(task: t, label: 'مؤجلة', color: c.inkSubtle, soft: c.surfaceSunken, icon: Icons.event_repeat_rounded),
                   ],
                   const SizedBox(height: Space.s5),
                   _luckyChallengeCard(),
@@ -350,7 +346,8 @@ String _greeting() {
   return 'مساء الإنجاز';
 }
 
-// the top: my avatar in my level's ring, the hello, my level and weeks, points and pardon cards
+// the top: my avatar in my level's ring, the hello on its own line, my name, my level and weeks,
+// then my points and pardon cards
 class _Header extends StatelessWidget {
   final String name;
   final JsonMap? stats;
@@ -366,69 +363,99 @@ class _Header extends StatelessWidget {
     final level = stats?['level'] as String?;
     final weeks = (stats?['consecutiveWeeks'] ?? 0) as int;
     final ring = c.level(level);
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Semantics(
-          button: true,
-          label: 'مستواي',
-          child: GestureDetector(
-            onTap: onLevel,
-            child: Container(
-              width: 48,
-              height: 48,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: c.primarySoft,
-                boxShadow: [BoxShadow(color: ring, spreadRadius: 5), BoxShadow(color: c.bg, spreadRadius: 3)],
-              ),
-              child: Text(name.isEmpty ? '؟' : name.characters.first,
-                  style: text.headlineSmall!.copyWith(color: c.primary, fontWeight: FontWeight.w800, height: 1.2)),
-            ),
-          ),
-        ),
-        const SizedBox(width: 14),
-        Expanded(
-          child: InkWell(
-            onTap: onLevel,
-            borderRadius: BorderRadius.circular(Radii.md),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(name.isEmpty ? _greeting() : '${_greeting()} $name',
-                    style: text.headlineSmall!.copyWith(fontWeight: FontWeight.w800), maxLines: 1, overflow: TextOverflow.ellipsis),
-                if (level != null)
-                  Text(
-                    weeks > 0 ? '${levelsAr[level] ?? level} · ${arabicDigits(weeks)} أسابيع متتالية' : (levelsAr[level] ?? level),
-                    style: text.labelSmall,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+        Row(
+          children: [
+            Semantics(
+              button: true,
+              label: 'مستواي',
+              child: GestureDetector(
+                onTap: onLevel,
+                child: Container(
+                  width: 52,
+                  height: 52,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: c.primarySoft,
+                    boxShadow: [BoxShadow(color: ring, spreadRadius: 5), BoxShadow(color: c.bg, spreadRadius: 3)],
                   ),
-              ],
+                  child: Text(name.isEmpty ? '؟' : name.characters.first,
+                      style: text.headlineSmall!.copyWith(color: c.primary, fontWeight: FontWeight.w800, height: 1.2)),
+                ),
+              ),
             ),
-          ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: InkWell(
+                onTap: onLevel,
+                borderRadius: BorderRadius.circular(Radii.md),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(_greeting(), style: text.labelSmall!.copyWith(color: c.inkSubtle)),
+                    Text(name.isEmpty ? 'هلا' : name,
+                        style: text.headlineSmall!.copyWith(fontWeight: FontWeight.w800, height: 1.3), maxLines: 1, overflow: TextOverflow.ellipsis),
+                    if (level != null)
+                      Row(children: [
+                        Icon(Icons.military_tech_rounded, size: 14, color: ring),
+                        const SizedBox(width: 3),
+                        Flexible(
+                          child: Text(levelsAr[level] ?? level, style: text.labelSmall, maxLines: 1, overflow: TextOverflow.ellipsis),
+                        ),
+                        if (weeks > 0) ...[
+                          const SizedBox(width: 8),
+                          Icon(Icons.local_fire_department_rounded, size: 14, color: c.urgent),
+                          const SizedBox(width: 2),
+                          Text('${arabicDigits(weeks)} أسابيع', style: text.labelSmall),
+                        ],
+                      ]),
+                  ],
+                ),
+              ),
+            ),
+            // all my habits and goals
+            Material(
+              color: c.surface,
+              shape: StadiumBorder(side: BorderSide(color: c.line)),
+              child: InkWell(
+                customBorder: const StadiumBorder(),
+                onTap: onCommitments,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(Icons.checklist_rounded, size: 18, color: c.primary),
+                    const SizedBox(width: 4),
+                    Text('عاداتي وأهدافي', style: text.labelMedium!.copyWith(color: c.primary, fontWeight: FontWeight.w700)),
+                  ]),
+                ),
+              ),
+            ),
+          ],
         ),
         if (stats != null) ...[
-          ResourceChip(ResourceKind.points, (stats!['points'] ?? 0) as num, onTap: onLevel),
-          const SizedBox(width: 6),
-          ResourceChip(ResourceKind.pardon, (stats!['availableGraceDays'] ?? 0) as num, onTap: onLevel),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              ResourceChip(ResourceKind.points, (stats!['points'] ?? 0) as num, onTap: onLevel),
+              const SizedBox(width: 8),
+              ResourceChip(ResourceKind.pardon, (stats!['availableGraceDays'] ?? 0) as num, onTap: onLevel),
+            ],
+          ),
         ],
-        const SizedBox(width: 2),
-        IconButton(
-          tooltip: 'تعهّداتي',
-          onPressed: onCommitments,
-          icon: Icon(Icons.format_list_bulleted_rounded, color: c.inkMuted),
-        ),
       ],
     );
   }
 }
 
-// the 7 days of this week (Sunday first): a blue bar for a day with a done task, today in ink
+// the 7 days of this week (Sunday first), three fixed colors: the days that passed, today, the coming days.
+// A day that passed (or today) opens its page, the coming days are only shown
 class _WeekStrip extends StatelessWidget {
-  final Map<String, int> activity;
+  final void Function(DateTime day) onDay;
 
-  const _WeekStrip({required this.activity});
+  const _WeekStrip({required this.onDay});
 
   @override
   Widget build(BuildContext context) {
@@ -437,7 +464,6 @@ class _WeekStrip extends StatelessWidget {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final sunday = today.subtract(Duration(days: today.weekday % 7));
-    String key(DateTime d) => '${d.year}-${'${d.month}'.padLeft(2, '0')}-${'${d.day}'.padLeft(2, '0')}';
     return Row(
       children: [
         for (var i = 0; i < 7; i++) ...[
@@ -446,28 +472,38 @@ class _WeekStrip extends StatelessWidget {
             child: Builder(builder: (context) {
               final day = sunday.add(Duration(days: i));
               final isToday = day == today;
-              final done = (activity[key(day)] ?? 0) > 0;
-              final color = isToday ? (done ? c.accent : c.ink) : (done ? c.accent : c.line);
-              return Column(
+              final future = day.isAfter(today);
+              final (Color bar, Color label) = isToday
+                  ? (c.primary, c.primary)
+                  : future
+                      ? (c.line, c.inkSubtle.withValues(alpha: 0.6))
+                      : (c.accent.withValues(alpha: 0.45), c.inkMuted);
+              final cell = Column(
                 children: [
-                  AnimatedContainer(
-                    duration: Motion.base,
-                    height: 6,
-                    decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(Radii.full)),
-                  ),
-                  const SizedBox(height: 4),
+                  Container(height: 6, decoration: BoxDecoration(color: bar, borderRadius: BorderRadius.circular(Radii.full))),
+                  const SizedBox(height: 5),
                   FittedBox(
                     fit: BoxFit.scaleDown,
                     child: Text(
-                      isToday ? 'اليوم' : weekDaysAr[i],
+                      weekDaysAr[i],
                       style: text.labelSmall!.copyWith(
                         fontSize: 11,
-                        color: isToday ? c.ink : c.inkSubtle,
-                        fontWeight: isToday ? FontWeight.w700 : FontWeight.w500,
+                        color: label,
+                        fontWeight: isToday ? FontWeight.w800 : FontWeight.w500,
                       ),
                     ),
                   ),
                 ],
+              );
+              if (future) return Padding(padding: const EdgeInsets.symmetric(vertical: 6), child: cell);
+              return Semantics(
+                button: true,
+                label: weekDaysFull[i],
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => onDay(day),
+                  child: Padding(padding: const EdgeInsets.symmetric(vertical: 6), child: cell),
+                ),
               );
             }),
           ),
@@ -477,15 +513,14 @@ class _WeekStrip extends StatelessWidget {
   }
 }
 
-// nothing left today: one icon, one line, one button
+const weekDaysFull = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+
+// nothing left today: one icon and one line
 class _EmptyToday extends StatelessWidget {
   final IconData icon;
   final String title;
   final String line;
-  final String action;
-  final VoidCallback onAction;
-
-  const _EmptyToday({required this.icon, required this.title, required this.line, required this.action, required this.onAction});
+  const _EmptyToday({required this.icon, required this.title, required this.line});
 
   @override
   Widget build(BuildContext context) {
@@ -502,8 +537,6 @@ class _EmptyToday extends StatelessWidget {
             const SizedBox(height: Space.s3),
             Text(title, style: text.titleMedium!.copyWith(fontWeight: FontWeight.w800)),
             Text(line, style: text.labelSmall),
-            const SizedBox(height: Space.s4),
-            AtButton(action, icon: const Icon(Icons.add_rounded, size: 20), onPressed: onAction),
           ],
         ),
       ),
@@ -511,41 +544,37 @@ class _EmptyToday extends StatelessWidget {
   }
 }
 
-// «خلّصتها اليوم ٢ · مؤجلة ١» → «تعهّداتي»
-class _ElsewhereRow extends StatelessWidget {
-  final int doneToday;
-  final int postponed;
-  final int weekDone;
-  final VoidCallback onTap;
+// a task that is out of the way: a small row with its state on the end
+class _DoneRow extends StatelessWidget {
+  final JsonMap task;
+  final String label;
+  final Color color;
+  final Color soft;
+  final IconData icon;
 
-  const _ElsewhereRow({required this.doneToday, required this.postponed, required this.weekDone, required this.onTap});
+  const _DoneRow({required this.task, required this.label, required this.color, required this.soft, this.icon = Icons.check_rounded});
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
     final text = Theme.of(context).textTheme;
-    final parts = [
-      if (doneToday > 0) 'خلّصتها اليوم ${arabicDigits(doneToday)}',
-      if (postponed > 0) 'مؤجلة ${arabicDigits(postponed)}',
-      if (weekDone > 0) 'خلصت الأسبوع ${arabicDigits(weekDone)}',
-    ];
-    return AppCard(
-      onTap: onTap,
-      child: Row(
-        children: [
-          Icon(Icons.task_alt_rounded, color: c.success),
-          const SizedBox(width: Space.s3),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(parts.join(' · '), style: text.labelLarge),
-                Text('تلقاها في تعهّداتي', style: text.labelSmall),
-              ],
+    return Padding(
+      padding: const EdgeInsets.only(bottom: Space.s2),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(color: c.surface, borderRadius: BorderRadius.circular(Radii.card), border: Border.all(color: c.line)),
+        child: Row(
+          children: [
+            IconTile(icon, size: 34, fg: color, bg: soft),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text('${task['title']}',
+                  style: text.labelLarge!.copyWith(color: c.inkMuted), maxLines: 1, overflow: TextOverflow.ellipsis),
             ),
-          ),
-          Icon(Icons.chevron_left_rounded, color: c.inkSubtle),
-        ],
+            const SizedBox(width: 8),
+            TagPill(label, fg: color, bg: soft),
+          ],
+        ),
       ),
     );
   }
@@ -580,6 +609,14 @@ class _Quest extends StatelessWidget {
     ].join(' · ');
     return QuestCard(
       state: state,
+      metaWidget: _QuestMeta(
+        completed: completed,
+        excused: excused,
+        total: needed,
+        daysLeft: settled ? null : t['daysLeft'] as int?,
+        plannedToday: state == QuestState.safe && t['plannedToday'] == true && !settled,
+        goal: t['type'] == 'GOAL',
+      ),
       icon: proofMethodIcon(t['proofMethod'] as String?),
       title: ActivityHeading(title: '${t['title']}', goalTitle: t['goalTitle'] as String?, taskTitle: t['taskTitle'] as String?),
       meta: meta,
@@ -711,6 +748,65 @@ class _TodayBar extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+
+// the times of the week as small icons: a blue check = done, a purple shield = excused, a grey circle = left.
+// Then the days left, «today» when it is planned, and a flag for a goal
+class _QuestMeta extends StatelessWidget {
+  final int completed;
+  final int excused;
+  final int total;
+  final int? daysLeft;
+  final bool plannedToday;
+  final bool goal;
+
+  const _QuestMeta({
+    required this.completed,
+    required this.excused,
+    required this.total,
+    required this.daysLeft,
+    required this.plannedToday,
+    required this.goal,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final text = Theme.of(context).textTheme;
+    final small = text.labelSmall!.copyWith(fontSize: 11.5, fontWeight: FontWeight.w600);
+    Widget info(IconData icon, String label, Color color) => Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 3),
+          Text(label, style: small.copyWith(color: color)),
+        ]);
+    return Wrap(
+      spacing: 10,
+      runSpacing: 4,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        Semantics(
+          label: 'سوّيت ${arabicDigits(completed)} من ${arabicDigits(total)}',
+          child: total > 8
+              ? info(Icons.check_circle_rounded, '${arabicDigits(completed + excused)}/${arabicDigits(total)}', c.accent)
+              : Row(mainAxisSize: MainAxisSize.min, children: [
+                  for (var i = 0; i < total; i++)
+                    Padding(
+                      padding: const EdgeInsetsDirectional.only(end: 2),
+                      child: i < completed
+                          ? Icon(Icons.check_circle_rounded, size: 16, color: c.accent)
+                          : i < completed + excused
+                              ? Icon(Icons.shield_rounded, size: 16, color: c.pardon)
+                              : Icon(Icons.circle_outlined, size: 16, color: c.inkSubtle.withValues(alpha: 0.6)),
+                    ),
+                ]),
+        ),
+        if (daysLeft != null) info(Icons.event_rounded, '${arabicDigits(daysLeft)} ${daysLeft == 1 ? 'يوم' : 'أيام'}', c.inkSubtle),
+        if (plannedToday) info(Icons.alarm_rounded, 'اليوم', c.primary),
+        if (goal) info(Icons.flag_rounded, 'هدف', c.inkSubtle),
+      ],
     );
   }
 }

@@ -176,7 +176,6 @@ public class GoalService {
         goal.setTargetMinutes(dto.getTargetMinutes());
         goal.setTotalWeeks(dto.getWeeks().size());
         goal.setStartDate(dto.getStartDate());
-        goal.setProofOptionId(dto.getProofOptionId());
         addGoal(memberId, goal);
 
         int weekNumber = 1;
@@ -187,7 +186,7 @@ public class GoalService {
             task.setTitle(week.getTitle());
             task.setTimesPerWeek(week.getTimesPerWeek());
             task.setAmountPerTime(dto.getAmountPerTime());
-            task.setProofMethod(goal.getProofMethod()); // a custom method is a photo
+            task.setProofMethod(dto.getProofMethod());
             task.setCompletedCount(0);
             task.setExcusedCount(0);
             goalTaskRepository.save(task);

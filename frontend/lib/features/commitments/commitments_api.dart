@@ -25,8 +25,10 @@ class CommitmentsApi {
       client.put('$_base/commitment-week/changePlan/$weekId',
           query: goalTaskId == null ? null : {'goalTaskId': goalTaskId}, body: plannedDays.toList());
 
-  // withdraw from a habit or a goal, the answer says how many times became penalties
+  // withdraw from a habit or a goal: it ends when this week ends
   Future<String> withdraw(int id) async => _message(await client.put('$_base/commitment/withdraw/$id'));
+
+  Future<void> cancelWithdraw(int id) => client.put('$_base/commitment/withdraw/cancel/$id');
 
   // the place of a LOCATION commitment or the minutes of a TIMER one
   Future<void> setTarget(int id, JsonMap body) => client.put('$_base/commitment/target/$id', body: body);

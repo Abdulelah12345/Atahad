@@ -66,13 +66,17 @@ class _ProofsHomeScreenState extends State<ProofsHomeScreen> {
     if (!mounted || _last == null) return;
     try {
       final data = await _load();
-      if (mounted) setState(() => _data = Future.value(data));
+      if (mounted) setState(() {
+      _data = Future.value(data);
+    });
     } catch (_) {}
   }
 
   Future<void> _reload() async {
     final future = _load();
-    setState(() => _data = future);
+    setState(() {
+      _data = future;
+    });
     try {
       await future;
     } catch (_) {}

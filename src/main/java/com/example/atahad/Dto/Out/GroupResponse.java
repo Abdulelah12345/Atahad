@@ -20,4 +20,5 @@ public class GroupResponse {
     private Integer pointsForGraceDay;
     private String status;
     private String activeGoalTitle; // null when the group has no goal now
+    private String payMode; // SOLO or ALL (null = an old group)
 }

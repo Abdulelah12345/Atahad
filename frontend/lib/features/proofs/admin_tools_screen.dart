@@ -9,7 +9,7 @@ import '../../core/widgets/widgets.dart';
 import 'proof_widgets.dart';
 import 'proofs_api.dart';
 
-// the admin tools: member accounts (suspend, restore, give a pardon card) and the proof methods
+// the admin tools: member accounts (suspend, restore, a pardon card) and blocking proof methods
 
 // ---------- members ----------
 class AdminMembersScreen extends StatefulWidget {
@@ -27,7 +27,9 @@ class _AdminMembersScreenState extends State<AdminMembersScreen> {
   Future<List<Json>> _load() async =>
       ProofsApi.maps(await _api.get('/api/v1/admin/members', query: {'query': _search.text.trim()}));
 
-  void _reload() => setState(() => _members = _load());
+  void _reload() => setState(() {
+      _members = _load();
+    });
 
   @override
   void dispose() {
@@ -275,6 +277,7 @@ class _MemberSheetState extends State<_MemberSheet> {
 }
 
 // ---------- proof methods ----------
+// the admin blocks a method: new habits and goals can't pick it, the running ones keep it
 class AdminProofMethodsScreen extends StatefulWidget {
   const AdminProofMethodsScreen({super.key});
 
@@ -288,7 +291,11 @@ class _AdminProofMethodsScreenState extends State<AdminProofMethodsScreen> {
 
   Future<List<Json>> _load() async => ProofsApi.maps(await _api.get('/api/v1/admin/proof-methods'));
 
-  void _reload() => setState(() => _methods = _load());
+  void _reload() {
+    setState(() {
+      _methods = _load();
+    });
+  }
 
   Future<void> _toggle(Json m) async {
     try {
@@ -299,120 +306,49 @@ class _AdminProofMethodsScreenState extends State<AdminProofMethodsScreen> {
     }
   }
 
-  Future<void> _add() async {
-    final added = await showAtSheet<bool>(context, builder: (_) => const _NewMethodSheet());
-    if (added == true) _reload();
-  }
-
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
     return Scaffold(
       appBar: AppBar(title: const Text('طرق الإثبات')),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _add,
-        icon: const Icon(Icons.add_a_photo_rounded),
-        label: const Text('طريقة جديدة'),
-      ),
       body: FutureBuilder<List<Json>>(
         future: _methods,
         builder: (context, snap) {
           if (snap.connectionState != ConnectionState.done) return const LoadingView();
           if (snap.hasError) return ErrorView(message: friendlyError(snap.error!), onRetry: _reload);
           final methods = snap.data!;
-          final builtIn = methods.where((m) => m['builtIn'] == true).toList();
-          final custom = methods.where((m) => m['builtIn'] != true).toList();
-          Widget row(Json m) => SwitchListTile.adaptive(
-                value: m['enabled'] == true,
-                onChanged: (_) => _toggle(m),
-                secondary: IconTile(
-                  m['builtIn'] == true ? methodIcon('${m['code']}') : Icons.add_a_photo_rounded,
-                  size: 40,
-                  fg: m['enabled'] == true ? c.primary : c.inkSubtle,
-                  bg: m['enabled'] == true ? c.primarySoft : c.surfaceSunken,
-                ),
-                title: Text('${m['nameAr']}'),
-                subtitle: m['hint'] == null ? null : Text('${m['hint']}', maxLines: 2, overflow: TextOverflow.ellipsis),
-              );
           return ListView(
-            padding: const EdgeInsets.fromLTRB(Space.s4, Space.s2, Space.s4, 96),
+            padding: const EdgeInsets.all(Space.s4),
             children: [
-              const SectionHeader('الأساسية'),
-              AppCard(padding: EdgeInsets.zero, child: Column(children: builtIn.map(row).toList())),
-              SectionHeader('طرقك', count: arabicDigits(custom.length)),
-              if (custom.isEmpty)
-                Text('طريقة جديدة = صورة بشرط تحدده، والذكاء يتأكد منه', style: Theme.of(context).textTheme.labelSmall)
-              else
-                AppCard(padding: EdgeInsets.zero, child: Column(children: custom.map(row).toList())),
+              AppCard(
+                padding: EdgeInsets.zero,
+                child: Column(
+                  children: [
+                    for (final m in methods)
+                      SwitchListTile.adaptive(
+                        value: m['enabled'] == true,
+                        onChanged: (_) => _toggle(m),
+                        secondary: IconTile(
+                          methodIcon('${m['code']}'),
+                          size: 40,
+                          fg: m['enabled'] == true ? c.primary : c.inkSubtle,
+                          bg: m['enabled'] == true ? c.primarySoft : c.surfaceSunken,
+                        ),
+                        title: Text('${m['nameAr']}'),
+                        subtitle: Text(m['enabled'] == true ? 'متاحة' : 'محجوبة'),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: Space.s3),
+              Row(children: [
+                Icon(Icons.info_outline_rounded, size: 16, color: c.inkSubtle),
+                const SizedBox(width: 6),
+                Expanded(child: Text('الحجب للتعهّدات الجديدة بس، والشغّالة تكمل', style: Theme.of(context).textTheme.labelSmall)),
+              ]),
             ],
           );
         },
-      ),
-    );
-  }
-}
-
-// a new photo method: its name, and what the photo must show (the AI checks it)
-class _NewMethodSheet extends StatefulWidget {
-  const _NewMethodSheet();
-
-  @override
-  State<_NewMethodSheet> createState() => _NewMethodSheetState();
-}
-
-class _NewMethodSheetState extends State<_NewMethodSheet> {
-  final _name = TextEditingController();
-  final _hint = TextEditingController();
-  bool _busy = false;
-
-  @override
-  void dispose() {
-    _name.dispose();
-    _hint.dispose();
-    super.dispose();
-  }
-
-  Future<void> _save() async {
-    if (_name.text.trim().isEmpty || _hint.text.trim().isEmpty) {
-      showMessage(context, 'اكتب الاسم وش لازم تبيّن الصورة');
-      return;
-    }
-    setState(() => _busy = true);
-    try {
-      await context.read<ApiClient>().post('/api/v1/admin/proof-methods', body: {'nameAr': _name.text.trim(), 'hint': _hint.text.trim()});
-      if (mounted) Navigator.pop(context, true);
-    } catch (error) {
-      if (mounted) proofError(context, error);
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.fromLTRB(Space.s4, 0, Space.s4, MediaQuery.of(context).viewInsets.bottom + Space.s5),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const SheetHeader(icon: Icons.add_a_photo_rounded, title: 'طريقة إثبات جديدة', subtitle: 'صورة بشرط، والذكاء يتأكد منه'),
-          TextField(
-            controller: _name,
-            maxLength: 40,
-            decoration: const InputDecoration(labelText: 'الاسم', hintText: 'صفحة الكتاب', counterText: ''),
-          ),
-          const SizedBox(height: Space.s3),
-          TextField(
-            controller: _hint,
-            maxLength: 300,
-            maxLines: 3,
-            minLines: 2,
-            decoration: const InputDecoration(labelText: 'وش لازم تبيّن الصورة؟', hintText: 'صفحة مفتوحة ورقمها واضح'),
-          ),
-          const SizedBox(height: Space.s4),
-          AtButton('أضف الطريقة', icon: const Icon(Icons.check_rounded, size: 20), loading: _busy, onPressed: _save),
-        ],
       ),
     );
   }

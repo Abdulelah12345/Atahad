@@ -3,7 +3,6 @@ package com.example.atahad.Controller;
 import com.example.atahad.Api.ApiResponse;
 import com.example.atahad.Dto.In.AdminRegisterRequest;
 import com.example.atahad.Dto.In.AdminUpdateRequest;
-import com.example.atahad.Dto.In.ProofMethodRequest;
 import com.example.atahad.Entity.User;
 import com.example.atahad.Service.AdminMemberService;
 import com.example.atahad.Service.AdminService;
@@ -83,11 +82,6 @@ public class AdminController {
     @GetMapping("/proof-methods")
     public ResponseEntity<?> getProofMethods() {
         return ResponseEntity.status(200).body(proofMethodService.getAll());
-    }
-
-    @PostMapping("/proof-methods")
-    public ResponseEntity<?> addProofMethod(@RequestBody @Valid ProofMethodRequest dto) {
-        return ResponseEntity.status(200).body(proofMethodService.add(dto));
     }
 
     @PutMapping("/proof-methods/{id}/toggle")

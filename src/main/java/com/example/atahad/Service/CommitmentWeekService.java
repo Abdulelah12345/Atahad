@@ -102,7 +102,7 @@ public class CommitmentWeekService {
                             (goal.getTitle().trim().equals(task.getTitle().trim()) ? task.getTitle() : goal.getTitle() + " - " + task.getTitle()), task.getProofMethod(), required,
                             task.getCompletedCount(), task.getExcusedCount(), remaining, daysLeft,
                             task.getTrackStatus(), task.getAmountPerTime(), goal.getTitle(), task.getTitle(), planned, false, doneToday,
-                            task.getPlannedDays() == null ? Set.of() : new HashSet<>(task.getPlannedDays()), goal.getProofHint()));
+                            task.getPlannedDays() == null ? Set.of() : new HashSet<>(task.getPlannedDays())));
                 }
             }else{
                 int remaining = Math.max(0, week.getRequired() - week.getCompleted() - week.getExcusedDays() - lostPenalties(week, null).size());
@@ -117,8 +117,7 @@ public class CommitmentWeekService {
                 list.add(new TodayTaskResponse(commitment.getId(), week.getId(), null, "HABIT",
                         commitment.getTitle(), commitment.getProofMethod(), week.getRequired(),
                         week.getCompleted(), week.getExcusedDays(), remaining, daysLeft,
-                        week.getTrackStatus(), week.getAmountPerDay(), null, null, planned, postponedToday, doneToday, new HashSet<>(weekDays),
-                        commitment.getProofHint()));
+                        week.getTrackStatus(), week.getAmountPerDay(), null, null, planned, postponedToday, doneToday, new HashSet<>(weekDays)));
             }
         }
         return list;
@@ -269,6 +268,12 @@ public class CommitmentWeekService {
             members.put(member.getId(), member);
             allFull.put(member.getId(), allFull.getOrDefault(member.getId(), true) && full);
 
+            // he asked to withdraw: this was the last week
+            if(Boolean.TRUE.equals(commitment.getWithdrawAtWeekEnd())){
+                commitment.setStatus("WITHDRAWN");
+                commitmentRepository.save(commitment);
+                continue;
+            }
             startNextWeek(commitment, last, sunday);
         }
 
@@ -451,6 +456,12 @@ public class CommitmentWeekService {
 
     // withdrawal: every time left this week becomes a penalty and the app is locked
     @Transactional
+    // true while the commitment is inside a running week
+    public boolean hasRunningWeek(Commitment commitment){
+        CommitmentWeek week = commitmentWeekRepository.findTopByCommitmentOrderByWeekNumberDesc(commitment);
+        return week != null && isRunning(week, LocalDate.now());
+    }
+
     public int penalizeWithdrawal(Commitment commitment){
         CommitmentWeek week = commitmentWeekRepository.findTopByCommitmentOrderByWeekNumberDesc(commitment);
         LocalDate today = LocalDate.now();

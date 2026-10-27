@@ -29,8 +29,9 @@ class GroupApi {
   // ---------- groups ----------
   Future<List<Map<String, dynamic>>> myGroups() async => _list(await api.get('$_gm/my'));
   Future<Map<String, dynamic>> group(int id) async => _map(await api.get('$_g/get/$id'));
-  Future<Map<String, dynamic>> create(String name, String description) async =>
-      _map(await api.post('$_g/add', body: {'name': name, 'description': description}));
+  // payMode: SOLO (only who missed donates) or ALL (everyone), it never changes after
+  Future<Map<String, dynamic>> create(String name, String description, String payMode) async =>
+      _map(await api.post('$_g/add', body: {'name': name, 'description': description, 'payMode': payMode}));
   Future<void> update(int id, String name, String description) =>
       api.put('$_g/update/$id', body: {'name': name, 'description': description});
   Future<Map<String, dynamic>> invite(int id) async => _map(await api.get('$_g/invite/$id'));

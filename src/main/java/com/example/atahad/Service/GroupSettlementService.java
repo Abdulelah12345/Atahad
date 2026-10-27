@@ -186,8 +186,12 @@ public class GroupSettlementService {
 
     public static final BigDecimal MIN_DONATION = BigDecimal.valueOf(5);
 
-    // the goals before the levels were added were all HARD (everyone donated)
+    // everyone donates: the group's choice, or for an old group its goal (the old goals were all HARD)
     private boolean isHard(GroupGoal goal){
+        String payMode = goal.getGroup() == null ? null : goal.getGroup().getPayMode();
+        if(payMode != null){
+            return "ALL".equals(payMode);
+        }
         return goal.getDifficulty() == null || "HARD".equals(goal.getDifficulty());
     }
 

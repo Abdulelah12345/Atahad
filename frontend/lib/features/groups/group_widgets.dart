@@ -98,7 +98,7 @@ Future<bool> confirm(BuildContext context, String title, String message, {String
     context: context,
     builder: (context) => AlertDialog(
       title: Text(title),
-      content: Text(message),
+      content: message.isEmpty ? null : Text(message), // just the question when there is nothing to add
       actions: [
         TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('إلغاء')),
         TextButton(onPressed: () => Navigator.pop(context, true), child: Text(yes)),

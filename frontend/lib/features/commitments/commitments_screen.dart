@@ -3,7 +3,6 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/api/api_client.dart';
-import '../../core/auth/auth_state.dart';
 import '../../core/theme/at_colors.dart';
 import '../../core/theme/at_tokens.dart';
 import '../../core/utils/format.dart';
@@ -57,10 +56,18 @@ class _CommitmentsScreenState extends State<CommitmentsScreen> {
     try {
       final message = await _api.withdraw(commitment['id'] as int);
       if (!mounted) return;
-      // the withdrawal can lock the app, the router then moves to /lock
-      await context.read<AuthState>().refreshLock();
+      showMessage(context, withdrawMessage(message));
+      _reload();
+    } catch (error) {
+      if (mounted) showError(context, error);
+    }
+  }
+
+  Future<void> _cancelWithdraw(JsonMap commitment) async {
+    try {
+      await _api.cancelWithdraw(commitment['id'] as int);
       if (!mounted) return;
-      showMessage(context, message);
+      showMessage(context, 'تراجعت، التعهّد مكمّل');
       _reload();
     } catch (error) {
       if (mounted) showError(context, error);
@@ -205,11 +212,13 @@ class _CommitmentsScreenState extends State<CommitmentsScreen> {
       onSelected: (v) {
         if (v == 'edit') _open('/habit/edit', extra: c);
         if (v == 'withdraw') _withdraw(c);
+        if (v == 'stay') _cancelWithdraw(c);
         if (v == 'delete') _delete(c, isHabit);
       },
       itemBuilder: (context) => [
         if (isHabit && active) menuItem(context, 'edit', Icons.edit_rounded, 'عدّل'),
-        if (active) menuItem(context, 'withdraw', Icons.directions_walk_rounded, 'انسحب'),
+        if (active && !withdrawing(c)) menuItem(context, 'withdraw', Icons.directions_walk_rounded, 'انسحب'),
+        if (withdrawing(c)) menuItem(context, 'stay', Icons.undo_rounded, 'تراجع عن الانسحاب'),
         // deleting is for the first hour after creating it, after that withdraw
         if (minutesLeft != 0)
           menuItem(context, 'delete', Icons.delete_outline_rounded,
@@ -242,9 +251,10 @@ class _CommitmentsScreenState extends State<CommitmentsScreen> {
     return CommitmentCard(
       title: '${h['title']}',
       details: [
-        '${arabicDigits(h['timesPerWeek'])} مرات بالأسبوع · ${h['proofMethod'] == 'STEPS' ? 'مجموع خطوات اليوم' : h['proofLabel'] ?? proofMethodsAr[h['proofMethod']] ?? h['proofMethod']}',
+        '${arabicDigits(h['timesPerWeek'])} مرات بالأسبوع · ${h['proofMethod'] == 'STEPS' ? 'مجموع خطوات اليوم' : proofMethodsAr[h['proofMethod']] ?? h['proofMethod']}',
         if (h['proofMethod'] == 'STEPS') 'الهدف: ${arabicDigits(h['targetSteps'])} خطوة في اليوم',
         if (startsLater(h) != null) startsLater(h)!,
+        if (withdrawing(h)) 'ينتهي بعد هالأسبوع',
       ],
       badge: commitmentStatusBadge(h['status'] as String?),
       menu: _menu(h, true),
@@ -288,8 +298,9 @@ class _CommitmentsScreenState extends State<CommitmentsScreen> {
     return CommitmentCard(
       title: '${g['title']}',
       details: [
-        '${arabicDigits(g['totalWeeks'])} أسابيع · ${g['proofLabel'] ?? proofMethodsAr[g['proofMethod']] ?? g['proofMethod']}',
+        '${arabicDigits(g['totalWeeks'])} أسابيع · ${proofMethodsAr[g['proofMethod']] ?? g['proofMethod']}',
         if (startsLater(g) != null) startsLater(g)!,
+        if (withdrawing(g)) 'ينتهي بعد هالأسبوع',
         if (g['endDate'] != null) 'ينتهي ${arabicDigits(g['endDate'])}',
       ],
       badge: commitmentStatusBadge(g['status'] as String?),

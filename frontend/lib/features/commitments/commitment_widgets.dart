@@ -284,9 +284,8 @@ class ProofMethodGrid extends StatelessWidget {
   final List<String> methods;
   final String value;
   final ValueChanged<String>? onChanged; // null = locked
-  final Map<String, String> labels; // the names of the admin's custom methods (CUSTOM_<id>)
 
-  const ProofMethodGrid({super.key, required this.methods, required this.value, required this.onChanged, this.labels = const {}});
+  const ProofMethodGrid({super.key, required this.methods, required this.value, required this.onChanged});
 
   @override
   Widget build(BuildContext context) {
@@ -306,7 +305,7 @@ class ProofMethodGrid extends StatelessWidget {
               child: Builder(builder: (context) {
                 final on = m == value;
                 final enabled = onChanged != null || on;
-                final label = labels[m] ?? proofMethodShortAr[m] ?? m;
+                final label = proofMethodShortAr[m] ?? m;
                 return Semantics(
                   button: true,
                   selected: on,
@@ -326,8 +325,7 @@ class ProofMethodGrid extends StatelessWidget {
                         opacity: enabled ? 1 : 0.45,
                         child: Column(
                           children: [
-                            Icon(m.startsWith('CUSTOM_') ? Icons.add_a_photo_rounded : proofMethodIcon(m),
-                                size: 22, color: on ? c.primary : c.inkMuted),
+                            Icon(proofMethodIcon(m), size: 22, color: on ? c.primary : c.inkMuted),
                             const SizedBox(height: 4),
                             Text(label,
                                 maxLines: 1,
@@ -347,7 +345,7 @@ class ProofMethodGrid extends StatelessWidget {
   }
 }
 
-// the methods the admin left on, and his custom ones (loaded once per app run)
+// the methods the admin left on (loaded once per app run)
 class ProofCatalog {
   static List<Map<String, dynamic>>? _cache;
 
@@ -358,27 +356,13 @@ class ProofCatalog {
     return _cache = [for (final m in (data as List? ?? const [])) Map<String, dynamic>.from(m as Map)];
   }
 
-  // the built-in codes in the usual order (only the ones still on), then the custom ones
-  static List<String> methods(List<Map<String, dynamic>>? catalog, List<String> builtIn) {
-    if (catalog == null) return builtIn;
+  // the usual order, without the ones the admin turned off
+  static List<String> methods(List<Map<String, dynamic>>? catalog, List<String> all) {
+    if (catalog == null) return all;
     final on = {for (final m in catalog) '${m['code']}'};
-    return [
-      ...builtIn.where(on.contains),
-      for (final m in catalog)
-        if ('${m['code']}'.startsWith('CUSTOM_')) '${m['code']}',
-    ];
+    return all.where(on.contains).toList();
   }
-
-  static Map<String, String> labels(List<Map<String, dynamic>>? catalog) => {
-        for (final m in catalog ?? const <Map<String, dynamic>>[])
-          if ('${m['code']}'.startsWith('CUSTOM_')) '${m['code']}': '${m['nameAr']}',
-      };
 }
-
-// CUSTOM_7 -> a photo proof with the option id 7 in the body
-Map<String, dynamic> proofMethodJson(String method) => method.startsWith('CUSTOM_')
-    ? {'proofMethod': 'PHOTO', 'proofOptionId': int.tryParse(method.substring(7))}
-    : {'proofMethod': method};
 
 // the planned days (only reminders, never deductions)
 class PlannedDaysPicker extends StatelessWidget {
@@ -677,7 +661,7 @@ class _TargetFieldsState extends State<TargetFields> {
           Text('ما لقينا مكان بهالاسم، جرّب اسم ثاني أو «موقعي الحالي».', style: text.labelSmall),
         ],
         const SizedBox(height: Space.s3),
-        // the picked place on a map, the pin moves with a tap, and how wide the circle is
+        // the picked place on a map, a tap moves the pin
         if (hasPlace) ...[
           PlaceMap(
             latitude: draft.latitude!,
@@ -687,32 +671,6 @@ class _TargetFieldsState extends State<TargetFields> {
               draft.latitude = lat;
               draft.longitude = lng;
             }),
-          ),
-          const SizedBox(height: Space.s2),
-          Row(
-            children: [
-              Icon(Icons.radio_button_checked_rounded, size: 16, color: c.inkSubtle),
-              const SizedBox(width: 4),
-              Text('الدائرة', style: text.labelSmall),
-              const SizedBox(width: 8),
-              Expanded(
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(children: [
-                    for (final m in const [100, 150, 300, 500]) ...[
-                      ChoiceChip(
-                        label: Text('${arabicDigits(m)} م'),
-                        showCheckmark: false,
-                        visualDensity: VisualDensity.compact,
-                        selected: (draft.radius ?? 150) == m,
-                        onSelected: (_) => setState(() => draft.radius = m),
-                      ),
-                      const SizedBox(width: 6),
-                    ],
-                  ]),
-                ),
-              ),
-            ],
           ),
           const SizedBox(height: Space.s2),
         ],
@@ -768,8 +726,14 @@ Future<bool> confirmDialog(BuildContext context,
   return answer ?? false;
 }
 
-const withdrawWarning = 'لو انسحبت الحين، كل مرة باقية هالأسبوع تصير خصم ويتقفل التطبيق لين تتبرع. '
-    'التعهد ينتهي، ولو تبي ترجع تنشئ تعهد جديد.';
+const withdrawWarning = 'تكمّل هالأسبوع لين آخره، وبعدها ينتهي التعهّد. تقدر تتراجع قبل نهاية الأسبوع.';
+
+// the server's answer to a withdrawal, in Arabic
+String withdrawMessage(String answer) =>
+    answer == 'WITHDRAW_AT_WEEK_END' ? 'تمام، هذا آخر أسبوع له. كمّله وبعدها ينتهي.' : 'انتهى التعهّد.';
+
+// «ينتهي بعد هالأسبوع» on a commitment that is withdrawing
+bool withdrawing(Map<String, dynamic> commitment) => commitment['status'] == 'ACTIVE' && commitment['withdrawAtWeekEnd'] == true;
 
 // «المشي ٣٠ دقيقة»، «تمشية»، «١٠ آلاف خطوة»، «walk» -> a walking habit (it can use the steps of the day)
 bool isWalkingTitle(String title) =>

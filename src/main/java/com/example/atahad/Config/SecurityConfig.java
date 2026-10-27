@@ -217,6 +217,7 @@ public class SecurityConfig {
                         .requestMatchers(
                                 HttpMethod.PUT,
                                 "/api/v1/commitment/withdraw/{id}",
+                                "/api/v1/commitment/withdraw/cancel/{id}",
                                 "/api/v1/commitment/target/{id}",
                                 "/api/v1/commitment-week/changePlan/{weekId}",
                                 "/api/v1/habit/update/{id}",

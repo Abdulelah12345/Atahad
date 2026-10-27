@@ -571,6 +571,7 @@ class _CreateGroupSheetState extends State<_CreateGroupSheet> {
   final _form = GlobalKey<FormState>();
   final _name = TextEditingController();
   final _description = TextEditingController();
+  String _payMode = 'SOLO'; // who donates when someone misses, fixed after creating
   bool _loading = false;
   String? _error;
 
@@ -585,7 +586,7 @@ class _CreateGroupSheetState extends State<_CreateGroupSheet> {
     if (!_form.currentState!.validate()) return;
     setState(() => _loading = true);
     try {
-      final group = await widget.api.create(_name.text.trim(), _description.text.trim());
+      final group = await widget.api.create(_name.text.trim(), _description.text.trim(), _payMode);
       if (mounted) Navigator.pop(context, group['id'] as int?);
     } catch (e) {
       if (mounted) setState(() {
@@ -617,6 +618,43 @@ class _CreateGroupSheetState extends State<_CreateGroupSheet> {
               decoration: const InputDecoration(labelText: 'وش تبون تتحدون فيه؟ (اختياري)'),
               validator: (v) => (v != null && v.length > 255) ? '٢٥٥ حرف أقصى شي' : null,
             ),
+            const SizedBox(height: Space.s4),
+            Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: Text('لو أحد سوّف، مين يتبرّع؟', style: Theme.of(context).textTheme.labelLarge),
+            ),
+            const SizedBox(height: Space.s2),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: OptionCard(
+                    icon: Icons.person_rounded,
+                    title: 'هو بس',
+                    subtitle: 'كل واحد عن نفسه',
+                    selected: _payMode == 'SOLO',
+                    onTap: () => setState(() => _payMode = 'SOLO'),
+                  ),
+                ),
+                const SizedBox(width: Space.s2),
+                Expanded(
+                  child: OptionCard(
+                    icon: Icons.groups_rounded,
+                    title: 'الكل',
+                    subtitle: 'هو كامل، والباقين النص',
+                    selected: _payMode == 'ALL',
+                    color: context.colors.urgent,
+                    onTap: () => setState(() => _payMode = 'ALL'),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: Space.s2),
+            Row(children: [
+              Icon(Icons.lock_outline_rounded, size: 14, color: context.colors.inkSubtle),
+              const SizedBox(width: 4),
+              Expanded(child: Text('ما يتغيّر بعد إنشاء المجموعة', style: Theme.of(context).textTheme.labelSmall)),
+            ]),
             const SizedBox(height: Space.s5),
             AtButton('أنشئ', onPressed: _submit, loading: _loading),
           ],

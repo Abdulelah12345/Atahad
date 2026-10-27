@@ -122,7 +122,7 @@ class _HabitFormScreenState extends State<HabitFormScreen> {
     }
     final body = {
       'title': _title.text.trim(),
-      ...proofMethodJson(_proofMethod),
+      'proofMethod': _proofMethod,
       'timesPerWeek': _times,
       'baseAmount': double.parse(normalizeWalkingNumber(_amount.text)),
       'plannedDays': _days.toList(),
@@ -139,14 +139,16 @@ class _HabitFormScreenState extends State<HabitFormScreen> {
         // only send it when it changed: the place is locked after the first accepted proof
         final t = _target.toCommitmentJson(_proofMethod);
         final h = widget.habit!;
+        final sameMethod = _proofMethod == h['proofMethod']; // a new method sent its place or minutes with the update
         final placeChanged =
+            sameMethod &&
             _proofMethod == 'LOCATION' &&
             (t['targetLatitude'] != h['targetLatitude'] ||
                 t['targetLongitude'] != h['targetLongitude'] ||
                 (t['targetPlaceName'] ?? '') != (h['targetPlaceName'] ?? '') ||
                 t['targetRadiusMeters'] != h['targetRadiusMeters']);
         final minutesChanged =
-            _proofMethod == 'TIMER' && t['targetMinutes'] != h['targetMinutes'];
+            sameMethod && _proofMethod == 'TIMER' && t['targetMinutes'] != h['targetMinutes'];
         if (placeChanged) {
           await _api.setTarget(id, {
             'latitude': t['targetLatitude'],
@@ -182,7 +184,8 @@ class _HabitFormScreenState extends State<HabitFormScreen> {
   // the first hour after creating the habit: everything changes this week too (the backend checks it again)
   int get _minutesLeft => _editing ? (editMinutesLeft(widget.habit!) ?? 60) : 0;
   bool get _firstHour => _editing && _minutesLeft > 0;
-  bool get _methodLocked => _editing && (!_firstHour || widget.habit!['proofMethod'] == 'STEPS');
+  // the method can change any time, only the steps stay (they need their own setup)
+  bool get _methodLocked => _editing && widget.habit!['proofMethod'] == 'STEPS';
 
   // the first page of a new habit: one question, a few quick answers, then the filled form
   Widget _titleStep(BuildContext context) {
@@ -255,10 +258,6 @@ class _HabitFormScreenState extends State<HabitFormScreen> {
     ]);
     // the current method always shows, even if the admin turned it off later
     if (!methods.contains(_proofMethod)) methods.insert(0, _proofMethod);
-    final labels = {
-      ...ProofCatalog.labels(_catalog),
-      if (widget.habit?['proofLabel'] != null) 'PHOTO': '${widget.habit!['proofLabel']}',
-    };
     Widget label(String title, {String? hint}) => Padding(
           padding: const EdgeInsets.only(top: Space.s5, bottom: Space.s2),
           child: Row(
@@ -308,17 +307,9 @@ class _HabitFormScreenState extends State<HabitFormScreen> {
             PlannedDaysPicker(selected: _days, onChanged: (v) => setState(() => _days = v)),
             label('كم تتعهّد لكل مرة؟', hint: 'أقل شي ٥'),
             AmountChips(controller: _amount, onChanged: () => setState(() {})),
-            label(
-              'كيف تثبت؟',
-              hint: !_editing
-                  ? null
-                  : _methodLocked
-                      ? 'ثابتة بعد أول ساعة'
-                      : 'تتغير خلال ${arabicDigits(_minutesLeft)} دقيقة',
-            ),
+            label('كيف تثبت؟'),
             ProofMethodGrid(
               methods: methods,
-              labels: labels,
               value: _proofMethod,
               onChanged: _methodLocked
                   ? null

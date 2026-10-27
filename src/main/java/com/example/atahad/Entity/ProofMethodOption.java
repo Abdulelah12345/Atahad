@@ -3,8 +3,7 @@ package com.example.atahad.Entity;
 import jakarta.persistence.*;
 import lombok.*;
 
-// a proof method the admin controls: the built-in ones can be turned off,
-// and a custom one is a photo proof with its own rule for the AI ("the photo shows the book page")
+// a proof method the admin can turn off (new commitments can't pick it)
 @Setter
 @Getter
 @AllArgsConstructor
@@ -17,16 +16,10 @@ public class ProofMethodOption {
     private Integer id;
 
     @Column(columnDefinition = "VARCHAR(20) NOT NULL UNIQUE")
-    private String code; // PHOTO, TIMER, QUIZ, LOCATION, STEPS or CUSTOM_<id>
+    private String code; // PHOTO, TIMER, QUIZ, LOCATION or STEPS
 
     @Column(columnDefinition = "VARCHAR(40) NOT NULL")
     private String nameAr;
-
-    @Column(columnDefinition = "VARCHAR(300)")
-    private String hint; // custom only: what the photo must show
-
-    @Column(columnDefinition = "BOOLEAN DEFAULT false")
-    private Boolean builtIn = false;
 
     @Column(columnDefinition = "BOOLEAN DEFAULT true")
     private Boolean enabled = true;

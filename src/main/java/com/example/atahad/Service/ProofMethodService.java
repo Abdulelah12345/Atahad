@@ -1,7 +1,6 @@
 package com.example.atahad.Service;
 
 import com.example.atahad.Api.ApiException;
-import com.example.atahad.Dto.In.ProofMethodRequest;
 import com.example.atahad.Entity.Commitment;
 import com.example.atahad.Entity.ProofMethodOption;
 import com.example.atahad.Repository.ProofMethodOptionRepository;
@@ -13,51 +12,43 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-// the proof methods members can pick, managed by the admin
+// the admin turns proof methods on and off
 @Service
 @RequiredArgsConstructor
 public class ProofMethodService {
 
     private final ProofMethodOptionRepository optionRepository;
 
-    private static final Map<String, String> BUILT_IN = new LinkedHashMap<>();
+    private static final Map<String, String> METHODS = new LinkedHashMap<>();
     static {
-        BUILT_IN.put("PHOTO", "صورة");
-        BUILT_IN.put("TIMER", "مؤقت");
-        BUILT_IN.put("QUIZ", "كويز");
-        BUILT_IN.put("LOCATION", "موقع");
-        BUILT_IN.put("STEPS", "خطوات");
+        METHODS.put("PHOTO", "صورة");
+        METHODS.put("TIMER", "مؤقت");
+        METHODS.put("QUIZ", "كويز");
+        METHODS.put("LOCATION", "موقع");
+        METHODS.put("STEPS", "خطوات");
     }
 
-    // first call makes the five built-in rows
+    // the first call makes the five rows
     @Transactional
-    public void ensureBuiltIns() {
-        for (Map.Entry<String, String> method : BUILT_IN.entrySet()) {
+    public void ensureRows() {
+        for (Map.Entry<String, String> method : METHODS.entrySet()) {
             if (optionRepository.findProofMethodOptionByCode(method.getKey()) == null) {
-                optionRepository.save(new ProofMethodOption(null, method.getKey(), method.getValue(), null, true, true));
+                optionRepository.save(new ProofMethodOption(null, method.getKey(), method.getValue(), true));
             }
         }
     }
 
     public List<ProofMethodOption> getAll() {
-        ensureBuiltIns();
-        return optionRepository.findAll();
+        ensureRows();
+        return optionRepository.findAll().stream().filter(o -> METHODS.containsKey(o.getCode())).toList();
     }
 
     public List<ProofMethodOption> getActive() {
-        ensureBuiltIns();
-        return optionRepository.findProofMethodOptionsByEnabledTrue();
+        ensureRows();
+        return optionRepository.findProofMethodOptionsByEnabledTrue().stream().filter(o -> METHODS.containsKey(o.getCode())).toList();
     }
 
-    @Transactional
-    public ProofMethodOption add(ProofMethodRequest dto) {
-        ProofMethodOption option = new ProofMethodOption(null, "CUSTOM_NEW", dto.getNameAr().trim(), dto.getHint().trim(), false, true);
-        optionRepository.save(option);
-        option.setCode("CUSTOM_" + option.getId());
-        return optionRepository.save(option);
-    }
-
-    // on <-> off. Commitments that already use it keep working, only new ones can't pick it
+    // on <-> off, commitments that already use it keep working
     public ProofMethodOption toggle(Integer id) {
         ProofMethodOption option = optionRepository.findProofMethodOptionById(id);
         if (option == null) {
@@ -70,24 +61,9 @@ public class ProofMethodService {
         return optionRepository.save(option);
     }
 
-    // called before a new habit or goal is saved
-    // a custom option turns into a PHOTO proof that carries the admin's rule
+    // before a new habit or goal is saved: its method must be on
     public void apply(Commitment commitment) {
-        ensureBuiltIns();
-        Integer optionId = commitment.getProofOptionId();
-        if (optionId != null) {
-            ProofMethodOption option = optionRepository.findProofMethodOptionById(optionId);
-            if (option == null || Boolean.TRUE.equals(option.getBuiltIn())) {
-                throw new ApiException("Proof method not found");
-            }
-            if (!Boolean.TRUE.equals(option.getEnabled())) {
-                throw new ApiException("This proof method is turned off");
-            }
-            commitment.setProofMethod("PHOTO");
-            commitment.setProofLabel(option.getNameAr());
-            commitment.setProofHint(option.getHint());
-            return;
-        }
+        ensureRows();
         ProofMethodOption option = optionRepository.findProofMethodOptionByCode(commitment.getProofMethod());
         if (option != null && !Boolean.TRUE.equals(option.getEnabled())) {
             throw new ApiException("This proof method is turned off");

@@ -48,9 +48,10 @@ public class CommitmentService {
         return commitment;
     }
 
-    // the withdrawal is right away, every time left this week becomes a penalty and the app is locked
+    // a withdrawal waits for the end of the week: he finishes this week, then it ends
+    // (one that did not start yet ends right away). Returns true when it waits
     @Transactional
-    public Integer withdraw(Integer memberId, Integer id){
+    public boolean withdraw(Integer memberId, Integer id){
         Commitment commitment = getCommitment(memberId, id);
         if(commitment.getStatus().equals("WITHDRAWN") || commitment.getStatus().equals("ENDED")){
             throw new ApiException("Commitment is already finished");
@@ -58,9 +59,27 @@ public class CommitmentService {
         if(commitment.getGroupGoal() != null){
             throw new ApiException("A group commitment ends with the group goal, leave the group instead");
         }
+        if(commitmentWeekService.hasRunningWeek(commitment)){
+            if(Boolean.TRUE.equals(commitment.getWithdrawAtWeekEnd())){
+                throw new ApiException("Already withdrawing, it ends at the end of this week");
+            }
+            commitment.setWithdrawAtWeekEnd(true);
+            commitmentRepository.save(commitment);
+            return true;
+        }
         commitment.setStatus("WITHDRAWN");
         commitmentRepository.save(commitment);
-        return commitmentWeekService.penalizeWithdrawal(commitment);
+        return false;
+    }
+
+    // changed his mind before the week ended
+    public void cancelWithdraw(Integer memberId, Integer id){
+        Commitment commitment = getCommitment(memberId, id);
+        if(!"ACTIVE".equals(commitment.getStatus()) || !Boolean.TRUE.equals(commitment.getWithdrawAtWeekEnd())){
+            throw new ApiException("There is no withdrawal to cancel");
+        }
+        commitment.setWithdrawAtWeekEnd(false);
+        commitmentRepository.save(commitment);
     }
 
     // what the lock screen shows: the penalties that are waiting for a donation

@@ -46,6 +46,7 @@ class QuestCard extends StatelessWidget {
   final VoidCallback? onPostpone; // safe
   final Widget? badge; // safe: the state (آمن، خلص الأسبوع)
   final int? pardons; // how many pardon cards the member has (shown on the pardon button)
+  final Widget? metaWidget; // replaces the meta line (and the bar) when given
 
   const QuestCard({
     super.key,
@@ -64,6 +65,7 @@ class QuestCard extends StatelessWidget {
     this.onPostpone,
     this.badge,
     this.pardons,
+    this.metaWidget,
   });
 
   @override
@@ -90,7 +92,7 @@ class QuestCard extends StatelessWidget {
           style: (compact ? text.labelLarge : text.titleMedium)!.copyWith(fontWeight: FontWeight.w700),
           child: title,
         ),
-        Text(meta, style: text.labelSmall!.copyWith(color: c.inkSubtle)),
+        if (metaWidget != null) ...[const SizedBox(height: 4), metaWidget!] else Text(meta, style: text.labelSmall!.copyWith(color: c.inkSubtle)),
       ],
     );
 
@@ -149,8 +151,10 @@ class QuestCard extends StatelessWidget {
               if (state == QuestState.urgent) const StatusBadge('لازم اليوم', kind: BadgeKind.streak),
             ],
           ),
-          const SizedBox(height: 12),
-          Pips(done: done, total: total, width: 0, height: 8),
+          if (metaWidget == null) ...[
+            const SizedBox(height: 12),
+            Pips(done: done, total: total, width: 0, height: 8),
+          ],
           const SizedBox(height: 12),
           if (state == QuestState.urgent)
             ...[

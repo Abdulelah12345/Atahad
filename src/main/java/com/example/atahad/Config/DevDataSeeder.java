@@ -327,7 +327,7 @@ public class DevDataSeeder implements ApplicationRunner {
     }
 
     private Group group(Member owner, String name, String description) {
-        Integer id = groupService.addGroup(owner.getId(), new GroupCreateRequest(name, description)).getId();
+        Integer id = groupService.addGroup(owner.getId(), new GroupCreateRequest(name, description, "SOLO")).getId();
         return groupAccessService.getGroup(id);
     }
 

@@ -254,7 +254,7 @@ class _MyMomentsLink extends StatelessWidget {
     final c = context.colors;
     final text = Theme.of(context).textTheme;
     return Align(
-      alignment: AlignmentDirectional.centerEnd,
+      alignment: AlignmentDirectional.centerStart, // the right side in Arabic
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 18),
         child: Material(

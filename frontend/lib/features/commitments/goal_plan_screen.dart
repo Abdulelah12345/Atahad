@@ -119,7 +119,7 @@ class _GoalPlanScreenState extends State<GoalPlanScreen> {
       await _api.addWithPlan({
         'title': _title.text.trim(),
         'description': _goal.text.trim(),
-        ...proofMethodJson(_proofMethod),
+        'proofMethod': _proofMethod,
         'amountPerTime': amount,
         'weeks': _weeks.map((w) => {'title': w.title.text.trim(), 'timesPerWeek': w.times}).toList(),
         ..._target.toCommitmentJson(_proofMethod),
@@ -232,7 +232,6 @@ class _GoalPlanScreenState extends State<GoalPlanScreen> {
         const SizedBox(height: Space.s2),
         ProofMethodGrid(
           methods: _methods,
-          labels: ProofCatalog.labels(_catalog),
           value: _proofMethod,
           onChanged: (v) => setState(() {
             _proofMethod = v;

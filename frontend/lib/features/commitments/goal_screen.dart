@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/api/api_client.dart';
-import '../../core/auth/auth_state.dart';
 import '../../core/theme/at_colors.dart';
 import '../../core/theme/at_tokens.dart';
 import '../../core/utils/format.dart';
@@ -36,9 +35,7 @@ class _GoalScreenState extends State<GoalScreen> {
     try {
       final message = await _api.withdraw(widget.id);
       if (!mounted) return;
-      await context.read<AuthState>().refreshLock();
-      if (!mounted) return;
-      showMessage(context, message);
+      showMessage(context, withdrawMessage(message));
       setState(() => _version++);
     } catch (error) {
       if (mounted) showError(context, error);

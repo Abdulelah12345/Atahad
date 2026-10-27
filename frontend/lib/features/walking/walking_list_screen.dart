@@ -42,7 +42,9 @@ class _WalkingListScreenState extends State<WalkingListScreen> {
                   Text(walkingError(snapshot.error!)),
                   AtButton(
                     'حاول ثانية',
-                    onPressed: () => setState(() => _tasks = _load()),
+                    onPressed: () => setState(() {
+      _tasks = _load();
+    }),
                   ),
                 ],
               ),

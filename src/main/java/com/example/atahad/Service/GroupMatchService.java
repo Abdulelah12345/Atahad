@@ -358,6 +358,12 @@ public class GroupMatchService {
                 match.getChallengerScore(), match.getOpponentScore(),
                 match.getWinner() == null ? null : match.getWinner().getName(),
                 match.getLeastProcrastinating() == null ? null : match.getLeastProcrastinating().getName(),
-                match.getStartDate(), match.getEndDate());
+                match.getStartDate(), match.getEndDate(),
+                timesPerWeek(match.getChallenger().getId()), timesPerWeek(match.getOpponent().getId()));
+    }
+
+    private Integer timesPerWeek(Integer groupId){
+        GroupGoal goal = groupGoalRepository.findGroupGoalByGroupIdAndStatus(groupId, "ACTIVE");
+        return goal == null ? null : goal.getTimesPerWeek();
     }
 }

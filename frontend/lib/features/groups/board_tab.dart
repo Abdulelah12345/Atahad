@@ -936,6 +936,17 @@ class _SetGoalSheetState extends State<SetGoalSheet> {
   final _minutes = TextEditingController();
   String _method = 'PHOTO';
   String _difficulty = 'SOLO';
+  String? _payMode = 'LOADING'; // the group's choice; null = an old group that still picks per goal
+
+  // the group decides who donates, only an old group shows the levels here
+  Future<void> _loadPayMode() async {
+    try {
+      final group = await widget.api.group(widget.groupId);
+      if (mounted) setState(() => _payMode = group['payMode'] as String?);
+    } catch (_) {
+      if (mounted) setState(() => _payMode = null);
+    }
+  }
   int _times = 3;
   int _weeks = 4;
   bool _loading = false;
@@ -946,6 +957,12 @@ class _SetGoalSheetState extends State<SetGoalSheet> {
   List<_PlanWeek>? _plan;
   String? _note;
   bool _suggesting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPayMode();
+  }
 
   @override
   void dispose() {
@@ -1141,6 +1158,22 @@ class _SetGoalSheetState extends State<SetGoalSheet> {
               _Stepper(label: 'كم أسبوع', value: _weeks, min: 1, max: 52, onChanged: (v) => setState(() => _weeks = v)),
               const SizedBox(height: Space.s2),
             ],
+            if (_payMode == 'SOLO' || _payMode == 'ALL')
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(color: c.surfaceSunken, borderRadius: BorderRadius.circular(Radii.md)),
+                child: Row(children: [
+                  Icon(_payMode == 'ALL' ? Icons.groups_rounded : Icons.person_rounded, size: 20, color: c.inkMuted),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _payMode == 'ALL' ? 'بهالمجموعة لو أحد سوّف الكل يتبرّع' : 'بهالمجموعة اللي يسوّف هو بس اللي يتبرّع',
+                      style: text.labelMedium,
+                    ),
+                  ),
+                ]),
+              ),
+            if (_payMode == null) ...[
             Text('مستوى التحدي', style: text.labelLarge),
             const SizedBox(height: Space.s2),
             Row(
@@ -1169,6 +1202,7 @@ class _SetGoalSheetState extends State<SetGoalSheet> {
                 ),
               ],
             ),
+            ],
             const SizedBox(height: Space.s4),
             AmountField(
               controller: _amount,
