@@ -33,7 +33,7 @@
 
 <br>
 
-**193 endpoints · 43 controllers · 4 team members · 5 ways to prove you did it**
+**193 endpoints (52 CRUD + 141 extra) · 43 controllers · 4 team members · 5 ways to prove you did it**
 
 </div>
 
@@ -412,14 +412,17 @@ Import the two workflows from [`n8n/`](n8n) and set the backend URL and `N8N_KEY
 
 All endpoints start with `/api/v1` and use HTTP Basic authentication, except registration and the public callbacks (Google OAuth, n8n with its own key).
 
-**193 endpoints across 43 controllers.**
+**193 endpoints across 43 controllers: 52 CRUD + 141 extra.**
 
-| Part | Owner | Controllers | Endpoints |
-|---|---|---|---|
-| 1 · Core & Users | Abdulelah Alwadani | User, Member, Admin, Account, N8n, ActivityMap, GoogleCalendar, LearnQuest, LuckyChallenge | **45** |
-| 2 · Proofs, Excuses & Donations | Subhiyyah Alkhedher | Proof, ProofAttempt, ProofWorkspace, ProofAttachment, ProofChallenge, ProofMethod, Quiz, HabitCheckIn, PlaceVisit, Place, WalkingSteps, Excuse, Objection, AdminReview, Penalty, DonationProof | **57** |
-| 3 · Commitments | Turki Alghamdi | Commitment, CommitmentWeek, Habit, Goal, GoalTask, GraceDay, PointLog, MonthlyWrapped | **45** |
-| 4 · Groups | Fai Alharthi | Group, GroupMember, GroupGoal, GoalProposal, GroupMatch, GroupSettlement, GroupTitle, GroupAlert, ChatMessage, Moment | **46** |
+| Part | Owner | Controllers | Total | CRUD | Extra |
+|---|---|---|---|---|---|
+| 1 · Core & Users | Abdulelah Alwadani | User, Member, Admin, Account, N8n, ActivityMap, GoogleCalendar, LearnQuest, LuckyChallenge | **45** | 13 | **32** |
+| 2 · Proofs, Excuses & Donations | Subhiyyah Alkhedher | Proof, ProofAttempt, ProofWorkspace, ProofAttachment, ProofChallenge, ProofMethod, Quiz, HabitCheckIn, PlaceVisit, Place, WalkingSteps, Excuse, Objection, AdminReview, Penalty, DonationProof | **57** | 16 | **41** |
+| 3 · Commitments | Turki Alghamdi | Commitment, CommitmentWeek, Habit, Goal, GoalTask, GraceDay, PointLog, MonthlyWrapped | **45** | 15 | **30** |
+| 4 · Groups | Fai Alharthi | Group, GroupMember, GroupGoal, GoalProposal, GroupMatch, GroupSettlement, GroupTitle, GroupAlert, ChatMessage, Moment | **46** | 8 | **38** |
+| | | **Total** | **193** | **52** | **141** |
+
+CRUD = the basic get all, get by id, add, update and delete of a resource. Extra = everything else: filtered lists, actions (vote, withdraw, join ...), AI, and automation.
 
 ## 👥 Team
 
@@ -427,31 +430,35 @@ All endpoints start with `/api/v1` and use HTTP Basic authentication, except reg
   <tr>
     <td align="center" width="25%" valign="top">
       <a href="https://github.com/Abdulelah12345"><img src="https://github.com/Abdulelah12345.png" width="100" alt="Abdulelah"><br><b>Abdulelah Alwadani</b></a><br>
-      <sub>Backend & Frontend</sub><br><br>
-      <b>Part 1 · Core & Users</b><br>
-      <sub>Security, users, members, admins, account lock, n8n automation, Google Calendar, Learn Quest, Lucky Challenge</sub><br><br>
-      <b>45</b> endpoints
+      <sub>Backend & Frontend</sub><br><sub>&nbsp;</sub><br><br>
+      <b>Part 1</b><br><sub>Core & Users</sub><br><br>
+      <b>45</b> endpoints<br>
+      <sub>13 CRUD · 32 extra</sub><br><br>
+      <sub>Security, users, members, admins, account lock, n8n automation, Google Calendar, Learn Quest, Lucky Challenge</sub>
     </td>
     <td align="center" width="25%" valign="top">
       <a href="https://github.com/subhiyyah"><img src="https://github.com/subhiyyah.png" width="100" alt="Subhiyyah"><br><b>Subhiyyah Alkhedher</b></a><br>
-      <sub>Backend & Frontend</sub><br><br>
-      <b>Part 2 · Proofs & Donations</b><br>
-      <sub>The five proof methods, AI review, excuses, objections, admin review, penalties, donation proofs</sub><br><br>
-      <b>57</b> endpoints
+      <sub>Backend & Frontend</sub><br><sub>&nbsp;</sub><br><br>
+      <b>Part 2</b><br><sub>Proofs & Donations</sub><br><br>
+      <b>57</b> endpoints<br>
+      <sub>16 CRUD · 41 extra</sub><br><br>
+      <sub>The five proof methods, AI review, excuses, objections, admin review, penalties, donation proofs</sub>
     </td>
     <td align="center" width="25%" valign="top">
       <a href="https://github.com/gTurki"><img src="https://github.com/gTurki.png" width="100" alt="Turki"><br><b>Turki Alghamdi</b></a><br>
-      <sub>Backend & Frontend</sub><br><br>
-      <b>Part 3 · Commitments</b><br>
-      <sub>Habits, goals and AI plans, weekly cycle, today screen, grace days, points, monthly wrapped</sub><br><br>
-      <b>45</b> endpoints
+      <sub>Backend & Frontend</sub><br><sub>&nbsp;</sub><br><br>
+      <b>Part 3</b><br><sub>Commitments</sub><br><br>
+      <b>45</b> endpoints<br>
+      <sub>15 CRUD · 30 extra</sub><br><br>
+      <sub>Habits, goals and AI plans, weekly cycle, today screen, grace days, points, monthly wrapped</sub>
     </td>
     <td align="center" width="25%" valign="top">
       <a href="https://github.com/FaiAlharthi"><img src="https://github.com/FaiAlharthi.png" width="100" alt="Fai"><br><b>Fai Alharthi</b></a><br>
-      <sub>👑 Team Leader</sub><br><br>
-      <b>Part 4 · Groups</b><br>
-      <sub>Groups, invites, group goals and voting, weekly settlement and titles, matches, chat, moments, alerts</sub><br><br>
-      <b>46</b> endpoints
+      <sub>👑 Team Leader</sub><br><sub>Backend & Frontend</sub><br><br>
+      <b>Part 4</b><br><sub>Groups</sub><br><br>
+      <b>46</b> endpoints<br>
+      <sub>8 CRUD · 38 extra</sub><br><br>
+      <sub>Groups, invites, group goals and voting, weekly settlement and titles, matches, chat, moments, alerts</sub>
     </td>
   </tr>
 </table>
