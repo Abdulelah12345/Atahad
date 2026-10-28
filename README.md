@@ -60,6 +60,7 @@
 - [Getting Started](#-getting-started)
 - [API Overview](#-api-overview)
 - [Team](#-team)
+- [My Contributions — Abdulelah](#-abdulelah-alwadani--my-contributions)
 - [Endpoints by Member](#-endpoints-by-member)
 
 ## 🔁 How It Works
@@ -434,7 +435,7 @@ CRUD = the basic get all, get by id, add, update and delete of a resource. Extra
       <b>Part 1</b><br><sub>Core & Users</sub><br><br>
       <b>45</b> endpoints<br>
       <sub>13 CRUD · 32 extra</sub><br><br>
-      <sub>Security, users, members, admins, account lock, n8n automation, Google Calendar, Learn Quest, Lucky Challenge</sub>
+      <sub>Security, users, members, admins, account lock, weekly AI email reports with n8n, Google Calendar, Learn Quest, Lucky Challenge</sub>
     </td>
     <td align="center" width="25%" valign="top">
       <a href="https://github.com/subhiyyah"><img src="https://github.com/subhiyyah.png" width="100" alt="Subhiyyah"><br><b>Subhiyyah Alkhedher</b></a><br>
@@ -462,6 +463,75 @@ CRUD = the basic get all, get by id, add, update and delete of a resource. Extra
     </td>
   </tr>
 </table>
+
+## 👨‍💻 Abdulelah Alwadani — My Contributions
+
+> **Role:** Backend & Frontend Developer · **Part 1: Core & Users** · **45 REST endpoints (13 CRUD + 32 extra)**  
+> **Stack:** Java, Spring Boot, Spring Security, Spring Data JPA, MySQL, Flutter, Dart, REST APIs, Google Calendar OAuth 2.0, Gemini, n8n, Open Library, podcast and learning-content integrations.
+
+I worked across the core account infrastructure, administration tools, automation and integrations, and the Flutter experiences for learning, challenges, and account management. The original team structure and other members' contributions remain unchanged.
+
+### 🔐 Backend — Users, Members, Admin & Security
+
+- **User management:** user lookup, profile updates, and account deletion through REST endpoints, with persistence and validation.
+- **Member accounts:** registration, profile retrieval and editing, account deletion, and member-specific access checks.
+- **Admin management:** admin registration and profile management, list and search members, suspend and restore accounts, gift grace days, and enable or disable proof methods globally.
+- **Account lifecycle & authorization:** account deactivation and unban operations; Spring Security role-based access and member access restrictions integrated with the project’s lock rules.
+- **Activity Map:** a yearly activity endpoint that groups `PointLog` records by day for a heatmap. **Implementation note:** the current service filters for `TASK_DONE` logs; displaying every completed task depends on those logs being written by the completion flow.
+
+### 📅 Google Calendar Integration — Backend & Flutter
+
+- OAuth 2.0 connection flow, callback handling, connection status, and account disconnection.
+- Protected handling of Google authorization tokens through the application's encrypted-token integration.
+- AI-generated scheduling proposals based on the member’s calendar availability and commitments.
+- Member-controlled **approve** and **reject** schedule actions; approved schedules can create calendar events.
+- Flutter Google Calendar screen (`frontend/lib/features/account/google_calendar_screen.dart`) and account-area entry points.
+
+### 📚 Learn Quest — Educational Library — Backend & Flutter
+
+- Backend search endpoints for **books, podcasts, and courses**, including dedicated provider queries.
+- Integration with **Open Library** for books and cover metadata; external podcast discovery and **Edraak** course content as documented in this project.
+- A combined learning-search experience that lets users explore educational resources associated with a learning commitment.
+- Flutter integration using `learn_quest_api.dart` and `learn_quest_screen.dart`, including search, resource browsing, and provider results.
+- Learning-goal eligibility integrated with the commitments flow (`GET /api/v1/commitment/learning-goal`).
+
+### 🎲 Lucky Challenge — Backend & Flutter
+
+- AI-generated random challenges with **easy, medium, and hard** difficulty choices.
+- Endpoints to generate a challenge, accept it, submit proof, and retrieve the member's current challenge.
+- A Flutter challenge experience (`lucky_challenge_api.dart`, `lucky_challenge_screen.dart`) with challenge descriptions, proof submission through the camera/photo interface, attempts, and potential points based on difficulty.
+- **Scope note:** general AI proof-image verification is a shared proof-system component; this section credits the Lucky Challenge integration rather than ownership of the entire proof subsystem.
+
+### 📧 AI-Powered Weekly Email Reports — n8n Workflow
+
+I built the **weekly AI email reporting workflow** in n8n. This is my direct n8n workflow contribution; **I did not build the WhatsApp workflow**. The backend's Part 1 API also exposes n8n endpoints for other project automations, but those endpoints should not be mistaken for workflows I personally designed.
+
+- **Weekly schedule:** configured an n8n `Schedule Trigger` to run once per week (configured for hour `01:00` in the exported workflow).
+- **Spring Boot integration:** an HTTP Request node calls `GET /api/v1/n8n/weekly-reports` and authenticates using the `X-N8N-KEY` header.
+- **AI-powered insight:** the backend prepares each member's weekly commitment statistics and an `aiAnalysis` field; n8n **consumes the analysis returned by the backend**, rather than generating it in a separate AI node.
+- **Arabic HTML email:** designed a responsive RTL report template showing the reporting dates, member name, completion rate and progress bar, required tasks, completed tasks, excused tasks, and AI-generated performance analysis/recommendations.
+- **Email delivery:** integrated the n8n **Send an Email** node with Gmail SMTP credentials for outgoing reports.
+- **Implementation status / setup:** the provided export has `active: false` and a **fixed test recipient**. To send a report to each member, set `toEmail` to the recipient field returned by the API and activate the workflow after configuring credentials. The backend URL should be updated for the deployment environment.
+- **Security:** keep SMTP credentials and `X-N8N-KEY` out of GitHub. The key formerly embedded in the exported workflow must be **rotated** and stored in n8n credentials or environment configuration before sharing or deployment.
+
+**Workflow:** `Schedule Trigger → Get Weekly Reports (Spring Boot API) → Send an Email (SMTP)`  
+**Technologies:** n8n, Spring Boot, REST APIs, Gmail SMTP, HTML/CSS, AI-generated analysis from the backend.
+
+### 📱 Flutter — Account & User Experience
+
+- Account screens and navigation (`account_routes.dart`, `account_tab.dart`).
+- Login and registration interfaces (`login_screen.dart`, `register_screen.dart`).
+- Profile update interface (`update_profile_screen.dart`).
+- Google Calendar view, Learn Quest API + screen, and Lucky Challenge API + screen.
+- Activity-map display in the account area and launch/navigation entry points from the home experience.
+- **Team boundary:** admin review workflows for proofs, excuses, objections, penalties, and donations live under the team's separate **Proofs & Donations** ownership. My admin scope is account/admin management and its corresponding Flutter controls.
+
+### 🧪 Postman — Part 1 API Collection
+
+- **[Download / import the Part 1 Postman Collection](postman/Atahad_Abdulelah_Part1.postman_collection.json)** — the **45 documented endpoints** are grouped by feature.
+- **[Postman environment template](postman/Atahad_Local.postman_environment.json)** — enter your own URL, test identities, and credentials locally; no secrets are bundled.
+- Requests contain starter parameters, example bodies where supported, and response-status assertions. **These are prepared test cases, not a claim that all 45 APIs have been executed or passed.**
+- Run read-only endpoints first. Administrative mutations, delete, automation, and account-locking endpoints should be tested against a throwaway local database and reviewed before running.
 
 ## 🧩 Endpoints by Member
 
