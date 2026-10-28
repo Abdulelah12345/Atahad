@@ -526,6 +526,16 @@ I built the **weekly AI email reporting workflow** in n8n. This is my direct n8n
 - Activity-map display in the account area and launch/navigation entry points from the home experience.
 - **Team boundary:** admin review workflows for proofs, excuses, objections, penalties, and donations live under the team's separate **Proofs & Donations** ownership. My admin scope is account/admin management and its corresponding Flutter controls.
 
+### ⚔️ Group Matching & Challenges — Backend & Flutter
+
+- Developed group matching functionality to help groups discover suitable opponents and challenge each other.
+- Implemented **GroupMatchService** and **GroupMatchController** to support opponent recommendations, challenge invitations, and accepting or rejecting challenges.
+- Supported challenging groups using a **Group ID or invite code**.
+- Integrated the backend APIs with Flutter through `group_api.dart`.
+- Implemented the `group_matching_screen.dart` interface for discovering and managing group challenges.
+
+**Technologies:** Java, Spring Boot, Spring Data JPA, REST APIs, Flutter, Dart.
+
 ### 🧪 Postman — Part 1 API Collection
 
 - **[Download / import the Part 1 Postman Collection](postman/Atahad_Abdulelah_Part1.postman_collection.json)** — the **45 documented endpoints** are grouped by feature.
