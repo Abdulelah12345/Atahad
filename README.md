@@ -164,7 +164,7 @@ The AI runs on **Google Gemini** (OpenAI-compatible API) and **OpenRouter** (Gem
 | <img src="https://cdn.simpleicons.org/gmail" width="18"> **Gmail IMAP** | Donation proof from the bank email | `GmailService` reads the bank emails read-only with a Google App Password. |
 | <img src="https://cdn.simpleicons.org/n8n" width="18"> **n8n** | Scheduling and messaging | Two workflows in [`n8n/`](n8n): the daily run + WhatsApp queue, and the weekly AI email report. |
 | <img src="https://cdn.simpleicons.org/whatsapp" width="18"> **UltraMsg (WhatsApp)** | Reminders and alerts | The backend queues `WhatsAppMessage` rows; n8n sends them and marks each one sent or failed. |
-| 📚 **Open Library · Edraak** | Learn Quest | Books with covers from Open Library, courses from Edraak; one provider failing does not stop the others. |
+| 📚 **Open Library API · Apple iTunes Search API · Edraak Catalog API** | Learn Quest | Integrated three external HTTP APIs using Spring RestClient to search books, discover podcasts, and explore educational courses. Includes cover images, authors, descriptions, external links, input validation, local course filtering, pagination, and independent error handling so one provider failure does not interrupt the others. |
 | ❤️ **Health Connect / Apple Health** | STEPS proofs | The Flutter `health` package reads the daily steps and syncs them to the backend. |
 
 ## 🏗️ Architecture
